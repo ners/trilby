@@ -4,6 +4,8 @@
   networking = {
     networkmanager.enable = true;
     useNetworkd = true;
+    # NetworkManager replaces wpa_supplicant
+    wireless.enable = false;
     firewall.enable = true;
     dhcpcd.wait = "background";
     dhcpcd.extraConfig = "noarp";

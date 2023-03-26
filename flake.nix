@@ -12,18 +12,18 @@
   outputs = inputs:
     with builtins;
     let
-      lib = inputs.nixpkgs-unstable.lib;
+      lib = import ./lib { inherit inputs; };
       buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
       configurations = {
         name = [ "trilby" ];
-        edition = [ "server" "workstation" ];
-        hostSystem = map lib.systems.parse.mkSystemFromString [
-          "x86_64-linux"
-          "aarch64-linux"
-          "riscv64-linux"
+        edition = [ null ] ++ attrNames (lib.findModules ./modules/trilby/editions);
+        format = [ null ] ++ attrNames (lib.findModules ./modules/trilby/formats);
+        hostSystem = lib.pipe ./modules/trilby/hostPlatforms [
+          lib.findModules
+          attrNames
+          (map lib.systems.parse.mkSystemFromString)
         ];
         variant = [ null "musl" ];
-        medium = [ null "iso" "sdimage" "vbox" "vmdk" ];
         channel = [ "unstable" "22.11" "22.05" ];
       };
       configurationName = c: concatStringsSep "-" (filter (s: s != null && s != "") [
@@ -32,7 +32,7 @@
         c.channel
         c.hostSystem.cpu.name
         c.variant
-        c.medium
+        c.format
       ]);
       foreach = xs: f: lib.foldr lib.recursiveUpdate { } (map f xs);
       foreachAttrs = attrs: foreach (lib.cartesianProductOfSets attrs);
@@ -53,9 +53,9 @@
           in
           {
             "${trilby.configurationName}" =
-              if (trilby.medium == "iso") then
+              if (trilby.format == "iso") then
                 nixos.config.system.build.isoImage
-              else if (trilby.medium == "sdimage") then
+              else if (trilby.format == "sdimage") then
                 nixos.config.system.build.sdImage
               else
                 nixos.config.system.build.toplevel;
@@ -90,8 +90,9 @@
                 inherit inputs trilby;
               };
               modules = [
-                ./modules/trilby/medium.nix
-                ./modules/trilby/${trilby.edition}.nix
+                ./modules/trilby/formats/${trilby.format}.nix
+                ./modules/trilby/editions/${trilby.edition}.nix
+                ./modules/trilby/hostPlatforms/${trilby.hostPlatform}.nix
                 {
                   system.nixos.distroId = "${trilby.name}-${trilby.edition}";
                   nixpkgs = {
