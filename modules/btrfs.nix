@@ -26,7 +26,7 @@
   services.beesd.filesystems = {
     root = {
       spec = "LABEL=Trilby";
-      hashTableSizeMB = 256;
+      hashTableSizeMB = 250;
       verbosity = "crit";
       extraOptions = [ "--loadavg-target" "4.0" ];
     };

@@ -13,4 +13,11 @@
       trilby.variant
     ]);
   };
+  services.xserver.displayManager = {
+    gdm.autoSuspend = false;
+    autoLogin = {
+      enable = true;
+      user = "nixos";
+    };
+  };
 }

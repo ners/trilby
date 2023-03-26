@@ -1,4 +1,4 @@
-{ ... }:
+{ trilby, ... }:
 
 {
   imports = [
@@ -15,4 +15,8 @@
   time.timeZone = "Europe/Zurich";
 
   users.users.root.initialHashedPassword = "";
+
+  system.nixos.distroId = "${trilby.name}-${trilby.edition}";
+
+  system.stateVersion = trilby.release;
 }

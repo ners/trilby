@@ -16,8 +16,8 @@
       buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
       configurations = {
         name = [ "trilby" ];
-        edition = [ null ] ++ attrNames (lib.findModules ./modules/trilby/editions);
-        format = [ null ] ++ attrNames (lib.findModules ./modules/trilby/formats);
+        edition = attrNames (lib.findModules ./modules/trilby/editions);
+        format = attrNames (lib.findModules ./modules/trilby/formats);
         hostSystem = lib.pipe ./modules/trilby/hostPlatforms [
           lib.findModules
           attrNames
@@ -52,13 +52,7 @@
             nixos = inputs.self.nixosConfigurations.${trilby.configurationName};
           in
           {
-            "${trilby.configurationName}" =
-              if (trilby.format == "iso") then
-                nixos.config.system.build.isoImage
-              else if (trilby.format == "sdimage") then
-                nixos.config.system.build.sdImage
-              else
-                nixos.config.system.build.toplevel;
+            "${trilby.configurationName}" = nixos.config.system.build.${trilby.format};
           }
         );
 
@@ -94,9 +88,12 @@
                 ./modules/trilby/editions/${trilby.edition}.nix
                 ./modules/trilby/hostPlatforms/${trilby.hostPlatform}.nix
                 {
-                  system.nixos.distroId = "${trilby.name}-${trilby.edition}";
                   nixpkgs = {
-                    pkgs = hostPkgs;
+                    pkgs =
+                      if (trilby.variant == "musl") then
+                        hostPkgs.pkgsMusl
+                      else
+                        hostPkgs;
                   } // lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
                     inherit (trilby) buildPlatform hostPlatform;
                   };
