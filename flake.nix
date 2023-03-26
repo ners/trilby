@@ -37,12 +37,18 @@
       foreach = xs: f: lib.foldr lib.recursiveUpdate { } (map f xs);
       foreachAttrs = attrs: foreach (lib.cartesianProductOfSets attrs);
     in
-    foreach buildPlatforms (buildPlatform:
+    {
+      nixosModules = lib.findModules ./modules;
+    } // foreach buildPlatforms (buildPlatform:
       let
         pkgs = inputs.nixpkgs-unstable.legacyPackages.${buildPlatform};
       in
       {
         formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
+
+        devShells.${buildPlatform}.default = pkgs.mkShell {
+          packages = with pkgs; [ nixpkgs-fmt ];
+        };
 
         packages.${buildPlatform} = foreachAttrs configurations (c:
           let
@@ -83,10 +89,10 @@
               specialArgs = {
                 inherit inputs trilby;
               };
-              modules = [
-                ./modules/trilby/formats/${trilby.format}.nix
-                ./modules/trilby/editions/${trilby.edition}.nix
-                ./modules/trilby/hostPlatforms/${trilby.hostPlatform}.nix
+              modules = with inputs.self.nixosModules.trilby; [
+                formats.${trilby.format}
+                editions.${trilby.edition}
+                hostPlatforms.${trilby.hostPlatform}
                 {
                   nixpkgs = {
                     pkgs =

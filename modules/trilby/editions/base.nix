@@ -1,13 +1,13 @@
-{ trilby, ... }:
+{ inputs, trilby, ... }:
 
 {
-  imports = [
-    ../../boot.nix
-    ../../btrfs.nix
-    ../../network.nix
-    ../../nix.nix
-    ../../ssh.nix
-    ../../zram.nix
+  imports = with inputs.self.nixosModules; [
+    profiles.boot
+    profiles.btrfs
+    profiles.network
+    profiles.nix
+    profiles.ssh
+    profiles.zram
   ];
 
   i18n.defaultLocale = "en_GB.UTF-8";

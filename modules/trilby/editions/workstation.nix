@@ -1,12 +1,12 @@
-{ ... }:
+{ inputs, ... }:
 
 {
-  imports = [
-    ./base.nix
-    ../../fonts.nix
-    ../../gnome.nix
-    ../../pipewire.nix
-    ../../plymouth.nix
-    ../../virtualisation.nix
+  imports = with inputs.self.nixosModules; [
+    trilby.editions.base
+    profiles.fonts
+    profiles.gnome
+    profiles.pipewire
+    profiles.plymouth
+    profiles.virtualisation
   ];
 }

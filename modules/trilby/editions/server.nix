@@ -1,8 +1,8 @@
-{ lib, ... }:
+{ inputs, lib, ... }:
 
 {
-  imports = [
-    ./base.nix
+  imports = with inputs.self.nixosModules; [
+    trilby.editions.base
   ];
 
   services.xserver.enable = lib.mkForce false;
