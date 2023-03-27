@@ -11,6 +11,9 @@
     dhcpcd.extraConfig = "noarp";
   };
 
+  services.resolved.enable = true;
+  services.resolved.dnssec = "false";
+
   systemd.network.enable = true;
   systemd.services = {
     NetworkManager-wait-online.enable = false;

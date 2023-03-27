@@ -7,6 +7,14 @@
       url = "github:ners/nix-monitored";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
+    };
   };
 
   outputs = inputs:
@@ -83,23 +91,26 @@
                 })
               ];
             };
+            pkgs =
+              if trilby.variant == "musl" then
+                hostPkgs.pkgsMusl
+              else
+                hostPkgs;
           in
           {
             "${trilby.configurationName}" = nixpkgs.lib.nixosSystem {
               specialArgs = {
-                inherit inputs trilby;
+                inherit inputs trilby lib;
               };
               modules = with inputs.self.nixosModules.trilby; [
                 formats.${trilby.format}
                 editions.${trilby.edition}
                 hostPlatforms.${trilby.hostPlatform}
+                inputs.disko.nixosModules.disko
+                users
                 {
                   nixpkgs = {
-                    pkgs =
-                      if (trilby.variant == "musl") then
-                        hostPkgs.pkgsMusl
-                      else
-                        hostPkgs;
+                    inherit pkgs;
                   } // lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
                     inherit (trilby) buildPlatform hostPlatform;
                   };

@@ -1,20 +1,8 @@
-{ trilby, inputs, ... }:
+{ trilby, inputs, lib, ... }:
 
 {
-  imports = [
-    inputs.nix-monitored.nixosModules.${trilby.hostPlatform}.default
-  ];
-
-  nixpkgs.overlays = [
-    (self: super: rec {
-      nix-monitored = inputs.nix-monitored.packages.${self.system}.default.override self;
-      nix-direnv = super.nix-direnv.override {
-        nix = nix-monitored;
-      };
-      nixos-rebuild = super.nixos-rebuild.override {
-        nix = nix-monitored;
-      };
-    })
+  imports = lib.optionals (trilby.edition == "workstation") [
+      inputs.self.nixosModules.profiles.nix-monitored
   ];
 
   nix = {
@@ -28,9 +16,6 @@
       automatic = true;
       options = "--delete-older-than 30d";
       dates = "monthly";
-    };
-    monitored = {
-      enable = true;
     };
     registry.nixpkgs.flake = inputs.nixpkgs-unstable;
     nixPath = [ "nixpkgs=/etc/channels/nixpkgs" ];
