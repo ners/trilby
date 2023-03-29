@@ -6,7 +6,7 @@
   # high-information text output might be undesirable.
   # It also handles boot prompts, such as entering disk encryption passwords.
   boot.plymouth = {
-    enable = false;
+    enable = true;
     theme = "breeze";
   };
 }

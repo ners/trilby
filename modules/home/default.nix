@@ -1,4 +1,4 @@
-{ trilby, ...}:
+{ trilby, ... }:
 
 {
   home.stateVersion = trilby.release;

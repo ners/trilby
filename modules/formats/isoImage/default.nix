@@ -1,14 +1,13 @@
-{ inputs, trilby, modulesPath, config, lib, ... }:
+{ inputs, trilby, lib, pkgs, ... }:
 
 {
   imports = [
-    (
-      if trilby.edition == "workstation" then
-        "${modulesPath}/installer/cd-dvd/installation-cd-graphical-base.nix"
-      else
-        "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix"
+    (with inputs.self.nixosModules.nixos.installer.cd-dvd;
+    if trilby.edition == "workstation" then
+      installation-cd-graphical-base
+    else
+      installation-cd-minimal
     )
-    inputs.self.nixosModules.profiles.dvorak
   ];
   isoImage = {
     volumeID = with builtins; concatStringsSep "-" (filter (s: s != null && s != "") [
@@ -19,7 +18,15 @@
       trilby.variant
     ]);
     squashfsCompression = "zstd";
+    grubTheme = pkgs.trilby-grub2-theme;
+    splashImage = pkgs.runCommand "bios-boot.png"
+      {
+        buildInputs = with pkgs; [ imagemagick ];
+      } ''
+      convert ${../../../overlays/trilby-grub2-theme/bios-boot.svg} $out
+    '';
   };
+  environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {
     gdm.autoSuspend = false;
     autoLogin = {
@@ -33,12 +40,7 @@
     helpLine = lib.mkForce "";
   };
 
-  users.motd = ''
-    ${builtins.readFile ./motd.txt}
-
-    OS:       Trilby ${lib.capitalise trilby.edition} ${trilby.release} (${config.system.nixos.codeName})
-    Kernel:   ${config.boot.kernelPackages.kernel.system} ${config.boot.kernelPackages.kernel.version}
-  '';
+  users.motd = builtins.readFile ./motd.txt;
   boot.initrd = {
     luks.devices = { };
     systemd.enable = false;
@@ -62,7 +64,7 @@
       stateVersion = trilby.release;
     };
     imports = [
-      inputs.self.nixosModules.home
+      inputs.self.nixosModules.trilby.home
     ];
   };
 }

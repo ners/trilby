@@ -2,7 +2,7 @@
 
 {
   imports = lib.optionals (trilby.edition == "workstation") [
-      inputs.self.nixosModules.profiles.nix-monitored
+    inputs.self.nixosModules.trilby.profiles.nix-monitored
   ];
 
   nix = {

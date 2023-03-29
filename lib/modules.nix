@@ -27,5 +27,6 @@ with lib;
         else append module acc
       ) [ ])
     listToAttrs
+    #(mapAttrs (name: value: trace "LOADING MODULE ${name}" value))
   ];
 }

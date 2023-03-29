@@ -22,15 +22,15 @@
     let
       lib = import ./lib { inherit inputs; };
       buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
+      nixosModules = {
+        trilby = lib.findModules ./modules;
+        nixos = lib.findModules "${inputs.nixpkgs-unstable}/nixos/modules";
+      };
       configurations = {
         name = [ "trilby" ];
-        edition = attrNames (lib.findModules ./modules/trilby/editions);
-        format = attrNames (lib.findModules ./modules/trilby/formats);
-        hostSystem = lib.pipe ./modules/trilby/hostPlatforms [
-          lib.findModules
-          attrNames
-          (map lib.systems.parse.mkSystemFromString)
-        ];
+        edition = attrNames nixosModules.trilby.editions;
+        format = attrNames nixosModules.trilby.formats;
+        hostSystem = map lib.systems.parse.mkSystemFromString (attrNames nixosModules.trilby.hostPlatforms);
         variant = [ null "musl" ];
         channel = [ "unstable" "22.11" "22.05" ];
       };
@@ -46,7 +46,7 @@
       foreachAttrs = attrs: foreach (lib.cartesianProductOfSets attrs);
     in
     {
-      nixosModules = lib.findModules ./modules;
+      inherit nixosModules;
     } // foreach buildPlatforms (buildPlatform:
       let
         pkgs = inputs.nixpkgs-unstable.legacyPackages.${buildPlatform};
@@ -79,23 +79,6 @@
               inherit (nixpkgs.lib.trivial) release;
             };
             nixpkgs = inputs."nixpkgs-${trilby.channel}";
-            hostPkgs = import nixpkgs {
-              system = trilby.hostPlatform;
-              overlays = [
-                (self: super: {
-                  parsedSystem = self.lib.systems.parse.mkSystemFromString self.system;
-                  unstable = import inputs.nixpkgs-unstable {
-                    system = trilby.hostPlatform;
-                    config.allowUnfree = true;
-                  };
-                })
-              ];
-            };
-            pkgs =
-              if trilby.variant == "musl" then
-                hostPkgs.pkgsMusl
-              else
-                hostPkgs;
           in
           {
             "${trilby.configurationName}" = nixpkgs.lib.nixosSystem {
@@ -106,15 +89,6 @@
                 formats.${trilby.format}
                 editions.${trilby.edition}
                 hostPlatforms.${trilby.hostPlatform}
-                inputs.disko.nixosModules.disko
-                users
-                {
-                  nixpkgs = {
-                    inherit pkgs;
-                  } // lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
-                    inherit (trilby) buildPlatform hostPlatform;
-                  };
-                }
               ];
             };
           }

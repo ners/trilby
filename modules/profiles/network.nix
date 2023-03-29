@@ -14,9 +14,11 @@
   services.resolved.enable = true;
   services.resolved.dnssec = "false";
 
-  systemd.network.enable = true;
+  systemd.network = {
+    enable = true;
+    wait-online.enable = false;
+  };
   systemd.services = {
-    NetworkManager-wait-online.enable = false;
     systemd-udev-settle.enable = false;
   };
 }
