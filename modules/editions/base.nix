@@ -54,4 +54,16 @@ in
   users.users.root.initialHashedPassword = "";
 
   system.stateVersion = trilby.release;
+
+  environment.systemPackages = with pkgs; [
+    bat
+    exa
+    fd
+    git
+    rsync
+    tmux
+    unzip
+    wget
+    zip
+  ];
 }

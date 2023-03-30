@@ -2,12 +2,7 @@
 
 {
   imports = [
-    (with inputs.self.nixosModules.nixos.installer.cd-dvd;
-    if trilby.edition == "workstation" then
-      installation-cd-graphical-base
-    else
-      installation-cd-minimal
-    )
+    inputs.self.nixosModules.nixos.installer.cd-dvd.installation-cd-base
   ];
   isoImage = {
     volumeID = with builtins; concatStringsSep "-" (filter (s: s != null && s != "") [

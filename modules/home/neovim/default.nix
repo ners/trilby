@@ -1,6 +1,8 @@
-{ ... }:
+{ pkgs, lib, ... }@args:
 
 {
+  imports = builtins.attrValues (lib.findModules ./plugins);
+
   programs.neovim = {
     enable = true;
     viAlias = true;

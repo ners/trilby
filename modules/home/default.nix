@@ -5,6 +5,7 @@
 
   imports = [
     ./direnv.nix
+    ./firefox.nix
     ./neovim
     ./starship.nix
     ./zsh

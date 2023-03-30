@@ -6,7 +6,6 @@
     alsa.support32Bit = true;
     enable = true;
     jack.enable = true;
-    media-session.enable = false;
     pulse.enable = true;
     wireplumber.enable = true;
   };
