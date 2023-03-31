@@ -13,12 +13,13 @@ jobs:
   build:
     strategy:
       matrix:
+        name: ['trilby'];
         edition: ['workstation', 'server']
-        release: ['unstable', '22.11']
+        release: ['unstable', '22_11', '22_05']
         hostArch: ['x86_64']
         format: ['isoImage']
     runs-on: 'ubuntu-latest'
-    name: trilby-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}
+    name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}
     steps:
     - uses: actions/checkout@v3
     - uses: cachix/install-nix-action@v19
@@ -31,4 +32,4 @@ jobs:
         nix build \
           --accept-flake-config \
           --print-build-logs \
-          ".#trilby-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}"
+          .#${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}

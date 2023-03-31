@@ -8,6 +8,7 @@
   };
 
   inputs = {
+    "nixpkgs-22.05".url = "github:nixos/nixpkgs/nixos-22.05";
     "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nix-monitored = {
@@ -15,7 +16,7 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
     home-manager = {
-      url = "github:nix-community/home-manager";
+url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
     disko = {
@@ -39,7 +40,13 @@
         format = attrNames nixosModules.trilby.formats;
         hostSystem = map lib.systems.parse.mkSystemFromString (attrNames nixosModules.trilby.hostPlatforms);
         variant = [ null "musl" ];
-        channel = [ "unstable" "22.11" "22.05" ];
+        channel = with lib; pipe inputs [
+          attrNames
+          (filter (hasPrefix "nixpkgs-"))
+          (map (removePrefix "nixpkgs-"))
+          (map (splitString "."))
+          (map (concatStringsSep "_"))
+        ];
       };
       configurationName = c: concatStringsSep "-" (filter (s: s != null && s != "") [
         c.name
