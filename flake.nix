@@ -1,6 +1,13 @@
 {
+  description = "Trilby: a NixOS-based operating system based on Fedora";
+
+  nixConfig = {
+    extra-experimental-features = "nix-command flakes";
+    extra-substituters = "https://trilby.cachix.org";
+    extra-trusted-public-keys = "trilby.cachix.org-1:47uj9Bdgk9jCfhnY7ZDJlRSNJ/y5RkU6wBaEmGn9uns=";
+  };
+
   inputs = {
-    "nixpkgs-22.05".url = "github:nixos/nixpkgs/nixos-22.05";
     "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nix-monitored = {
