@@ -4,6 +4,7 @@
   home.stateVersion = trilby.release;
 
   imports = [
+    ./dconf.nix
     ./direnv.nix
     ./firefox.nix
     ./neovim
