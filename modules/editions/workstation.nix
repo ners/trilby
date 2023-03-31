@@ -4,6 +4,7 @@
   imports = with inputs.self.nixosModules.trilby; [
     editions.base
     profiles.fonts
+    profiles.geoclue
     profiles.gnome
     profiles.pipewire
     profiles.plymouth
