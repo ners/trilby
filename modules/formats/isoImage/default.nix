@@ -5,20 +5,14 @@
     inputs.self.nixosModules.nixos.installer.cd-dvd.installation-cd-base
   ];
   isoImage = {
-    volumeID = with builtins; concatStringsSep "-" (filter (s: s != null && s != "") [
-      trilby.name
-      trilby.edition
-      trilby.release
-      trilby.hostSystem.cpu.name
-      trilby.variant
-    ]);
+    volumeID = builtins.concatStringsSep "-" [trilby.name trilby.edition];
     squashfsCompression = "zstd";
     grubTheme = pkgs.trilby-grub2-theme;
     splashImage = pkgs.runCommand "bios-boot.png"
       {
         buildInputs = with pkgs; [ imagemagick ];
       } ''
-      convert ${../../../overlays/trilby-grub2-theme/bios-boot.svg} $out
+      convert ${inputs.self.nixosModules.trilby.overlays.trilby-grub2-theme}/bios-boot.svg $out
     '';
   };
   environment.etc.trilby.source = ../../..;
@@ -56,7 +50,7 @@
     home = {
       username = "trilby";
       homeDirectory = "/home/trilby";
-      stateVersion = trilby.release;
+      stateVersion = lib.trivial.release;
     };
     imports = [
       inputs.self.nixosModules.trilby.home

@@ -17,9 +17,9 @@
       options = "--delete-older-than 30d";
       dates = "monthly";
     };
-    registry.nixpkgs.flake = inputs.nixpkgs-unstable;
+    registry.nixpkgs.flake = trilby.nixpkgs;
     nixPath = [ "nixpkgs=/etc/channels/nixpkgs" ];
   };
 
-  environment.etc."channels/nixpkgs".source = inputs.nixpkgs-unstable.outPath;
+  environment.etc."channels/nixpkgs".source = trilby.nixpkgs.outPath;
 }

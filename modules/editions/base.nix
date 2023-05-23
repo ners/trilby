@@ -2,22 +2,25 @@
 
 with builtins;
 let
-  overlaySrcs = attrValues (lib.findModules ../../overlays);
-  nixpkgs = inputs."nixpkgs-${trilby.channel}";
-  hostPkgs = import nixpkgs {
-    system = trilby.hostPlatform;
-    overlays = lib.pipe overlaySrcs [
-      (map (o: import o {
-        inherit lib inputs;
-        overlays = overlaySrcs;
-      }))
-    ];
-  };
-  pkgs =
-    if trilby.variant == "musl" then
-      hostPkgs.pkgsMusl
-    else
-      hostPkgs;
+  overlaySrcs = attrValues inputs.self.nixosModules.trilby.overlays;
+  nixpkgs = trilby.nixpkgs;
+  pkgs = lib.pipe nixpkgs [
+    (ps: import ps {
+      system = trilby.hostPlatform;
+      overlays = lib.pipe overlaySrcs [
+        (map (o: import o {
+          inherit lib inputs;
+          overlays = overlaySrcs;
+        }))
+      ];
+    })
+    (ps:
+      if trilby ? variant && trilby.variant == "musl" then
+        ps.pkgsMusl
+      else
+        ps
+    )
+  ];
 in
 {
   imports = with inputs.self.nixosModules.trilby; [

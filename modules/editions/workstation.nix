@@ -1,5 +1,6 @@
-{ inputs, ... }:
+{ inputs, trilby, lib, ... }:
 
+lib.optionalAttrs (trilby.edition == "workstation")
 {
   imports = with inputs.self.nixosModules.trilby; [
     editions.base

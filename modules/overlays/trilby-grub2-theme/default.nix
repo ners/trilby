@@ -8,6 +8,6 @@ self: super: {
     cp -r ${super.nixos-grub2-theme} $out
     chmod +x $out
     chmod +w -R $out
-    convert ${../../assets/Trilby.png} -geometry x100 $out/logo.png
+    convert ${../../../assets/Trilby.png} -geometry x100 $out/logo.png
   '';
 }

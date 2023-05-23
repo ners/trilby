@@ -1,8 +1,9 @@
-{ inputs, ... }:
+{ inputs, trilby, lib, ... }:
 
+lib.optionalAttrs (trilby.edition == "server")
 {
-  imports = with inputs.self.nixosModules; [
-    trilby.editions.base
+  imports = with inputs.self.nixosModules.trilby; [
+    editions.base
   ];
 
   boot.vesa = false;

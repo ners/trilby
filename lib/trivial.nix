@@ -9,6 +9,14 @@ with lib;
   # The unary function equivalent of ! operator
   not = x: !x;
 
+  foreach = xs: f: lib.foldr lib.recursiveUpdate { } (map f xs);
+
+  foreachAttrs = attrs: foreach (lib.cartesianProductOfSets attrs);
+
+  foreachMapAttrs = f: attrs: foreach (map f (lib.cartesianProductOfSets attrs));
+
+  isEmpty = x: x == null || x == "" || x == [];
+
   # A convenient attribute to debug which version of lib we are using.
   zzz = "zzz";
 }
