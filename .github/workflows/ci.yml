@@ -40,3 +40,7 @@ jobs:
           --accept-flake-config \
           --print-build-logs \
           .#${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}-${{ matrix.format }}
+    - uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}.iso
+        path: result/iso/*.iso

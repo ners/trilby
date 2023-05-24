@@ -7,7 +7,6 @@
   isoImage = {
     volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
     isoName = lib.mkForce "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}.iso";
-    squashfsCompression = "zstd";
     grubTheme = pkgs.trilby-grub2-theme;
     splashImage = pkgs.runCommand "bios-boot.png"
       {
