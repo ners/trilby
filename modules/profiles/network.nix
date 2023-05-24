@@ -16,7 +16,7 @@
 
   systemd.network = {
     enable = true;
-    wait-online.enable = false;
+    wait-online.timeout = 0;
   };
   systemd.services = {
     systemd-udev-settle.enable = false;

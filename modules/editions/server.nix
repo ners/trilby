@@ -2,7 +2,7 @@
 
 lib.optionalAttrs (trilby.edition == "server")
 {
-  imports = with inputs.self.nixosModules.trilby; [
+  imports = with inputs.self.nixosModules; [
     editions.base
   ];
 

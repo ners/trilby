@@ -8,7 +8,6 @@
   };
 
   inputs = {
-    "nixpkgs-22.05".url = "github:nixos/nixpkgs/nixos-22.05";
     "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nix-monitored = {
@@ -30,38 +29,36 @@
     let
       lib = import ./lib { inherit inputs; };
       buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
-      nixosModules = {
-        trilby = lib.findModules ./modules;
-        nixos = lib.findModules "${inputs.nixpkgs-unstable}/nixos/modules";
-      };
+      nixosModules = lib.findModules ./modules;
     in
     {
       inherit lib nixosModules;
     }
     // lib.foreachMapAttrs
-        lib.trilbyConfig
+      lib.trilbyConfig
+      {
+        name = [ "trilby" ];
+        edition = attrNames nixosModules.editions;
+        format = attrNames nixosModules.formats;
+        hostPlatform = attrNames nixosModules.hostPlatforms;
+        buildPlatform = filter (lib.hasSuffix "-linux") buildPlatforms;
+        variant = [ null "musl" ];
+        channel = with lib; pipe inputs [
+          attrNames
+          (filter (hasPrefix "nixpkgs-"))
+          (map (removePrefix "nixpkgs-"))
+        ];
+      }
+      (trilby:
+        let
+          system = lib.trilbySystem { inherit trilby; };
+          name = trilby.configurationName;
+        in
         {
-          name = [ "trilby" ];
-          edition = attrNames nixosModules.trilby.editions;
-          format = attrNames nixosModules.trilby.formats;
-          hostPlatform = attrNames nixosModules.trilby.hostPlatforms;
-          buildPlatform = buildPlatforms;
-          variant = [ null "musl" ];
-          channel = with lib; pipe inputs [
-            attrNames
-            (filter (hasPrefix "nixpkgs-"))
-            (map (removePrefix "nixpkgs-"))
-            (map (splitString "."))
-            (map (concatStringsSep "_"))
-          ];
+          nixosConfigurations.${name} = system;
+          packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
         }
-        (trilby: rec {
-          nixosConfigurations.${trilby.configurationName} = lib.trilbySystem {
-            inherit trilby;
-          };
-          packages.${trilby.buildPlatform}.${trilby.configurationName} =
-            nixosConfigurations.${trilby.configurationName}.config.system.build.${trilby.format};
-        })
+      )
     // lib.foreach buildPlatforms (buildPlatform:
       let
         pkgs = inputs.nixpkgs-unstable.legacyPackages.${buildPlatform};

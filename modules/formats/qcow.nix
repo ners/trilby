@@ -2,7 +2,7 @@
 
 {
   disabledModules = [
-    inputs.self.nixosModules.trilby.profiles.btrfs
+    inputs.self.nixosModules.profiles.btrfs
   ];
   imports = [
     inputs.self.nixosModules.nixos.profiles.qemu-guest

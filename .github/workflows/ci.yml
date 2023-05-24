@@ -1,28 +1,35 @@
-name: Continuous integration
+name: CI
 on:
   push:
-    branches: main
+    branches:
+      - main
   pull_request:
-    branches: main
-  workflow_dispatch: # allows manual triggering
-env:
-  # Bump this number to invalidate the GH actions cache
-  cache-version: 0
+    branches:
+      - main
 
 jobs:
   build:
     strategy:
       matrix:
-        name: ['trilby'];
-        edition: ['workstation', 'server']
-        release: ['unstable', '22_11', '22_05']
-        hostArch: ['x86_64']
-        format: ['isoImage']
-    runs-on: 'ubuntu-latest'
-    name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}
+        os:
+          - ubuntu-latest
+        name:
+          - trilby
+        edition:
+          - workstation
+          - server
+        channel:
+          - unstable
+          - 22_11
+        hostArch:
+          - x86_64
+        format:
+          - isoImage
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}-${{ matrix.format }}
     steps:
     - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v19
+    - uses: cachix/install-nix-action@v20
     - uses: cachix/cachix-action@v12
       with:
         name: trilby
@@ -32,4 +39,4 @@ jobs:
         nix build \
           --accept-flake-config \
           --print-build-logs \
-          .#${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.release }}-${{ matrix.hostArch }}-${{ matrix.format }}
+          .#${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}-${{ matrix.format }}

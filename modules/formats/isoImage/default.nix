@@ -1,19 +1,22 @@
-{ inputs, trilby, lib, pkgs, ... }:
+{ config, inputs, trilby, lib, pkgs, ... }:
 
 {
   imports = [
-    inputs.self.nixosModules.nixos.installer.cd-dvd.installation-cd-base
+    (lib.findModules "${trilby.nixpkgs}/nixos/modules").installer.cd-dvd.installation-cd-base
   ];
   isoImage = {
-    volumeID = builtins.concatStringsSep "-" [trilby.name trilby.edition];
+    volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
+    isoName = lib.mkForce "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}.iso";
     squashfsCompression = "zstd";
     grubTheme = pkgs.trilby-grub2-theme;
     splashImage = pkgs.runCommand "bios-boot.png"
       {
         buildInputs = with pkgs; [ imagemagick ];
       } ''
-      convert ${inputs.self.nixosModules.trilby.overlays.trilby-grub2-theme}/bios-boot.svg $out
+      convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
     '';
+    #appendToMenuLabel = "";
+    #prependToMenuLabel = "Install";
   };
   environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {
@@ -53,7 +56,7 @@
       stateVersion = lib.trivial.release;
     };
     imports = [
-      inputs.self.nixosModules.trilby.home
+      inputs.self.nixosModules.home
     ];
   };
 }

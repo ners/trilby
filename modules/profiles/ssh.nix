@@ -1,11 +1,22 @@
-{ lib, ... }:
+{ trilby, lib, ... }:
 
 {
-  services.openssh = {
-    enable = true;
-    settings = {
-      PasswordAuthentication = false;
-      PermitRootLogin = lib.mkForce "no";
-    };
-  };
+  services.openssh = lib.mkMerge [
+    {
+      enable = true;
+    }
+    (
+      if (lib.versionAtLeast trilby.release "23.05")
+      then {
+        settings = {
+          PasswordAuthentication = false;
+          PermitRootLogin = lib.mkForce "no";
+        };
+      }
+      else {
+        passwordAuthentication = false;
+        permitRootLogin = lib.mkForce "no";
+      }
+    )
+  ];
 }

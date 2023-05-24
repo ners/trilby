@@ -2,7 +2,7 @@
 
 with builtins;
 let
-  overlaySrcs = attrValues inputs.self.nixosModules.trilby.overlays;
+  overlaySrcs = attrValues inputs.self.nixosModules.overlays;
   nixpkgs = trilby.nixpkgs;
   pkgs = lib.pipe nixpkgs [
     (ps: import ps {
@@ -23,7 +23,7 @@ let
   ];
 in
 {
-  imports = with inputs.self.nixosModules.trilby; [
+  imports = with inputs.self.nixosModules; [
     profiles.boot
     profiles.btrfs
     profiles.console
@@ -38,11 +38,17 @@ in
     inputs.disko.nixosModules.disko
   ];
 
-  system.nixos = {
-    distroId = "${trilby.name}-${trilby.edition}";
-    distroName = "Trilby ${lib.capitalise trilby.edition}";
-    label = trilby.release;
-  };
+  system.nixos = lib.mkMerge [
+    {
+      label = trilby.release;
+    }
+    (
+      lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
+        distroId = "${trilby.name}-${trilby.edition}";
+        distroName = lib.capitaliseWords "${trilby.name} ${trilby.edition}";
+      }
+    )
+  ];
 
   nixpkgs = {
     inherit pkgs;
@@ -50,9 +56,9 @@ in
     inherit (trilby) buildPlatform hostPlatform;
   };
 
-  i18n.defaultLocale = "en_GB.UTF-8";
+  i18n.defaultLocale = lib.mkDefault "en_GB.UTF-8";
 
-  time.timeZone = "Europe/Zurich";
+  time.timeZone = lib.mkDefault "Europe/Zurich";
 
   users.users.root.initialHashedPassword = "";
 

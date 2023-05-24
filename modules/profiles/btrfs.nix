@@ -4,6 +4,11 @@
   boot.initrd.supportedFilesystems = [ "btrfs" ];
   environment.systemPackages = with pkgs; [ btrfs-progs compsize ];
 
+  services.btrfs.autoScrub = {
+    enable = true;
+    fileSystems = [ "/" ];
+  };
+
   services.beesd.filesystems = {
     root = {
       spec = "LABEL=Trilby";

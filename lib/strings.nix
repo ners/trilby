@@ -30,6 +30,7 @@ with lib;
   # Append one string to another
   addSuffix = suffix: str: str + suffix;
 
+  # Convert a list of characters into a string
   charactersToString = concatStringsSep "";
 
   # Make the first letter of the string uppercase.
@@ -37,5 +38,12 @@ with lib;
     stringToCharacters
     (cs: prepend (toUpper (head cs)) (tail cs))
     charactersToString
+  ];
+
+  # Make the first letter of every word uppercase.
+  capitaliseWords = pipef [
+    words
+    (map capitalise)
+    unwords
   ];
 }

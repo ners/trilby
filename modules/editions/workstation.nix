@@ -2,7 +2,7 @@
 
 lib.optionalAttrs (trilby.edition == "workstation")
 {
-  imports = with inputs.self.nixosModules.trilby; [
+  imports = with inputs.self.nixosModules; [
     editions.base
     profiles.fonts
     profiles.geoclue

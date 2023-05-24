@@ -15,7 +15,7 @@ with lib;
 
   foreachMapAttrs = f: attrs: foreach (map f (lib.cartesianProductOfSets attrs));
 
-  isEmpty = x: x == null || x == "" || x == [];
+  isEmpty = x: x == null || x == "" || x == [ ];
 
   # A convenient attribute to debug which version of lib we are using.
   zzz = "zzz";

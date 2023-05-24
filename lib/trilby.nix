@@ -20,7 +20,7 @@ rec {
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         t.name
         t.edition
-        t.channel
+        (concatStringsSep "_" (lib.splitString "." t.channel))
         hostSystem.cpu.name
         t.variant
         t.format
@@ -32,8 +32,8 @@ rec {
     let
       trilby = trilbyConfig (attrs.trilby or { });
     in
-    lib.nixosSystem {
-      modules = with inputs.self.nixosModules.trilby; [
+    trilby.nixpkgs.lib.nixosSystem {
+      modules = with inputs.self.nixosModules; [
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
       ]

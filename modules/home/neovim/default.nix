@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }@args:
+{ lib, ... }:
 
 {
   imports = builtins.attrValues (lib.findModules ./plugins);
