@@ -38,7 +38,7 @@
     fontconfig.defaultFonts = {
       sansSerif = [ "Source Sans Pro" ];
       serif = [ "Source Serif Pro" ];
-      monospace = [ "Fira Code Nerd Font" ];
+      monospace = [ "Iosevka Nerd Font" ];
       emoji = [ "Noto Color Emoji" ];
     };
 

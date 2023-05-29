@@ -1,7 +1,7 @@
-{ inputs, ... }:
+{ trilby, ... }:
 
 {
   imports = [
-    inputs.self.nixosModules.nixos.virtualisation.hyperv-image
+    trilby.nixosModules.virtualisation.hyperv-image
   ];
 }

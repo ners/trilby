@@ -1,7 +1,7 @@
-{ inputs, ... }:
+{ trilby, ... }:
 
 {
   imports = [
-    inputs.self.nixosModules.nixos.virtualisation.vmware-image
+    trilby.nixpkgs.nixosModules.virtualisation.vmware-image
   ];
 }

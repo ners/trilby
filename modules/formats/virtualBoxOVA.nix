@@ -1,7 +1,7 @@
-{ inputs, ... }:
+{ trilby, ... }:
 
 {
   imports = [
-    inputs.self.nixosModules.nixos.virtualisation.virtualbox-image
+    trilby.nixosModules.virtualisation.virtualbox-image
   ];
 }

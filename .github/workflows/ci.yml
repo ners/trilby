@@ -19,8 +19,7 @@ jobs:
           - workstation
           - server
         channel:
-          - unstable
-          - 22_11
+          - 23_05
         hostArch:
           - x86_64
         format:

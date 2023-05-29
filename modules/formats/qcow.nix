@@ -5,7 +5,7 @@
     inputs.self.nixosModules.profiles.btrfs
   ];
   imports = [
-    inputs.self.nixosModules.nixos.profiles.qemu-guest
+    trilby.nixpkgs.nixosModules.profiles.qemu-guest
   ];
 
   fileSystems."/" = {
@@ -15,7 +15,8 @@
   };
 
   boot = {
-    growPartition = true;
+    #not supported by systemd-boot yet
+    #growPartition = true;
     kernelParams = [ "console=ttyS0" ];
     loader = {
       grub.device = lib.mkDefault (

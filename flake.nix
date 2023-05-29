@@ -9,6 +9,7 @@
 
   inputs = {
     "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
+    "nixpkgs-23.05".url = "github:nixos/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nix-monitored = {
       url = "github:ners/nix-monitored";
@@ -54,10 +55,24 @@
           system = lib.trilbySystem { inherit trilby; };
           name = trilby.configurationName;
         in
-        {
-          nixosConfigurations.${name} = system;
-          packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
-        }
+        lib.recursiveUpdate
+          {
+            nixosConfigurations.${name} = system;
+            packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
+          }
+          (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
+            let
+              system = lib.trilbySystem {
+                inherit trilby;
+                modules = [{ isoImage.squashfsCompression = algo; }];
+              };
+              name = trilby.configurationName + "_${algo}";
+            in
+            {
+              nixosConfigurations.${name} = system;
+              packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
+            }
+          )))
       )
     // lib.foreach buildPlatforms (buildPlatform:
       let

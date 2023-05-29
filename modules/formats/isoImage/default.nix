@@ -2,7 +2,7 @@
 
 {
   imports = [
-    (lib.findModules "${trilby.nixpkgs}/nixos/modules").installer.cd-dvd.installation-cd-base
+    trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
   ];
   isoImage = {
     volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
@@ -52,7 +52,7 @@
     home = {
       username = "trilby";
       homeDirectory = "/home/trilby";
-      stateVersion = lib.trivial.release;
+      stateVersion = trilby.release;
     };
     imports = [
       inputs.self.nixosModules.home

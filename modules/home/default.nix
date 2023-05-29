@@ -1,7 +1,7 @@
-{ lib, ... }:
+{ trilby, lib, ... }:
 
 {
-  home.stateVersion = lib.trivial.release;
+  home.stateVersion = trilby.release;
 
   imports = [
     ./dconf.nix

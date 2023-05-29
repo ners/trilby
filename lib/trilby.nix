@@ -15,7 +15,9 @@ rec {
     (t: t // rec {
       hostSystem = lib.systems.parse.mkSystemFromString t.hostPlatform;
       buildSystem = lib.systems.parse.mkSystemFromString t.buildPlatform;
-      nixpkgs = inputs."nixpkgs-${t.channel}";
+      nixpkgs = inputs."nixpkgs-${t.channel}" // {
+        nixosModules = lib.findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
+      };
       release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         t.name
