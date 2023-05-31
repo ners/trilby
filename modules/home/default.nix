@@ -9,6 +9,7 @@
     ./firefox.nix
     ./neovim
     ./starship.nix
+    ./xdg
     ./zsh
   ];
 

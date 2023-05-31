@@ -10,5 +10,12 @@
     vimdiffAlias = true;
     withNodeJs = true;
     withPython3 = true;
+    extraConfig = ''
+      syntax on
+      filetype on
+      filetype plugin on
+      filetype indent on
+      command W w
+    '';
   };
 }

@@ -1,6 +1,9 @@
 { trilby, lib, ... }:
 
 {
+  programs.ssh.extraConfig = ''
+    StrictHostKeyChecking accept-new
+  '';
   services.openssh = lib.mkMerge [
     {
       enable = true;

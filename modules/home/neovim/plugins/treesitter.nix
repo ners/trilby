@@ -2,6 +2,8 @@
 
 {
   programs.neovim.plugins = [
-    (pkgs.unstable.vimPlugins.nvim-treesitter.withPlugins (_: pkgs.unstable.tree-sitter.allGrammars))
+    (pkgs.vimPlugins.nvim-treesitter.withPlugins (_:
+      pkgs.tree-sitter.allGrammars
+    ))
   ];
 }

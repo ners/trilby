@@ -8,7 +8,10 @@
       onBoot = "ignore";
       onShutdown = "shutdown";
       qemu = {
-        ovmf.enable = true;
+        ovmf = {
+          enable = true;
+          packages = [ pkgs.OVMFFull.fd ];
+        };
         runAsRoot = false;
       };
     };
@@ -17,9 +20,9 @@
 
   environment.systemPackages = with pkgs; [
     libguestfs
+    podman-compose
     spice-vdagent
     swtpm
-    podman-compose
   ];
 
   boot.kernelModules = [ "kvm-amd" "kvm-intel" ];

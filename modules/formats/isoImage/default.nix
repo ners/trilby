@@ -4,19 +4,23 @@
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
   ];
-  isoImage = {
-    volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
-    isoName = lib.mkForce "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}.iso";
-    grubTheme = pkgs.trilby-grub2-theme;
-    splashImage = pkgs.runCommand "bios-boot.png"
-      {
-        buildInputs = with pkgs; [ imagemagick ];
-      } ''
-      convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
-    '';
-    #appendToMenuLabel = "";
-    #prependToMenuLabel = "Install";
-  };
+  isoImage = lib.mkMerge [
+    {
+      volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
+      isoName = lib.mkForce "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}.iso";
+      grubTheme = pkgs.trilby-grub2-theme;
+      splashImage = pkgs.runCommand "bios-boot.png"
+        {
+          buildInputs = with pkgs; [ imagemagick ];
+        } ''
+        convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
+      '';
+    }
+    (lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
+      appendToMenuLabel = "";
+      prependToMenuLabel = "Install ";
+    })
+  ];
   environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {
     gdm.autoSuspend = false;
@@ -47,7 +51,7 @@
     extraGroups = [ "wheel" "networkmanager" "video" ];
     initialPassword = "trilby";
   };
-  home-manager.users.trilby = { ... }: {
+  home-manager.users.trilby = {
     programs.home-manager.enable = false;
     home = {
       username = "trilby";
