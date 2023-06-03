@@ -69,6 +69,7 @@ in
     exa
     fd
     git
+    ripgrep
     rsync
     tmux
     unzip

@@ -1,8 +1,20 @@
-{ pkgs, ... }:
+{ pkgs, lib, trilby, ... }:
 
 {
   virtualisation = {
-    podman.enable = true;
+    podman = {
+      enable = true;
+      # Create a `docker` alias for podman, to use it as a drop-in replacement
+      dockerCompat = true;
+      dockerSocket.enable = true;
+      defaultNetwork =
+        if lib.versionAtLeast trilby.release "23.05"
+        then {
+          settings.dns_enabled = true;
+        } else {
+          dnsname.enable = true;
+        };
+    };
     libvirtd = {
       enable = true;
       onBoot = "ignore";
@@ -19,6 +31,7 @@
   };
 
   environment.systemPackages = with pkgs; [
+    fuse-overlayfs
     libguestfs
     podman-compose
     spice-vdagent

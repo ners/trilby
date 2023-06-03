@@ -4,6 +4,7 @@
   home.stateVersion = trilby.release;
 
   imports = [
+    ./cursor.nix
     ./dconf.nix
     ./direnv.nix
     ./firefox.nix
