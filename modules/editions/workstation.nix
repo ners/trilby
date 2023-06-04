@@ -9,6 +9,7 @@ lib.optionalAttrs (trilby.edition == "workstation")
     profiles.gnome
     profiles.pipewire
     profiles.plymouth
+    profiles.sway
     profiles.virtualisation
   ];
 
