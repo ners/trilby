@@ -74,6 +74,7 @@ in
     tmux
     unzip
     wget
+    xh
     zip
   ];
 }
