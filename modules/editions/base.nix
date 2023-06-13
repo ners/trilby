@@ -27,7 +27,6 @@ in
     profiles.boot
     profiles.btrfs
     profiles.console
-    profiles.dvorak
     profiles.getty
     profiles.network
     profiles.nix
