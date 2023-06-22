@@ -2,6 +2,6 @@
 
 {
   imports = [
-    trilby.nixosModules.virtualisation.virtualbox-image
+    trilby.nixpkgs.nixosModules.virtualisation.virtualbox-image
   ];
 }

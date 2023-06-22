@@ -40,7 +40,6 @@ rec {
         hostPlatforms.${trilby.hostPlatform}
       ]
       ++ lib.optional (trilby ? format && !lib.isEmpty trilby.format) formats.${trilby.format}
-      ++ lib.optional (trilby ? variant && !lib.isEmpty trilby.variant) formats.${trilby.variant}
       ++ attrs.modules or [ ];
       specialArgs = { inherit inputs lib trilby; };
     };

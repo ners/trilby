@@ -2,6 +2,6 @@
 
 {
   imports = [
-    trilby.nixosModules.virtualisation.hyperv-image
+    trilby.nixpkgs.nixosModules.virtualisation.hyperv-image
   ];
 }

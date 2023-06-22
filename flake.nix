@@ -31,13 +31,7 @@
       lib = import ./lib { inherit inputs; };
       buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
       nixosModules = lib.findModules ./modules;
-    in
-    {
-      inherit lib nixosModules;
-    }
-    // lib.foreachMapAttrs
-      lib.trilbyConfig
-      {
+      configurations = map lib.trilbyConfig (lib.cartesianProductOfSets {
         name = [ "trilby" ];
         edition = attrNames nixosModules.editions;
         format = attrNames nixosModules.formats;
@@ -49,31 +43,35 @@
           (filter (hasPrefix "nixpkgs-"))
           (map (removePrefix "nixpkgs-"))
         ];
-      }
-      (trilby:
-        let
-          system = lib.trilbySystem { inherit trilby; };
-          name = trilby.configurationName;
-        in
-        lib.recursiveUpdate
+      });
+    in
+    {
+      inherit lib nixosModules;
+    }
+    // lib.foreach configurations (trilby:
+      let
+        system = lib.trilbySystem { inherit trilby; };
+        name = trilby.configurationName;
+      in
+      lib.recursiveUpdate
+        {
+          nixosConfigurations.${name} = system;
+          packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
+        }
+        (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
+          let
+            system = lib.trilbySystem {
+              inherit trilby;
+              modules = [{ isoImage.squashfsCompression = algo; }];
+            };
+            name = "${trilby.configurationName}_${algo}";
+          in
           {
             nixosConfigurations.${name} = system;
             packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
           }
-          (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
-            let
-              system = lib.trilbySystem {
-                inherit trilby;
-                modules = [{ isoImage.squashfsCompression = algo; }];
-              };
-              name = trilby.configurationName + "_${algo}";
-            in
-            {
-              nixosConfigurations.${name} = system;
-              packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
-            }
-          )))
-      )
+        )))
+    )
     // lib.foreach buildPlatforms (buildPlatform:
       let
         pkgs = inputs.nixpkgs-unstable.legacyPackages.${buildPlatform};
