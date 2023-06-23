@@ -12,12 +12,16 @@ with lib;
     vimdiffAlias = true;
     withNodeJs = true;
     withPython3 = true;
-    extraConfig = ''
+    extraConfig = mkBefore ''
       syntax on
-      filetype on
-      filetype plugin on
-      filetype indent on
       command W w
+    '';
+    extraLuaConfig = mkBefore ''
+      -- bytecompile lua modules
+      vim.loader.enable()
+
+      -- load .exrc, .nvimrc and .nvim.lua local files
+      vim.o.exrc = true
     '';
   };
 
