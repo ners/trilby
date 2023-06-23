@@ -45,42 +45,56 @@
         ];
       });
     in
-    {
-      inherit lib nixosModules;
-    }
-    // lib.foreach configurations (trilby:
-      let
-        system = lib.trilbySystem { inherit trilby; };
-        name = trilby.configurationName;
-      in
-      lib.recursiveUpdate
-        {
-          nixosConfigurations.${name} = system;
-          packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
-        }
-        (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
-          let
-            system = lib.trilbySystem {
-              inherit trilby;
-              modules = [{ isoImage.squashfsCompression = algo; }];
-            };
-            name = "${trilby.configurationName}_${algo}";
-          in
+    lib.foldr1 lib.recursiveUpdate [
+      {
+        inherit lib nixosModules;
+      }
+      (lib.foreach configurations (trilby:
+        let
+          system = lib.trilbySystem { inherit trilby; };
+          name = trilby.configurationName;
+        in
+        lib.recursiveUpdate
           {
             nixosConfigurations.${name} = system;
             packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
           }
-        )))
-    )
-    // lib.foreach buildPlatforms (buildPlatform:
-      let
-        pkgs = inputs.nixpkgs-unstable.legacyPackages.${buildPlatform};
-      in
-      {
-        formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
-        devShells.${buildPlatform}.default = pkgs.mkShell {
-          packages = with pkgs; [ nixpkgs-fmt ];
-        };
-      }
-    );
+          (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
+            let
+              system = lib.trilbySystem {
+                inherit trilby;
+                modules = [{ isoImage.squashfsCompression = algo; }];
+              };
+              name = "${trilby.configurationName}_${algo}";
+            in
+            {
+              nixosConfigurations.${name} = system;
+              packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
+            }
+          )))
+      ))
+      (lib.foreach buildPlatforms (buildPlatform:
+        let
+          overlaySrcs = builtins.attrValues inputs.self.nixosModules.overlays;
+          pkgs = import inputs.nixpkgs-unstable {
+            system = buildPlatform;
+            overlays = lib.pipe overlaySrcs [
+              (map (o: import o {
+                inherit lib inputs;
+                overlays = overlaySrcs;
+              }))
+            ];
+          };
+        in
+        {
+          formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
+          devShells.${buildPlatform} = {
+            default = pkgs.mkShell {
+              packages = with pkgs; [ nixpkgs-fmt ];
+            };
+          };
+          packages.${buildPlatform} = pkgs;
+        }
+      ))
+    ];
 }
