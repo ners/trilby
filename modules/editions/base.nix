@@ -27,6 +27,7 @@ in
     profiles.boot
     profiles.btrfs
     profiles.console
+    profiles.documentation
     profiles.getty
     profiles.network
     profiles.nix
