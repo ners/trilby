@@ -1,7 +1,9 @@
 { lib, ... }:
 
+with builtins;
+with lib;
 {
-  imports = builtins.attrValues (lib.findModules ./plugins);
+  imports = attrValues (findModules ./plugins);
 
   programs.neovim = {
     enable = true;
@@ -18,4 +20,13 @@
       command W w
     '';
   };
+
+  xdg.configFile = pipe ./plugins [
+    readDir
+    attrNames
+    (filter (hasSuffix ".lua"))
+    (names: foreach names (name: {
+      "nvim/plugin/${name}".source = ./plugins/${name};
+    }))
+  ];
 }
