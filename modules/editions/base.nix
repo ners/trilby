@@ -26,9 +26,9 @@ in
     profiles.network
     profiles.nix
     profiles.ssh
+    profiles.users
     profiles.zram
     profiles.zsh
-    users
     inputs.disko.nixosModules.disko
   ];
 
@@ -78,4 +78,6 @@ in
     xh
     zip
   ];
+
+  programs.dconf.enable = true;
 }

@@ -5,7 +5,7 @@
     inputs.home-manager.nixosModules.home-manager
   ];
 
-  home-manager = {
+  config.home-manager = {
     useGlobalPkgs = true;
     useUserPackages = true;
     extraSpecialArgs = {
