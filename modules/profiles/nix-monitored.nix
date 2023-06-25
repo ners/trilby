@@ -1,8 +1,8 @@
-{ trilby, inputs, ... }:
+{ inputs, ... }:
 
 {
   imports = [
-    inputs.nix-monitored.nixosModules.${trilby.hostPlatform}.default
+    inputs.nix-monitored.nixosModules.default
   ];
 
   nix.monitored.enable = true;
