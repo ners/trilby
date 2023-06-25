@@ -3,23 +3,17 @@
 with builtins;
 let
   overlaySrcs = attrValues inputs.self.nixosModules.overlays;
-  nixpkgs = trilby.nixpkgs;
-  pkgs = lib.pipe nixpkgs [
+  overlays = lib.pipe overlaySrcs [
+    (map (o: import o {
+      inherit lib inputs;
+      overlays = overlaySrcs;
+    }))
+  ];
+  pkgs = lib.pipe trilby.nixpkgs [
     (ps: import ps {
       system = trilby.hostPlatform;
-      overlays = lib.pipe overlaySrcs [
-        (map (o: import o {
-          inherit lib inputs;
-          overlays = overlaySrcs;
-        }))
-      ];
+      inherit overlays;
     })
-    (ps:
-      if trilby ? variant && trilby.variant == "musl" then
-        ps.pkgsMusl
-      else
-        ps
-    )
   ];
 in
 {
@@ -50,11 +44,18 @@ in
     )
   ];
 
-  nixpkgs = {
-    inherit pkgs;
-  } // lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
-    inherit (trilby) buildPlatform hostPlatform;
-  };
+  nixpkgs = lib.mkMerge [
+    {
+      inherit overlays;
+      inherit (trilby) hostPlatform;
+    }
+    (lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
+      inherit (trilby) buildPlatform;
+    })
+    (lib.optionalAttrs (trilby ? variant && trilby.variant == "musl") {
+      pkgs = pkgs.pkgsMusl;
+    })
+  ];
 
   i18n.defaultLocale = lib.mkDefault "en_GB.UTF-8";
 

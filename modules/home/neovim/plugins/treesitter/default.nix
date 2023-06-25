@@ -4,8 +4,8 @@
   programs.neovim.plugins = with pkgs.vimPlugins; [
     {
       plugin = pkgs.vimPlugins.nvim-treesitter.withPlugins (_:
-      pkgs.tree-sitter.allGrammars
-    );
+        pkgs.tree-sitter.allGrammars
+      );
       type = "lua";
       config = builtins.readFile ./config.lua;
     }
