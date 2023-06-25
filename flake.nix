@@ -51,6 +51,7 @@
       }
       (lib.foreach configurations (trilby:
         let
+          lib = import ./lib { inherit inputs; inherit (trilby.nixpkgs) lib; };
           system = lib.trilbySystem { inherit trilby; };
           name = trilby.configurationName;
         in
