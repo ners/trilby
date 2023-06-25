@@ -57,7 +57,9 @@
     },
     "nix-monitored": {
       "inputs": {
-        "nix-filter": "nix-filter",
+        "nix-filter": [
+          "nix-filter"
+        ],
         "nixpkgs": [
           "nixpkgs-unstable"
         ]
@@ -128,6 +130,7 @@
       "inputs": {
         "disko": "disko",
         "home-manager": "home-manager",
+        "nix-filter": "nix-filter",
         "nix-monitored": "nix-monitored",
         "nixpkgs-22.11": "nixpkgs-22.11",
         "nixpkgs-23.05": "nixpkgs-23.05",
