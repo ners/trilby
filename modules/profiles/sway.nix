@@ -6,9 +6,14 @@
     wrapperFeatures.gtk = true;
     extraPackages = with pkgs; [
       foot
-      rofi
+      rofi-wayland
       swayidle
       swaylock
     ];
+  };
+
+  xdg.portal = {
+    enable = true;
+    wlr.enable = true;
   };
 }
