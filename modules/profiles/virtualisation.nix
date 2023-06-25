@@ -20,10 +20,14 @@
       onBoot = "ignore";
       onShutdown = "shutdown";
       qemu = {
-        ovmf = {
-          enable = true;
-          packages = [ pkgs.OVMFFull.fd ];
-        };
+        ovmf = lib.mkMerge [
+          {
+            enable = true;
+          }
+          (lib.optionalAttrs (trilby.hostSystem.cpu.name == "x86_64") {
+            packages = [ pkgs.OVMFFull.fd ];
+          })
+        ];
         runAsRoot = false;
       };
     };

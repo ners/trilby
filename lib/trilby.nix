@@ -13,6 +13,7 @@ rec {
       format = null;
     } // t)
     (t: t // rec {
+      hostSystem = lib.systems.parse.mkSystemFromString t.hostPlatform;
       nixpkgs = inputs."nixpkgs-${t.channel}" // {
         nixosModules = lib.findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
       };
@@ -21,7 +22,7 @@ rec {
         t.name
         t.edition
         (concatStringsSep "_" (lib.splitString "." t.channel))
-        ((lib.systems.parse.mkSystemFromString t.hostPlatform).cpu.name)
+        hostSystem.cpu.name
         t.variant
         t.format
       ]);
