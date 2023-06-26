@@ -1,10 +1,10 @@
 { pkgs, ... }:
 
 {
-  programs.neovim.plugins = with pkgs.vimPlugins; [
+  programs.neovim.plugins = with pkgs.unstable.vimPlugins; [
     {
-      plugin = pkgs.vimPlugins.nvim-treesitter.withPlugins (_:
-        pkgs.tree-sitter.allGrammars
+      plugin = pkgs.unstable.vimPlugins.nvim-treesitter.withPlugins (_:
+        pkgs.unstable.tree-sitter.allGrammars
       );
       type = "lua";
       config = builtins.readFile ./config.lua;
