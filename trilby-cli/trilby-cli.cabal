@@ -1,67 +1,70 @@
-cabal-version:      3.4
-name:               trilby-cli
-version:            0.1.0.0
-synopsis:           Trilby command line tools
+cabal-version:   3.4
+name:            trilby-cli
+version:         0.1.0.0
+synopsis:        Trilby command line tools
+
 -- description:
-homepage:           https://github.com/ners/trilby
-license:            Apache-2.0
-license-file:       LICENCE
-author:             ners
-maintainer:         ners@gmx.ch
+homepage:        https://github.com/ners/trilby
+license:         Apache-2.0
+license-file:    LICENCE
+author:          ners
+maintainer:      ners@gmx.ch
+
 -- copyright:
-category:           System
-build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+category:        System
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
 -- extra-source-files:
 
 common common
-    default-language: GHC2021
-    ghc-options:
-        -Weverything
-        -Wno-unsafe
-        -Wno-missing-safe-haskell-mode
-        -Wno-missing-export-lists
-        -Wno-missing-import-lists
-        -Wno-missing-kind-signatures
-        -Wno-all-missed-specialisations
-    default-extensions:
-        ApplicativeDo
-        BlockArguments
-        DataKinds
-        DefaultSignatures
-        DeriveAnyClass
-        DeriveGeneric
-        DerivingStrategies
-        DerivingVia
-        ExplicitNamespaces
-        NoImplicitPrelude
-        OverloadedLabels
-        OverloadedRecordDot
-        OverloadedStrings
-        RecordWildCards
-        RecursiveDo
-        TypeFamilies
-        ViewPatterns
+  default-language:   GHC2021
+  ghc-options:
+    -Weverything -Wno-unsafe -Wno-missing-safe-haskell-mode
+    -Wno-missing-export-lists -Wno-missing-import-lists
+    -Wno-missing-kind-signatures -Wno-all-missed-specialisations
+
+  default-extensions:
+    NoImplicitPrelude
+    ApplicativeDo
+    BlockArguments
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    DerivingVia
+    ExplicitNamespaces
+    OverloadedLabels
+    OverloadedRecordDot
+    OverloadedStrings
+    RecordWildCards
+    RecursiveDo
+    TypeFamilies
+    ViewPatterns
 
 executable trilby
-    import:           common
-    main-is:          Main.hs
-    other-modules:
-        Trilby.Config,
-        Trilby.Install,
-        Trilby.Options,
-        Trilby.Update,
-        Trilby.Util,
-    -- other-extensions:
-    build-depends:
-        ansi-terminal,
-        base,
-        extra,
-        generic-lens,
-        lens,
-        optparse-applicative,
-        shelly,
-        text,
-        unix,
-    hs-source-dirs:   app
-    default-language: GHC2021
+  import:           common
+  main-is:          Main.hs
+  other-modules:
+    Trilby.Config
+    Trilby.Install
+    Trilby.Options
+    Trilby.Update
+    Trilby.Util
+
+  -- other-extensions:
+  build-depends:
+    , ansi-terminal
+    , base
+    , extra
+    , generic-lens
+    , lens
+    , optparse-applicative
+    , shelly
+    , template-haskell
+    , text
+    , unix
+
+  hs-source-dirs:   app
+  default-language: GHC2021

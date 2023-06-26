@@ -28,6 +28,7 @@ rec {
           nativeBuildInputs = with hself; [
             cabal-install
             fourmolu
+            cabal-fmt
             haskell-debug-adapter
             haskell-language-server
           ];
@@ -35,10 +36,10 @@ rec {
       in
       {
         "${pname}" = package // { inherit shell; };
+        shelly = dontCheck (hsuper.shelly_1_12_1);
       }
       //
       (lib.optionalAttrs (lib.versionAtLeast hsuper.ghc.version "9.6") {
-        shelly = dontCheck (hsuper.shelly_1_12_1);
         fourmolu = hsuper.fourmolu_0_12_0_0;
       })
     );

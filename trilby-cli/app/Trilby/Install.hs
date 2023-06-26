@@ -1,11 +1,15 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module Trilby.Install where
 
+import Control.Monad ((<=<))
+import Data.List qualified
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Language.Haskell.TH qualified as TH
 import Shelly
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Config (Edition (..))
@@ -80,6 +84,19 @@ nixVol = rootMount <> "/nix"
 trilbyDir :: Text
 trilbyDir = rootMount <> "/etc/trilby"
 
+flakeTemplate :: Text
+flakeTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/flake.nix")
+
+hostTemplate :: Text
+hostTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/host.nix")
+
+userTemplate :: Text
+userTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/user.nix")
+
+applySubstitutions :: [(Text, Text)] -> Text -> Text
+applySubstitutions subs str =
+    Data.List.foldl' (\acc (from, to) -> Text.replace from to acc) str subs
+
 install :: InstallOpts Maybe -> IO ()
 install (getOpts -> opts) = shelly do
     whenM opts.format $ doFormat opts
@@ -93,6 +110,20 @@ install (getOpts -> opts) = shelly do
     host <- opts.host
     username <- opts.username
     cmd "mkdir" "-p" ("hosts/" <> host) ("users/" <> username)
+    let substitute =
+            applySubstitutions
+                [ ("$hostname", host)
+                , ("$username", username)
+                , ("$edition", "workstation")
+                , ("$channel", "23.05")
+                ]
+    liftIO $ do
+        Text.writeFile (Text.unpack (dir <> "/flake.nix")) $
+            substitute flakeTemplate
+        Text.writeFile (Text.unpack (dir <> "/hosts/" <> host <> "/host.nix")) $
+            substitute hostTemplate
+        Text.writeFile (Text.unpack (dir <> "/users/" <> username <> "/user.nix")) $
+            substitute userTemplate
 
 doFormat :: InstallOpts Sh -> Sh ()
 doFormat opts = do
@@ -117,7 +148,7 @@ doFormat opts = do
     cmd "btrfs" "subvolume" "create" rootVol
     cmd "btrfs" "subvolume" "create" homeVol
     cmd "btrfs" "subvolume" "create" nixVol
-    when (not efi) do
+    unless efi do
         cmd "btrfs" "subvolume" "create" bootVol
     cmd "unmount" rootMount
     cmd "mount" "-o" "subvol=root,compress=zstd,noatime" trilbyDevice rootMount
