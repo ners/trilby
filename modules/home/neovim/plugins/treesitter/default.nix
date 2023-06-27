@@ -3,9 +3,7 @@
 {
   programs.neovim.plugins = with pkgs.unstable.vimPlugins; [
     {
-      plugin = pkgs.unstable.vimPlugins.nvim-treesitter.withPlugins (_:
-        pkgs.unstable.tree-sitter.allGrammars
-      );
+      plugin = nvim-treesitter.withAllGrammars;
       type = "lua";
       config = builtins.readFile ./config.lua;
     }
