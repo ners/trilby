@@ -18,53 +18,55 @@ extra-doc-files: CHANGELOG.md
 -- extra-source-files:
 
 common common
-  default-language:   GHC2021
-  ghc-options:
-    -Weverything -Wno-unsafe -Wno-missing-safe-haskell-mode
-    -Wno-missing-export-lists -Wno-missing-import-lists
-    -Wno-missing-kind-signatures -Wno-all-missed-specialisations
+    default-language:   GHC2021
+    ghc-options:
+        -Weverything -Wno-unsafe -Wno-missing-safe-haskell-mode
+        -Wno-missing-export-lists -Wno-missing-import-lists
+        -Wno-missing-kind-signatures -Wno-all-missed-specialisations
 
-  default-extensions:
-    NoImplicitPrelude
-    ApplicativeDo
-    BlockArguments
-    DataKinds
-    DefaultSignatures
-    DeriveAnyClass
-    DeriveGeneric
-    DerivingStrategies
-    DerivingVia
-    ExplicitNamespaces
-    OverloadedLabels
-    OverloadedRecordDot
-    OverloadedStrings
-    RecordWildCards
-    RecursiveDo
-    TypeFamilies
-    ViewPatterns
+    default-extensions:
+        NoImplicitPrelude
+        ApplicativeDo
+        BlockArguments
+        DataKinds
+        DefaultSignatures
+        DeriveAnyClass
+        DeriveGeneric
+        DerivingStrategies
+        DerivingVia
+        ExplicitNamespaces
+        OverloadedLabels
+        OverloadedRecordDot
+        OverloadedStrings
+        RecordWildCards
+        RecursiveDo
+        TypeFamilies
+        ViewPatterns
 
 executable trilby
-  import:           common
-  main-is:          Main.hs
-  other-modules:
-    Trilby.Config
-    Trilby.Install
-    Trilby.Options
-    Trilby.Update
-    Trilby.Util
+    import:           common
+    main-is:          Main.hs
+    other-modules:
+        Trilby.Config
+        Trilby.Install
+        Trilby.Options
+        Trilby.Update
+        Trilby.Util
 
-  -- other-extensions:
-  build-depends:
-    , ansi-terminal
-    , base
-    , extra
-    , generic-lens
-    , lens
-    , optparse-applicative
-    , shelly
-    , template-haskell
-    , text
-    , unix
+    -- other-extensions:
+    build-depends:
+        , ansi-terminal
+        , async
+        , base
+        , containers
+        , extra
+        , generic-lens
+        , lens
+        , optparse-applicative
+        , template-haskell
+        , text
+        , turtle
+        , unix
 
-  hs-source-dirs:   app
-  default-language: GHC2021
+    hs-source-dirs:   app
+    default-language: GHC2021

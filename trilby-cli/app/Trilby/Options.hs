@@ -51,6 +51,7 @@ parseUpdate = command "update" $ info (Update <$> parseUpdateOpts optional) (pro
 data InstallOpts m = InstallOpts
     { efi :: m Bool
     , luks :: m Bool
+    , luksPassword :: m Text
     , disk :: m Text
     , format :: m Bool
     , edition :: m Edition
@@ -65,13 +66,14 @@ deriving stock instance Show (InstallOpts Maybe)
 parseInstallOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseInstallOpts f = do
     efi <- f $ flag' True (long "efi" <> help "use EFI boot") <|> flag' False (long "bios" <> help "use BIOS boot")
-    luks <- parseYesNo "luks" "Encrypt disk with LUKS2" f
+    luks <- parseYesNo "luks" "encrypt disk with LUKS2" f
+    luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
     format <- parseYesNo "format" "format the installation disk" f
     edition <- f $ flag' Workstation (long "workstation" <> help "install Trilby Workstation edition") <|> flag' Server (long "server" <> help "install Trilby Server edition")
     host <- f $ strOption (long "host" <> metavar "HOST" <> help "the hostname to install")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
-    reboot <- parseYesNo "reboot" "Reboot when done installing" f
+    reboot <- parseYesNo "reboot" "reboot when done installing" f
     pure InstallOpts{..}
 
 parseInstall :: Mod CommandFields (Command Maybe)

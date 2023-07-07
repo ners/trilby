@@ -35,14 +35,13 @@ in
       in
       {
         "${pname}" = package // { inherit shell; };
-        shelly = dontCheck (hsuper.shelly_1_12_1);
       }
       //
       (lib.optionalAttrs (lib.versionAtLeast hsuper.ghc.version "9.6") {
-        fourmolu = hsuper.fourmolu_0_12_0_0;
+        fourmolu = hsuper.fourmolu_0_13_0_0;
       })
     );
   };
-  trilby-cli = self.haskellPackages.trilby-cli;
-  trilby-cli-static = self.pkgsStatic.haskellPackages.native-bignum.trilby-cli;
+  trilby-cli = self.haskell.packages.ghc96.trilby-cli;
+  trilby-cli-static = self.pkgsStatic.haskell.packages.ghc96.native-bignum.trilby-cli;
 }

@@ -1,24 +1,30 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module Trilby.Install where
 
+import Control.Applicative (empty)
 import Control.Monad
+import Control.Monad.Extra (unlessM, whenM)
+import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.Functor ((<&>))
 import Data.List qualified
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Language.Haskell.TH qualified as TH
-import Shelly
 import System.Environment (getArgs, getExecutablePath)
 import System.Posix (executeFile, getEffectiveUserID, getFileStatus, isBlockDevice)
 import Trilby.Config (Edition (..))
 import Trilby.Options
 import Trilby.Util
+import Turtle (ExitCode (ExitSuccess))
+import Turtle.Prelude hiding (shell, shells)
 import Prelude hiding (error)
 
-getDisk :: Sh Text
+getDisk :: (MonadIO m) => m Text
 getDisk = do
     disk <- liftIO do
         putStrLn "Choose installation disk:"
@@ -30,11 +36,12 @@ getDisk = do
             liftIO $ error $ "cannot find disk: " <> disk
             getDisk
 
-getOpts :: InstallOpts Maybe -> InstallOpts Sh
+getOpts :: (MonadIO m) => InstallOpts Maybe -> InstallOpts m
 getOpts opts = do
     InstallOpts
         { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
         , luks = maybe (ask "Encrypt the disk with LUKS2?" True) pure opts.luks
+        , luksPassword = maybe (liftIO $ putStr "LUKS password: " >> Text.getLine) pure opts.luksPassword
         , disk = maybe getDisk pure opts.disk
         , format = maybe (ask "Format the disk?" True) pure opts.format
         , edition = maybe (pure Workstation) pure opts.edition
@@ -99,75 +106,79 @@ applySubstitutions subs str =
     Data.List.foldl' (\acc (from, to) -> Text.replace from to acc) str subs
 
 install :: InstallOpts Maybe -> IO ()
-install (getOpts -> opts) = shelly do
-    unlessM ((0 ==) <$> liftIO getEffectiveUserID) do
-        whenM (ask "The installer requires root permissions. Elevate to root? (sudo)" True) $ liftIO do
-            exe <- getExecutablePath
-            args <- getArgs
-            executeFile "sudo" True (exe : args) Nothing
-    unlessM ((0 ==) <$> liftIO getEffectiveUserID) do
-        (errorExit "Trilby installation cannot proceed without root")
+install (getOpts -> opts) = do
     whenM opts.format $ doFormat opts
-    rootIsMounted <- do
-        errExit False $ cmd "mountpoint" "-q" rootMount
-        (0 ==) <$> lastExitCode
+    rootIsMounted <- shell ("sudo mountpoint -q " <> rootMount) stdin <&> (== ExitSuccess)
     unless rootIsMounted $ errorExit "/mnt is not a mountpoint"
-    cmd "mkdir" "-p" trilbyDir
+    sudo $ "mkdir -p " <> trilbyDir
     cd $ Text.unpack trilbyDir
     host <- opts.host
     username <- opts.username
     edition <- opts.edition
-    cmd "mkdir" "-p" ("hosts/" <> host) ("users/" <> username)
-    let substitute =
+    let hostDir = "hosts/" <> host
+    let userDir = "users/" <> username
+    sudo $ "mkdir -p " <> hostDir <> " " <> userDir
+    let
+        substitute :: Text -> Text
+        substitute =
             applySubstitutions
                 [ ("$hostname", host)
                 , ("$username", username)
                 , ("$edition", tshow edition)
                 , ("$channel", "unstable")
                 ]
-    liftIO do
-        Text.writeFile (Text.unpack (trilbyDir <> "/flake.nix")) $
-            substitute flakeTemplate
-        Text.writeFile (Text.unpack (trilbyDir <> "/hosts/" <> host <> "/default.nix")) $
-            substitute hostTemplate
-        Text.writeFile (Text.unpack (trilbyDir <> "/users/" <> username <> "/default.nix")) $
-            substitute userTemplate
-    let hardwareConfig = Text.unpack (trilbyDir <> "/hosts/" <> host <> "/hardware.nix")
-    cmd "nixos-generate-config" "--show-hardware-config" "--root" rootMount
-        >>= Shelly.writefile hardwareConfig
-    cmd "nixos-install" "--flake" (trilbyDir <> "#" <> host) "--no-root-password"
-    whenM opts.reboot $ cmd "reboot"
+    output "flake.nix" $ toLines $ pure $ substitute flakeTemplate
+    output (Text.unpack $ hostDir <> "/default.nix") $ toLines $ pure $ substitute hostTemplate
+    output (Text.unpack $ userDir <> "/default.nix") $ toLines $ pure $ substitute userTemplate
+    output (Text.unpack $ hostDir <> "/hardware.nix") $
+        inshell ("nixos-generate-config --show-hardware-config --root " <> rootMount) empty
+    shells ("nixos-install --flake " <> trilbyDir <> "#" <> host <> " --no-root-password") empty
+    whenM opts.reboot $ sudo "reboot"
 
-doFormat :: InstallOpts Sh -> Sh ()
+doFormat :: (MonadIO m) => InstallOpts m -> m ()
 doFormat opts = do
     disk <- opts.disk
-    cmd "sgdisk" "--zap-all" "-o" disk
+    sudo $ "sgdisk --zap-all -o " <> disk
     efi <- opts.efi
     when efi do
-        cmd "sgdisk" "-n" "1:0:+1G" "-t" "1:EF00" "-c" ("1:" <> efiLabel) disk
+        sudo $
+            Text.unwords
+                [ "sgdisk"
+                , "-n 1:0:+1G"
+                , "-t 1:EF00"
+                , "-c 1:" <> efiLabel <> " " <> disk
+                ]
     luks <- opts.luks
     let rootPartNum = if efi then 2 else 1
     let rootLabel = if luks then luksLabel else trilbyLabel
-    cmd "sgdisk" "-n" (tshow rootPartNum <> ":0:0") "-t" (tshow rootPartNum <> ":8300") "-c" (tshow rootPartNum <> ":" <> rootLabel) disk
-    cmd "partprobe"
+    sudo $
+        Text.unwords
+            [ "sgdisk"
+            , "-n " <> tshow rootPartNum <> ":0:0"
+            , "-t " <> tshow rootPartNum <> ":8300"
+            , "-c " <> tshow rootPartNum <> ":" <> rootLabel
+            , disk
+            ]
+    sudo "partprobe"
     when efi do
-        cmd "mkfs.fat" "-F32" "-n" efiLabel efiDevice
+        sudo $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
     when luks do
-        cmd "cryptsetup" "luksFormat" luksDevice
-        cmd "cryptsetup" "luksOpen" luksDevice luksName
-    cmd "mkfs.btrfs" "-f" "-L" trilbyLabel $ if luks then luksOpenDevice else trilbyDevice
-    cmd "partprobe"
-    cmd "mount" trilbyDevice rootMount
-    cmd "btrfs" "subvolume" "create" rootVol
-    cmd "btrfs" "subvolume" "create" homeVol
-    cmd "btrfs" "subvolume" "create" nixVol
+        password <- opts.luksPassword
+        sudo $ "cryptsetup luksFormat --type luks2 " <> luksDevice
+        sudo $ "cryptsetup luksOpen " <> luksDevice <> " " <> luksName
+    sudo $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> if luks then luksOpenDevice else trilbyDevice
+    shells "partprobe" stdin
+    sudo $ "mount " <> trilbyDevice <> " " <> rootMount
+    sudo $ "btrfs subvolume create " <> rootVol
+    sudo $ "btrfs subvolume create " <> homeVol
+    sudo $ "btrfs subvolume create " <> nixVol
     unless efi do
-        cmd "btrfs" "subvolume" "create" bootVol
-    cmd "unmount" rootMount
-    cmd "mount" "-o" "subvol=root,compress=zstd,noatime" trilbyDevice rootMount
-    cmd "mkdir" "-p" bootVol homeVol nixVol
+        sudo $ "btrfs subvolume create " <> bootVol
+    sudo $ "unmount " <> rootMount
+    sudo $ "mount -o subvol=root,compress=zstd,noatime " <> trilbyDevice <> " " <> rootMount
+    sudo $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
     if efi
-        then cmd "mount" efiDevice bootVol
-        else cmd "mount" "-o" "subvol=boot" trilbyDevice bootVol
-    cmd "mount" "-o" "subvol=home,compress=zstd" trilbyDevice homeVol
-    cmd "mount" "-o" "subvol=nix,compress=zstd,noatime" trilbyDevice nixVol
+        then sudo $ "mount " <> efiDevice <> " " <> bootVol
+        else sudo $ "mount -o subvol=boot " <> trilbyDevice <> " " <> bootVol
+    sudo $ "mount -o subvol=home,compress=zstd " <> trilbyDevice <> " " <> homeVol
+    sudo $ "mount -o subvol=nix,compress=zstd,noatime " <> trilbyDevice <> " " <> nixVol
