@@ -35,6 +35,7 @@ in
       in
       {
         "${pname}" = package // { inherit shell; };
+        shelly = dontCheck (hsuper.shelly_1_12_1);
       }
       //
       (lib.optionalAttrs (lib.versionAtLeast hsuper.ghc.version "9.6") {

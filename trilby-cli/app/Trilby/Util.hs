@@ -8,7 +8,7 @@ import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
 import Turtle qualified as Turtle
-import Turtle.Prelude qualified as Turtle
+import Data.Char qualified as Char
 import Prelude hiding (error, log)
 
 error :: (MonadIO m) => Text -> m ()
@@ -29,23 +29,25 @@ info t = liftIO do
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-ask :: (MonadIO m) => String -> Bool -> m Bool
+prompt :: (MonadIO m) => Text -> m Text
+prompt message = liftIO do
+    Text.putStr $ message <> " "
+    hFlush stdout
+    Text.getLine
+
+ask :: (MonadIO m) => Text -> Bool -> m Bool
 ask question defaultValue = do
-    answer <- liftIO do
-        putStr $
-            question <> case defaultValue of
-                True -> " [Y/n] "
-                False -> " [y/N] "
-        hFlush stdout
-        getLine
-    case answer of
-        "" -> pure defaultValue
-        'y' : _ -> pure True
-        'Y' : _ -> pure True
-        'n' : _ -> pure False
-        'N' : _ -> pure False
+    answer <-
+        prompt $
+            question <> " " <> case defaultValue of
+                True -> "[Y/n]"
+                False -> "[y/N]"
+    case Text.uncons answer of
+        Nothing -> pure defaultValue
+        Just (Char.toLower -> 'y', _) -> pure True
+        Just (Char.toLower -> 'n', _) -> pure False
         _ -> do
-            error "unrecognised input"
+            error "Unrecognised input"
             ask question defaultValue
 
 errorExit :: (MonadIO m) => Text -> m ()

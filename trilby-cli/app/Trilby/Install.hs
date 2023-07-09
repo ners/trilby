@@ -7,7 +7,7 @@ module Trilby.Install where
 
 import Control.Applicative (empty)
 import Control.Monad
-import Control.Monad.Extra (unlessM, whenM)
+import Control.Monad.Extra (fromMaybeM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor ((<&>))
 import Data.List qualified
@@ -15,8 +15,8 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Language.Haskell.TH qualified as TH
-import System.Environment (getArgs, getExecutablePath)
-import System.Posix (executeFile, getEffectiveUserID, getFileStatus, isBlockDevice)
+import System.Posix (getFileStatus)
+import Text.Read (readMaybe)
 import Trilby.Config (Edition (..))
 import Trilby.Options
 import Trilby.Util
@@ -26,27 +26,30 @@ import Prelude hiding (error)
 
 getDisk :: (MonadIO m) => m Text
 getDisk = do
-    disk <- liftIO do
-        putStrLn "Choose installation disk:"
-        Text.getLine
+    disk <- prompt "Choose installation disk:"
     diskStatus <- liftIO $ getFileStatus $ Text.unpack disk
     if isBlockDevice diskStatus
         then pure disk
         else do
-            liftIO $ error $ "cannot find disk: " <> disk
+            error $ "Cannot find disk: " <> disk
             getDisk
+
+getEdition :: (MonadIO m) => m Edition
+getEdition =
+    fromMaybeM (error "Unknown edition" >> getEdition) $
+        readMaybe . Text.unpack <$> prompt "Choose edition:"
 
 getOpts :: (MonadIO m) => InstallOpts Maybe -> InstallOpts m
 getOpts opts = do
     InstallOpts
         { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
         , luks = maybe (ask "Encrypt the disk with LUKS2?" True) pure opts.luks
-        , luksPassword = maybe (liftIO $ putStr "LUKS password: " >> Text.getLine) pure opts.luksPassword
+        , luksPassword = maybe (prompt "LUKS password:") pure opts.luksPassword
         , disk = maybe getDisk pure opts.disk
         , format = maybe (ask "Format the disk?" True) pure opts.format
-        , edition = maybe (pure Workstation) pure opts.edition
-        , host = maybe (liftIO $ putStrLn "Choose hostname:" >> Text.getLine) pure opts.host
-        , username = maybe (liftIO $ putStrLn "Choose admin username:" >> Text.getLine) pure opts.username
+        , edition = maybe getEdition pure opts.edition
+        , host = maybe (prompt "Choose hostname:") pure opts.host
+        , username = maybe (prompt "Choose admin username:") pure opts.username
         , reboot = maybe (ask "Reboot system?" True) pure opts.reboot
         }
 
@@ -163,7 +166,7 @@ doFormat opts = do
     when efi do
         sudo $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
     when luks do
-        password <- opts.luksPassword
+        -- _password <- opts.luksPassword
         sudo $ "cryptsetup luksFormat --type luks2 " <> luksDevice
         sudo $ "cryptsetup luksOpen " <> luksDevice <> " " <> luksName
     sudo $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> if luks then luksOpenDevice else trilbyDevice

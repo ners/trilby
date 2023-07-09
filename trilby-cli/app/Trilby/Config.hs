@@ -51,7 +51,7 @@ data DiskConfig = DiskConfig
     deriving stock (Generic, Show)
 
 data Edition = Workstation | Server
-    deriving stock (Generic, Show)
+    deriving stock (Generic, Show, Read)
 
 data TrilbyConfig = TrilbyConfig
     { keyboardLayout :: Text
@@ -74,6 +74,7 @@ defaultTrilbyConfig =
             TrilbyConfig
                 { keyboardLayout = "us"
                 , timezone = "Europe/Zurich"
+                , edition = Workstation
                 , user = ("trilby", "trilby")
                 }
         , disks =
