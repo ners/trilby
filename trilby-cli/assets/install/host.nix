@@ -9,7 +9,7 @@ lib.trilbySystem {
     {
       networking.hostName = "$hostname";
     }
-    ./hardware.nix
+    ./hardware-configuration.nix
     (import ../../users/$username { inherit inputs lib; })
   ];
 }

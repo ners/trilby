@@ -44,11 +44,11 @@ getOpts opts = do
     InstallOpts
         { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
         , luks = maybe (ask "Encrypt the disk with LUKS2?" True) pure opts.luks
-        , luksPassword = maybe (prompt "LUKS password:") pure opts.luksPassword
+        , luksPassword = maybe (prompt "Choose LUKS password:") pure opts.luksPassword
         , disk = maybe getDisk pure opts.disk
         , format = maybe (ask "Format the disk?" True) pure opts.format
         , edition = maybe getEdition pure opts.edition
-        , host = maybe (prompt "Choose hostname:") pure opts.host
+        , hostname = maybe (prompt "Choose hostname:") pure opts.hostname
         , username = maybe (prompt "Choose admin username:") pure opts.username
         , reboot = maybe (ask "Reboot system?" True) pure opts.reboot
         }
@@ -72,7 +72,7 @@ luksOpenDevice :: Text
 luksOpenDevice = "/dev/mapper/" <> luksName
 
 trilbyDevice :: Text
-trilbyDevice = "/dev/disk/by-label/" <> trilbyLabel
+trilbyDevice = "/dev/disk/by-partlabel/" <> trilbyLabel
 
 efiDevice :: Text
 efiDevice = "/dev/disk/by-partlabel/" <> efiLabel
@@ -105,8 +105,7 @@ userTemplate :: Text
 userTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/user.nix")
 
 applySubstitutions :: [(Text, Text)] -> Text -> Text
-applySubstitutions subs str =
-    Data.List.foldl' (\acc (from, to) -> Text.replace from to acc) str subs
+applySubstitutions = flip $ Data.List.foldr $ uncurry Text.replace
 
 install :: InstallOpts Maybe -> IO ()
 install (getOpts -> opts) = do
@@ -114,18 +113,19 @@ install (getOpts -> opts) = do
     rootIsMounted <- shell ("sudo mountpoint -q " <> rootMount) stdin <&> (== ExitSuccess)
     unless rootIsMounted $ errorExit "/mnt is not a mountpoint"
     sudo $ "mkdir -p " <> trilbyDir
+    sudo $ "chown -R 1000:1000 " <> trilbyDir
     cd $ Text.unpack trilbyDir
-    host <- opts.host
+    hostname <- opts.hostname
     username <- opts.username
     edition <- opts.edition
-    let hostDir = "hosts/" <> host
+    let hostDir = "hosts/" <> hostname
     let userDir = "users/" <> username
-    sudo $ "mkdir -p " <> hostDir <> " " <> userDir
+    shells ("mkdir -p " <> hostDir <> " " <> userDir) empty
     let
         substitute :: Text -> Text
         substitute =
             applySubstitutions
-                [ ("$hostname", host)
+                [ ("$hostname", hostname)
                 , ("$username", username)
                 , ("$edition", tshow edition)
                 , ("$channel", "unstable")
@@ -133,9 +133,9 @@ install (getOpts -> opts) = do
     output "flake.nix" $ toLines $ pure $ substitute flakeTemplate
     output (Text.unpack $ hostDir <> "/default.nix") $ toLines $ pure $ substitute hostTemplate
     output (Text.unpack $ userDir <> "/default.nix") $ toLines $ pure $ substitute userTemplate
-    output (Text.unpack $ hostDir <> "/hardware.nix") $
-        inshell ("nixos-generate-config --show-hardware-config --root " <> rootMount) empty
-    shells ("nixos-install --flake " <> trilbyDir <> "#" <> host <> " --no-root-password") empty
+    output (Text.unpack $ hostDir <> "/hardware-configuration.nix") $
+        inshell ("sudo nixos-generate-config --show-hardware-config --root " <> rootMount) stdin
+    sudo $ "nixos-install --flake " <> trilbyDir <> "#" <> hostname <> " --no-root-password"
     whenM opts.reboot $ sudo "reboot"
 
 doFormat :: (MonadIO m) => InstallOpts m -> m ()
@@ -177,7 +177,7 @@ doFormat opts = do
     sudo $ "btrfs subvolume create " <> nixVol
     unless efi do
         sudo $ "btrfs subvolume create " <> bootVol
-    sudo $ "unmount " <> rootMount
+    sudo $ "umount " <> rootMount
     sudo $ "mount -o subvol=root,compress=zstd,noatime " <> trilbyDevice <> " " <> rootMount
     sudo $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
     if efi

@@ -55,7 +55,7 @@ data InstallOpts m = InstallOpts
     , disk :: m Text
     , format :: m Bool
     , edition :: m Edition
-    , host :: m Text
+    , hostname :: m Text
     , username :: m Text
     , reboot :: m Bool
     }
@@ -71,7 +71,7 @@ parseInstallOpts f = do
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
     format <- parseYesNo "format" "format the installation disk" f
     edition <- f $ flag' Workstation (long "workstation" <> help "install Trilby Workstation edition") <|> flag' Server (long "server" <> help "install Trilby Server edition")
-    host <- f $ strOption (long "host" <> metavar "HOST" <> help "the hostname to install")
+    hostname <- f $ strOption (long "host" <> metavar "HOSTNAME" <> help "the hostname to install")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
     reboot <- parseYesNo "reboot" "reboot when done installing" f
     pure InstallOpts{..}
