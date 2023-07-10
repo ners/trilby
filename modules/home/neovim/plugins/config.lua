@@ -21,8 +21,13 @@ opt.updatetime = 100
 
 -- Enable persistent undo, backup, and swap files
 opt.undofile = true
+opt.undodir = vim.fn.stdpath("state") .. "/undo/"
+
 opt.backup = true
+opt.backupdir = vim.fn.stdpath("state") .. "/backup/"
+
 opt.swapfile = true
+opt.directory = vim.fn.stdpath("state") .. "/swap/"
 
 -- Backspace works on every char in insert mode
 opt.backspace = "indent,eol,start"

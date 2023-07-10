@@ -19,15 +19,15 @@ getOpts opts =
         , reboot = maybe (ask "Reboot to configuration? (sudo)" False) pure opts.reboot
         }
 
-update :: UpdateOpts Maybe -> IO ()
+update :: MonadIO m => UpdateOpts Maybe -> m ()
 update (getOpts -> opts) = do
     cd "/etc/trilby"
     shells "nix flake update" empty
     shells "nixos-rebuild build --flake ." empty
     shells "nvd diff /run/current-system result" empty
     whenM opts.switch do
-        shells "sudo nixos-rebuild switch --flake ." stdin
+        sudo "result/bin/switch-to-configuration switch"
     whenM opts.boot do
-        shells "sudo nixos-rebuild boot --flake ." stdin
+        sudo "result/bin/switch-to-configuration boot"
         whenM opts.reboot do
-            shells "sudo reboot" stdin
+            sudo "reboot"

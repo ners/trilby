@@ -107,7 +107,7 @@ userTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets
 applySubstitutions :: [(Text, Text)] -> Text -> Text
 applySubstitutions = flip $ Data.List.foldr $ uncurry Text.replace
 
-install :: InstallOpts Maybe -> IO ()
+install :: MonadIO m => InstallOpts Maybe -> m ()
 install (getOpts -> opts) = do
     whenM opts.format $ doFormat opts
     rootIsMounted <- shell ("sudo mountpoint -q " <> rootMount) stdin <&> (== ExitSuccess)

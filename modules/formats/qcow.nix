@@ -10,7 +10,6 @@
 
   fileSystems."/" = {
     device = "/dev/disk/by-label/trilby";
-    autoResize = true;
     fsType = "f2fs";
   };
 
@@ -32,11 +31,13 @@
     };
   };
 
-  system.build.qcow = import "${modulesPath}/../lib/make-disk-image.nix" {
-    inherit lib config pkgs;
-    diskSize = 20000;
-    format = "qcow2-compressed";
-    partitionTableType = "hybrid";
-    label = "trilby";
-  };
+  system.build.qcow = lib.mkDefault (
+    import "${modulesPath}/../lib/make-disk-image.nix" {
+      inherit lib config pkgs;
+      diskSize = 20000;
+      format = "qcow2-compressed";
+      partitionTableType = "hybrid";
+      label = "trilby";
+    }
+  );
 }
