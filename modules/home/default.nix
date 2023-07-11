@@ -8,6 +8,7 @@
     ./dconf.nix
     ./direnv.nix
     ./firefox.nix
+    ./git.nix
     ./neovim
     ./starship.nix
     ./xdg

@@ -13,14 +13,17 @@ rec {
       format = null;
     } // t)
     (t: t // rec {
+      name = lib.toLower t.name;
+      edition = lib.toLower t.edition;
+      channel = lib.toLower t.channel;
       hostSystem = lib.systems.parse.mkSystemFromString t.hostPlatform;
-      nixpkgs = inputs."nixpkgs-${t.channel}" // {
+      nixpkgs = inputs."nixpkgs-${channel}" // {
         nixosModules = lib.findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
       };
       release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
-        t.name
-        t.edition
+        name
+        edition
         (concatStringsSep "_" (lib.splitString "." t.channel))
         hostSystem.cpu.name
         t.variant

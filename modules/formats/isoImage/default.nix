@@ -1,9 +1,13 @@
 { config, inputs, trilby, lib, pkgs, ... }:
 
 {
+  # Prefer our base config. This also prevents adding ZFS to `boot.supportedFilesystems` without forcing it.
+  disabledModules = [ "profiles/base.nix" ];
+
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
   ];
+
   isoImage = lib.mkMerge [
     {
       volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
@@ -20,6 +24,15 @@
       appendToMenuLabel = "";
       prependToMenuLabel = "Install ";
     })
+  ];
+  environment.systemPackages = with pkgs; [
+    cryptsetup
+    efibootmgr
+    efivar
+    gptfdisk
+    parted
+    pciutils
+    usbutils
   ];
   environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {

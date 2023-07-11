@@ -8,25 +8,42 @@ g.mapleader = ' '
 -- Set mouse mode to all modes
 opt.mouse = 'a'
 
+-- The encoding displayed
 opt.encoding = "utf-8"
+
+-- The encoding written to file
+opt.fileencoding = "utf-8"
+
+-- Use the system clipboard
+opt.clipboard = "unnamedplus"
 
 opt.updatetime = 100
 
+-- Enable persistent undo, backup, and swap files
+opt.undofile = true
+opt.undodir = vim.fn.stdpath("state") .. "/undo/"
+
+opt.backup = true
+opt.backupdir = vim.fn.stdpath("state") .. "/backup/"
+
+opt.swapfile = true
+opt.directory = vim.fn.stdpath("state") .. "/swap/"
+
 -- Backspace works on every char in insert mode
-vim.opt.backspace = "indent,eol,start"
+opt.backspace = "indent,eol,start"
 
 -- Enable background buffer
 vim.o.hidden = true
 
 -- Show line numbers
-vim.opt.number = true
+opt.number = true
 
 -- Share the sign column with the number column to prevent text flicker
---vim.opt.signcolumn = 'number'
-vim.opt.signcolumn = 'yes'
+--opt.signcolumn = 'number'
+opt.signcolumn = 'yes'
 
 -- Display command in bottom bar
-vim.opt.showcmd = true
+opt.showcmd = true
 
 -- Tab control
 opt.smarttab = true -- tab respects 'tabstop', 'shiftwidth', and 'softtabstop'
@@ -36,11 +53,11 @@ opt.shiftwidth = 4 -- number of spaces to use for indent and unindent
 opt.shiftround = true -- round indent to a multiple of 'shiftwidth'
 
 -- Use soft tabs, hard tabs can be enabled on filetype basis
-vim.opt.expandtab = true
+opt.expandtab = true
 
 -- Autoindent
-vim.opt.autoindent = true
-vim.opt.smartindent = true
+opt.autoindent = true
+opt.smartindent = true
 
 -- Search
 opt.ignorecase = true -- case insensitive searching
@@ -64,16 +81,30 @@ end
 vim.o.showmatch = true
 
 -- Split direction
-vim.opt.splitright = true
-vim.opt.splitbelow = true
+opt.splitright = true
+opt.splitbelow = true
 
 -- Set completeopt to have a better completion experience
 -- :help completeopt
 -- menuone: popup even when there's only one match
 -- noinsert: Do not insert text until a selection is made
 -- noselect: Do not select, force user to select one from the menu
-vim.opt.completeopt = { 'menuone', 'noselect', 'noinsert' }
+opt.completeopt = { 'menuone', 'noselect', 'noinsert' }
 
 -- Prevent strange file save behaviour.
 -- https://github.com/srid/emanote/issues/180
-vim.opt.backupcopy = 'yes'
+opt.backupcopy = 'yes'
+
+-- Change decorative characters
+vim.opt.fillchars = {
+  horiz = '━',
+  horizup = '┻',
+  horizdown = '┳',
+  vert = '┃',
+  vertleft  = '┫',
+  vertright = '┣',
+  verthoriz = '╋',
+  fold = ' ',
+  eob = ' ', -- prevent '~' from showing on blank lines
+  msgsep = '‾'
+}

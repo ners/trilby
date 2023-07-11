@@ -73,6 +73,7 @@ in
     ripgrep
     rsync
     tmux
+    trilby-cli
     unzip
     wget
     xh

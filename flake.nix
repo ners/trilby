@@ -11,9 +11,11 @@
     "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
     "nixpkgs-23.05".url = "github:nixos/nixpkgs/nixos-23.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nix-filter.url = "github:numtide/nix-filter";
     nix-monitored = {
       url = "github:ners/nix-monitored";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nix-filter.follows = "nix-filter";
     };
     home-manager = {
       url = "github:nix-community/home-manager";
