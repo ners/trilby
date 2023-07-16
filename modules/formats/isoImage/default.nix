@@ -21,6 +21,16 @@
       prependToMenuLabel = "Install ";
     })
   ];
+  environment.systemPackages = with pkgs; [
+    cryptsetup
+    disko
+    efibootmgr
+    efivar
+    gptfdisk
+    parted
+    pciutils
+    usbutils
+  ];
   environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {
     gdm.autoSuspend = false;
