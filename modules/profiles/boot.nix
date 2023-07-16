@@ -9,9 +9,6 @@ in
     # Use the latest kernel!
     kernelPackages = mkForce pkgs.linuxPackages_latest;
 
-    # Remove undesired filesystems such as ZFS that causes kernel breakages.
-    supportedFilesystems = mkForce [ "vfat" "btrfs" "ext4" ];
-
     loader = {
       # The number of seconds for user intervention before the default boot option is selected.
       timeout = mkDefault 3;
