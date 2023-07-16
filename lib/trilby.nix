@@ -1,8 +1,9 @@
 { inputs, lib, ... }:
 
 with builtins;
+with lib;
 rec {
-  trilbyConfig = t: lib.pipe t [
+  trilbyConfig = pipef [
     (t: {
       name = "trilby";
       edition = "workstation";
@@ -13,15 +14,18 @@ rec {
       format = null;
     } // t)
     (t: t // rec {
-      hostSystem = lib.systems.parse.mkSystemFromString t.hostPlatform;
-      nixpkgs = inputs."nixpkgs-${t.channel}" // {
-        nixosModules = lib.findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
+      name = toLower t.name;
+      edition = toLower t.edition;
+      channel = toLower t.channel;
+      hostSystem = systems.parse.mkSystemFromString t.hostPlatform;
+      nixpkgs = inputs."nixpkgs-${channel}" // {
+        nixosModules = findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
       };
       release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
-        t.name
-        t.edition
-        (concatStringsSep "_" (lib.splitString "." t.channel))
+        name
+        edition
+        (concatStringsSep "_" (splitString "." t.channel))
         hostSystem.cpu.name
         t.variant
         t.format
@@ -38,8 +42,53 @@ rec {
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
       ]
-      ++ lib.optional (trilby ? format && !lib.isEmpty trilby.format) formats.${trilby.format}
+      ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
       ++ attrs.modules or [ ];
       specialArgs = { inherit inputs lib trilby; };
+    };
+
+  trilbyUser = u:
+    let
+      user = {
+        uid = u.uid or 1000;
+        name = u.name;
+        isNormalUser = u.isNormalUser or true;
+        home = u.home or "/home/${u.name}";
+        createHome = u.createHome or true;
+        group = u.group or u.name;
+        extraGroups = u.extraGroups or [
+          "audio"
+          "networkmanager"
+          "video"
+          "wheel"
+        ];
+      }
+      // (
+        if (u ? initialPassword && u ? initialHashedPassword)
+        then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
+        else if (u ? initialPassword)
+        then { inherit (u) initialPassword; }
+        else if (u ? initialHashedPassword)
+        then { inherit (u) initialHashedPassword; }
+        else
+          error "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
+      );
+      group = {
+        gid = u.gid or user.uid;
+      };
+      home = {
+        home = {
+          username = user.name;
+          homeDirectory = user.home;
+        };
+        imports = [
+          inputs.self.nixosModules.home
+        ] ++ (u.imports or []);
+      };
+    in
+    {
+      users.groups.${user.name} = group;
+      users.users.${user.name} = user;
+      home-manager.users.${user.name} = home;
     };
 }

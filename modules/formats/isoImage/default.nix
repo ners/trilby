@@ -6,7 +6,9 @@
 
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
+    ./user.nix
   ];
+
   isoImage = lib.mkMerge [
     {
       volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
@@ -47,32 +49,14 @@
     autologinUser = lib.mkForce "trilby";
     helpLine = lib.mkForce "";
   };
+  services.openssh =
+    if (lib.versionAtLeast trilby.release "23.05")
+    then { settings.PasswordAuthentication = true; }
+    else { passwordAuthentication = true; };
 
   users.motd = builtins.readFile ./motd.txt;
   boot.initrd = {
     luks.devices = { };
     systemd.enable = false;
-  };
-  users.groups.trilby.gid = 1000;
-  users.users.trilby = {
-    uid = 1000;
-    isNormalUser = true;
-    name = "trilby";
-    home = "/home/trilby";
-    createHome = true;
-    group = "trilby";
-    extraGroups = [ "wheel" "networkmanager" "video" ];
-    initialPassword = "trilby";
-  };
-  home-manager.users.trilby = {
-    programs.home-manager.enable = false;
-    home = {
-      username = "trilby";
-      homeDirectory = "/home/trilby";
-      stateVersion = trilby.release;
-    };
-    imports = [
-      inputs.self.nixosModules.home
-    ];
   };
 }
