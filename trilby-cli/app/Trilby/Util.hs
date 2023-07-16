@@ -9,7 +9,7 @@ import Data.Text.IO qualified as Text
 import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
-import Turtle qualified as Turtle
+import Turtle qualified
 import Prelude hiding (error, log)
 
 error :: (MonadIO m) => Text -> m ()
@@ -40,9 +40,7 @@ ask :: (MonadIO m) => Text -> Bool -> m Bool
 ask question defaultValue = do
     answer <-
         prompt $
-            question <> " " <> case defaultValue of
-                True -> "[Y/n]"
-                False -> "[y/N]"
+            question <> " " <> (if defaultValue then "[Y/n]" else "[y/N]")
     case Text.uncons answer of
         Nothing -> pure defaultValue
         Just (Char.toLower -> 'y', _) -> pure True

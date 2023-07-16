@@ -1,6 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module Trilby.Update where
 
@@ -17,17 +18,17 @@ getAction ma =
     ifM
         askSwitch
         (pure Switch)
-        (ifM askBoot (pure $ Boot askReboot) (pure NoAction))
+        (ifM askBoot (pure Boot{..}) (pure NoAction))
   where
     askSwitch = maybe (ask "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
     askBoot = maybe (ask "Apply the new configuration at boot? (sudo)" False) pure isBoot
-    askReboot = maybe (ask "Reboot to new configuration now? (sudo)" False) pure isReboot
+    reboot = maybe (ask "Reboot to new configuration now? (sudo)" False) pure isReboot
     isBoot = case ma of
         Nothing -> Nothing
-        Just (Boot _) -> Just True
+        Just Boot{} -> Just True
         _ -> Just False
     isReboot = case ma of
-        Just (Boot x) -> x
+        Just Boot{reboot} -> reboot
         _ -> Nothing
 
 getOpts :: forall m. (MonadIO m) => UpdateOpts Maybe -> UpdateOpts m

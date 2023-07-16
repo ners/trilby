@@ -7,7 +7,7 @@ module Trilby.Install where
 
 import Control.Applicative (empty)
 import Control.Monad
-import Control.Monad.Extra (fromMaybeM, whenM)
+import Control.Monad.Extra (fromMaybeM, ifM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor ((<&>))
 import Data.List qualified
@@ -34,17 +34,22 @@ getDisk = do
             error $ "Cannot find disk: " <> disk
             getDisk
 
+getLuks :: (MonadIO m) => Maybe (LuksOpts Maybe) -> m (LuksOpts m)
+getLuks opts = ifM askLuks (pure UseLuks{..}) (pure NoLuks)
+  where
+    askLuks = maybe (ask "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
+    luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
+
 getEdition :: (MonadIO m) => m Edition
 getEdition =
     fromMaybeM (error "Unknown edition" >> getEdition) $
         readMaybe . Text.unpack <$> prompt "Choose edition:"
 
-getOpts :: (MonadIO m) => InstallOpts Maybe -> InstallOpts m
+getOpts :: forall m. (MonadIO m) => InstallOpts Maybe -> InstallOpts m
 getOpts opts = do
     InstallOpts
         { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
-        , luks = maybe (ask "Encrypt the disk with LUKS2?" True) pure opts.luks
-        , luksPassword = maybe (prompt "Choose LUKS password:") pure opts.luksPassword
+        , luks = getLuks opts.luks
         , disk = maybe getDisk pure opts.disk
         , format = maybe (ask "Format the disk?" True) pure opts.format
         , edition = maybe getEdition pure opts.edition
@@ -155,8 +160,11 @@ doFormat opts = do
                 , "-c 1:" <> efiLabel <> " " <> disk
                 ]
     luks <- opts.luks
+    let useLuks = case luks of
+            UseLuks{} -> True
+            _ -> False
     let rootPartNum = if efi then 2 else 1
-    let rootLabel = if luks then luksLabel else trilbyLabel
+    let rootLabel = if useLuks then luksLabel else trilbyLabel
     sudo $
         Text.unwords
             [ "sgdisk"
@@ -168,12 +176,12 @@ doFormat opts = do
     sudo "partprobe"
     when efi do
         sudo $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
-    when luks do
-        output (fromText luksPasswordFile) . toLines . pure =<< opts.luksPassword
+    when useLuks do
+        output (fromText luksPasswordFile) . toLines . pure =<< luks.luksPassword
         sudo $ "cryptsetup luksFormat --type luks2 -d " <> luksPasswordFile <> " " <> luksDevice
         sudo $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
         rm $ fromText luksPasswordFile
-    let rootDevice = if luks then luksOpenDevice else trilbyDevice
+    let rootDevice = if useLuks then luksOpenDevice else trilbyDevice
     sudo $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> rootDevice
     sudo "partprobe"
     sudo $ "mount " <> rootDevice <> " " <> rootMount

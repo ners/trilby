@@ -52,7 +52,9 @@ parseYesNo :: String -> String -> (Parser Bool -> Parser (m Bool)) -> Parser (m 
 parseYesNo yesLong yesHelp f = f $ parseYesNo' yesLong yesHelp
 
 parseYesNo' :: String -> String -> Parser Bool
-parseYesNo' yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long $ "no-" <> yesLong)
+parseYesNo' yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
+  where
+    noLong = "no-" <> yesLong
 
 parseUpdateOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (UpdateOpts m)
 parseUpdateOpts f = do
@@ -69,10 +71,17 @@ parseUpdateOpts f = do
 parseUpdate :: Mod CommandFields (Command Maybe)
 parseUpdate = command "update" $ info (Update <$> parseUpdateOpts optional) (progDesc "update desc")
 
+data LuksOpts m
+    = NoLuks
+    | UseLuks {luksPassword :: m Text}
+
+deriving stock instance Eq (LuksOpts Maybe)
+
+deriving stock instance Show (LuksOpts Maybe)
+
 data InstallOpts m = InstallOpts
     { efi :: m Bool
-    , luks :: m Bool
-    , luksPassword :: m Text
+    , luks :: m (LuksOpts m)
     , disk :: m Text
     , format :: m Bool
     , edition :: m Edition
@@ -86,11 +95,19 @@ deriving stock instance Eq (InstallOpts Maybe)
 
 deriving stock instance Show (InstallOpts Maybe)
 
+parseLuks :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m (LuksOpts m))
+parseLuks f = do
+    f $
+        flag' NoLuks (long "no-luks")
+            <|> do
+                flag' () (long "luks" <> help "encrypt the disk with LUKS2")
+                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+                pure UseLuks{..}
+
 parseInstallOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseInstallOpts f = do
     efi <- f $ flag' True (long "efi" <> help "use EFI boot") <|> flag' False (long "bios" <> help "use BIOS boot")
-    luks <- parseYesNo "luks" "encrypt disk with LUKS2" f
-    luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+    luks <- parseLuks f
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
     format <- parseYesNo "format" "format the installation disk" f
     edition <- f $ flag' Workstation (long "workstation" <> help "install Trilby Workstation edition") <|> flag' Server (long "server" <> help "install Trilby Server edition")
