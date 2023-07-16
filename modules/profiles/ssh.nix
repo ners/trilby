@@ -12,12 +12,12 @@
       if (lib.versionAtLeast trilby.release "23.05")
       then {
         settings = {
-          PasswordAuthentication = false;
+          PasswordAuthentication = lib.mkDefault false;
           PermitRootLogin = lib.mkForce "no";
         };
       }
       else {
-        passwordAuthentication = false;
+        passwordAuthentication = lib.mkDefault false;
         permitRootLogin = lib.mkForce "no";
       }
     )

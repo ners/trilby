@@ -3,11 +3,10 @@
 {
   programs.neovim.plugins = with pkgs.vimPlugins; [
     {
-      plugin = nvim-scrollbar;
+      plugin = nvim-hlslens;
       type = "lua";
       config = ''
-        require("scrollbar").setup()
-        require("scrollbar.handlers.search").setup()
+        require("hlslens").setup()
       '';
     }
   ];
