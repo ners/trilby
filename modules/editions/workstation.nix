@@ -24,4 +24,5 @@ lib.optionalAttrs (trilby.edition == "workstation")
     xserver.enable = true;
   };
   powerManagement.enable = true;
+  security.rtkit.enable = true;
 }
