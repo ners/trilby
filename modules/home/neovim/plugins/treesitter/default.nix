@@ -10,5 +10,10 @@
     nvim-ts-rainbow2
     nvim-treesitter-textobjects
     nvim-treesitter-refactor
+    {
+      plugin = nvim-treesitter-context;
+      type = "lua";
+      config = "require('treesitter-context').setup({})";
+    }
   ];
 }

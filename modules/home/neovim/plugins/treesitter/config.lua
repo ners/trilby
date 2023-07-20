@@ -2,6 +2,7 @@ local cfg = require('nvim-treesitter.configs')
 cfg.setup {
     highlight = {
         enable = true,
+        additional_vim_regex_highlighting = false,
         -- disable TS for large buffers because it is slow
         disable = function(_, buf)
             local max_filesize = 100 * 1024 -- 100 KiB
