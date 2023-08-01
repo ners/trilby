@@ -36,8 +36,12 @@ rec {
   trilbySystem = attrs:
     let
       trilby = trilbyConfig (attrs.trilby or { });
+      lib = import ../lib {
+        inherit inputs;
+        inherit (trilby.nixpkgs) lib;
+      };
     in
-    trilby.nixpkgs.lib.nixosSystem {
+    lib.nixosSystem {
       modules = with inputs.self.nixosModules; [
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
