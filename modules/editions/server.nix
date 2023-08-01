@@ -3,7 +3,7 @@
 lib.optionalAttrs (trilby.edition == "server")
 {
   imports = with inputs.self.nixosModules; [
-    editions.base
+    profiles.base
     profiles.virtualisation
   ];
 

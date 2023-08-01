@@ -69,6 +69,7 @@ in
     bat
     exa
     fd
+    file
     git
     ripgrep
     rsync
