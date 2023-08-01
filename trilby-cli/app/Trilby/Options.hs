@@ -49,10 +49,7 @@ deriving stock instance Eq (UpdateOpts Maybe)
 deriving stock instance Show (UpdateOpts Maybe)
 
 parseYesNo :: String -> String -> (Parser Bool -> Parser (m Bool)) -> Parser (m Bool)
-parseYesNo yesLong yesHelp f = f $ parseYesNo' yesLong yesHelp
-
-parseYesNo' :: String -> String -> Parser Bool
-parseYesNo' yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
+parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
   where
     noLong = "no-" <> yesLong
 

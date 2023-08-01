@@ -1,7 +1,7 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module Trilby.Update where
 
@@ -44,8 +44,8 @@ update (getOpts -> opts) = do
     shells "nixos-rebuild build --flake ." empty
     shells "nvd diff /run/current-system result" empty
     opts.action >>= \case
-        Switch -> sudo "result/bin/switch-to-configuration switch"
+        Switch -> sudo "nixos-rebuild switch --flake ."
         Boot reboot -> do
-            sudo "result/bin/switch-to-configuration boot"
+            sudo "nixos-rebuild boot --flake . --install-bootloader"
             whenM reboot $ sudo "reboot"
         NoAction -> pure ()
