@@ -7,18 +7,28 @@
     # NetworkManager replaces wpa_supplicant
     wireless.enable = false;
     firewall.enable = true;
-    dhcpcd.wait = "background";
-    dhcpcd.extraConfig = "noarp";
+    # speed up boot
+    dhcpcd = {
+      wait = "background";
+      extraConfig = "noarp";
+    };
   };
 
-  services.resolved.enable = true;
-  services.resolved.dnssec = "false";
-
-  systemd.network = {
+  services.resolved = {
     enable = true;
-    wait-online.timeout = 0;
+    dnssec = "false";
   };
-  systemd.services = {
-    systemd-udev-settle.enable = false;
+
+  systemd = {
+    # use systemd networkd
+    network = {
+      enable = true;
+      wait-online.anyInterface = true;
+    };
+    services = {
+      # speed up boot
+      NetworkManager-wait-online.enable = false;
+      systemd-udev-settle.enable = false;
+    };
   };
 }
