@@ -143,7 +143,13 @@ install (getOpts -> opts) = do
     output (fromText $ userDir <> "/default.nix") $ toLines $ pure $ substitute userTemplate
     output (fromText $ hostDir <> "/hardware-configuration.nix") $
         inshell ("sudo nixos-generate-config --show-hardware-config --root " <> rootMount) stdin
-    sudo $ "nixos-install --flake " <> trilbyDir <> "#" <> hostname <> " --no-root-password"
+    sudo $
+        Text.unwords
+            [ "nixos-install"
+            , "--flake " <> trilbyDir <> "#" <> hostname
+            , "--no-root-password"
+            , "--impure"
+            ]
     whenM opts.reboot $ sudo "reboot"
 
 doFormat :: (MonadIO m) => InstallOpts m -> m ()
