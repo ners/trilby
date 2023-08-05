@@ -20,9 +20,9 @@ getAction ma =
         (pure Switch)
         (ifM askBoot (pure Boot{..}) (pure NoAction))
   where
-    askSwitch = maybe (ask "Switch to the new configuration? (sudo_)" True) (pure . (== Switch)) ma
-    askBoot = maybe (ask "Apply the new configuration at boot? (sudo_)" False) pure isBoot
-    reboot = maybe (ask "Reboot to new configuration now? (sudo_)" False) pure isReboot
+    askSwitch = maybe (ask "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
+    askBoot = maybe (ask "Apply the new configuration at boot? (sudo)" False) pure isBoot
+    reboot = maybe (ask "Reboot to new configuration now? (sudo)" False) pure isReboot
     isBoot = case ma of
         Nothing -> Nothing
         Just Boot{} -> Just True

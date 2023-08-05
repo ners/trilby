@@ -7,7 +7,7 @@ module Trilby.Install where
 
 import Control.Applicative (empty)
 import Control.Monad
-import Control.Monad.Extra (fromMaybeM, ifM, whenM)
+import Control.Monad.Extra (ifM, unlessM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Functor ((<&>))
 import Data.List qualified
@@ -16,7 +16,6 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Language.Haskell.TH qualified as TH
 import System.Posix (getFileStatus)
-import Text.Read (readMaybe)
 import Trilby.Config (Edition (..))
 import Trilby.Options
 import Trilby.Util
@@ -119,7 +118,9 @@ install :: (MonadIO m) => InstallOpts Maybe -> m ()
 install (getOpts -> opts) = do
     whenM opts.format $ doFormat opts
     rootIsMounted <- sudo ("mountpoint -q " <> rootMount) <&> (== ExitSuccess)
-    unless rootIsMounted $ errorExit "/mnt is not a mountpoint"
+    unless rootIsMounted do
+        unlessM (ask "Attempt to mount the partitions?" True) $ errorExit "/mnt is not a mountpoint"
+        doMount opts
     sudo_ $ "mkdir -p " <> trilbyDir
     sudo_ $ "chown -R 1000:1000 " <> trilbyDir
     cd $ fromText trilbyDir
@@ -207,3 +208,23 @@ doFormat opts = do
         else sudo_ $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
     sudo_ $ "mount -o subvol=home,ssd,compress=zstd " <> rootDevice <> " " <> homeVol
     sudo_ $ "mount -o subvol=nix,ssd,compress=zstd,noatime " <> rootDevice <> " " <> nixVol
+
+doMount :: (MonadIO m) => InstallOpts m -> m ()
+doMount opts = do
+    efi <- opts.efi
+    luks <- opts.luks
+    let useLuks = case luks of
+            UseLuks{} -> True
+            _ -> False
+    when useLuks do
+        luks.luksPassword >>= liftIO . Text.writeFile (fromText luksPasswordFile)
+        sudo_ $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
+        rm $ fromText luksPasswordFile
+    let rootDevice = if useLuks then luksOpenDevice else trilbyDevice
+    sudo_ $ "mount -o subvol=root,compress=zstd,noatime " <> rootDevice <> " " <> rootMount
+    sudo_ $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
+    if efi
+        then sudo_ $ "mount " <> efiDevice <> " " <> bootVol
+        else sudo_ $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
+    sudo_ $ "mount -o subvol=home,compress=zstd " <> rootDevice <> " " <> homeVol
+    sudo_ $ "mount -o subvol=nix,compress=zstd,noatime " <> rootDevice <> " " <> nixVol

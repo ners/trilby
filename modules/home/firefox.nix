@@ -1,7 +1,7 @@
-{ nixosConfig, lib, pkgs, ... }:
+{ trilby, lib, pkgs, ... }:
 
 {
-  programs.firefox = lib.mkIf (nixosConfig.services.xserver.enable) {
+  programs.firefox = lib.mkIf (trilby.edition == "workstation") {
     enable = true;
     package = pkgs.unstable.firefox-devedition;
   };

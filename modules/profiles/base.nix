@@ -71,6 +71,7 @@ in
     fd
     file
     git
+    nvd
     ripgrep
     rsync
     tmux
