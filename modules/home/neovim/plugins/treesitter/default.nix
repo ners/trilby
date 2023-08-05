@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 {
-  programs.neovim.plugins = with pkgs.unstable.vimPlugins; [
+  programs.neovim.plugins = with pkgs.vimPlugins; [
     {
       plugin = nvim-treesitter.withAllGrammars;
       type = "lua";
