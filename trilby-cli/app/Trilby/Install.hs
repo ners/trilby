@@ -21,12 +21,13 @@ import Trilby.Config (Edition (..))
 import Trilby.Options
 import Trilby.Util
 import Turtle (ExitCode (ExitSuccess))
-import Turtle.Prelude hiding (shell, shells)
+import Turtle.Prelude hiding (shell)
 import Prelude hiding (error)
 
 getDisk :: (MonadIO m) => m Text
 getDisk = do
-    disk <- prompt "Choose installation disk:"
+    disks <- fmap ("/dev/" <>) . Text.lines <$> strict (inshell "lsblk --raw | grep '\\W\\+disk\\W\\+$' | awk '{print $1}'" empty)
+    disk <- choose "Choose installation disk:" disks
     diskStatus <- liftIO $ getFileStatus $ Text.unpack disk
     if isBlockDevice diskStatus
         then pure disk
@@ -41,9 +42,7 @@ getLuks opts = ifM askLuks (pure UseLuks{..}) (pure NoLuks)
     luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
 getEdition :: (MonadIO m) => m Edition
-getEdition =
-    fromMaybeM (error "Unknown edition" >> getEdition) $
-        readMaybe . Text.unpack <$> prompt "Choose edition:"
+getEdition = choose "Choose edition:" [Workstation, Server]
 
 getOpts :: forall m. (MonadIO m) => InstallOpts Maybe -> InstallOpts m
 getOpts opts = do
@@ -55,6 +54,7 @@ getOpts opts = do
         , edition = maybe getEdition pure opts.edition
         , hostname = maybe (prompt "Choose hostname:") pure opts.hostname
         , username = maybe (prompt "Choose admin username:") pure opts.username
+        , password = maybe (prompt "Choose admin password:") pure opts.password
         , reboot = maybe (ask "Reboot system?" True) pure opts.reboot
         }
 
@@ -118,23 +118,26 @@ applySubstitutions = flip $ Data.List.foldr $ uncurry Text.replace
 install :: (MonadIO m) => InstallOpts Maybe -> m ()
 install (getOpts -> opts) = do
     whenM opts.format $ doFormat opts
-    rootIsMounted <- shell ("sudo mountpoint -q " <> rootMount) stdin <&> (== ExitSuccess)
+    rootIsMounted <- sudo ("mountpoint -q " <> rootMount) <&> (== ExitSuccess)
     unless rootIsMounted $ errorExit "/mnt is not a mountpoint"
-    sudo $ "mkdir -p " <> trilbyDir
-    sudo $ "chown -R 1000:1000 " <> trilbyDir
+    sudo_ $ "mkdir -p " <> trilbyDir
+    sudo_ $ "chown -R 1000:1000 " <> trilbyDir
     cd $ fromText trilbyDir
     hostname <- opts.hostname
     username <- opts.username
+    password <- opts.password
+    initialHashedPassword <- fmap Text.strip . strict $ inshell ("mkpasswd '" <> password <> "'") empty
     edition <- opts.edition
     let hostDir = "hosts/" <> hostname
     let userDir = "users/" <> username
-    shells ("mkdir -p " <> hostDir <> " " <> userDir) empty
+    shell_ ("mkdir -p " <> hostDir <> " " <> userDir) empty
     let
         substitute :: Text -> Text
         substitute =
             applySubstitutions
                 [ ("$hostname", hostname)
                 , ("$username", username)
+                , ("$initialHashedPassword", initialHashedPassword)
                 , ("$edition", tshow edition)
                 , ("$channel", "unstable")
                 ]
@@ -143,22 +146,22 @@ install (getOpts -> opts) = do
     output (fromText $ userDir <> "/default.nix") $ toLines $ pure $ substitute userTemplate
     output (fromText $ hostDir <> "/hardware-configuration.nix") $
         inshell ("sudo nixos-generate-config --show-hardware-config --root " <> rootMount) stdin
-    sudo $
+    sudo_ $
         Text.unwords
             [ "nixos-install"
             , "--flake " <> trilbyDir <> "#" <> hostname
             , "--no-root-password"
             , "--impure"
             ]
-    whenM opts.reboot $ sudo "reboot"
+    whenM opts.reboot $ sudo_ "reboot"
 
 doFormat :: (MonadIO m) => InstallOpts m -> m ()
 doFormat opts = do
     disk <- opts.disk
-    sudo $ "sgdisk --zap-all -o " <> disk
+    sudo_ $ "sgdisk --zap-all -o " <> disk
     efi <- opts.efi
     when efi do
-        sudo $
+        sudo_ $
             Text.unwords
                 [ "sgdisk"
                 , "-n 1:0:+1G"
@@ -171,7 +174,7 @@ doFormat opts = do
             _ -> False
     let rootPartNum = if efi then 2 else 1
     let rootLabel = if useLuks then luksLabel else trilbyLabel
-    sudo $
+    sudo_ $
         Text.unwords
             [ "sgdisk"
             , "-n " <> tshow rootPartNum <> ":0:0"
@@ -179,28 +182,28 @@ doFormat opts = do
             , "-c " <> tshow rootPartNum <> ":" <> rootLabel
             , disk
             ]
-    sudo "partprobe"
+    sudo_ "partprobe"
     when efi do
-        sudo $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
+        sudo_ $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
     when useLuks do
-        output (fromText luksPasswordFile) . toLines . pure =<< luks.luksPassword
-        sudo $ "cryptsetup luksFormat --type luks2 -d " <> luksPasswordFile <> " " <> luksDevice
-        sudo $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
+        luks.luksPassword >>= liftIO . Text.writeFile (fromText luksPasswordFile)
+        sudo_ $ "cryptsetup luksFormat --type luks2 -d " <> luksPasswordFile <> " " <> luksDevice
+        sudo_ $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
         rm $ fromText luksPasswordFile
     let rootDevice = if useLuks then luksOpenDevice else trilbyDevice
-    sudo $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> rootDevice
-    sudo "partprobe"
-    sudo $ "mount " <> rootDevice <> " " <> rootMount
-    sudo $ "btrfs subvolume create " <> rootVol
-    sudo $ "btrfs subvolume create " <> homeVol
-    sudo $ "btrfs subvolume create " <> nixVol
+    sudo_ $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> rootDevice
+    sudo_ "partprobe"
+    sudo_ $ "mount " <> rootDevice <> " " <> rootMount
+    sudo_ $ "btrfs subvolume create " <> rootVol
+    sudo_ $ "btrfs subvolume create " <> homeVol
+    sudo_ $ "btrfs subvolume create " <> nixVol
     unless efi do
-        sudo $ "btrfs subvolume create " <> bootVol
-    sudo $ "umount " <> rootMount
-    sudo $ "mount -o subvol=root,ssd,compress=zstd,noatime " <> rootDevice <> " " <> rootMount
-    sudo $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
+        sudo_ $ "btrfs subvolume create " <> bootVol
+    sudo_ $ "umount " <> rootMount
+    sudo_ $ "mount -o subvol=root,ssd,compress=zstd,noatime " <> rootDevice <> " " <> rootMount
+    sudo_ $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
     if efi
-        then sudo $ "mount " <> efiDevice <> " " <> bootVol
-        else sudo $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
-    sudo $ "mount -o subvol=home,ssd,compress=zstd " <> rootDevice <> " " <> homeVol
-    sudo $ "mount -o subvol=nix,ssd,compress=zstd,noatime " <> rootDevice <> " " <> nixVol
+        then sudo_ $ "mount " <> efiDevice <> " " <> bootVol
+        else sudo_ $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
+    sudo_ $ "mount -o subvol=home,ssd,compress=zstd " <> rootDevice <> " " <> homeVol
+    sudo_ $ "mount -o subvol=nix,ssd,compress=zstd,noatime " <> rootDevice <> " " <> nixVol

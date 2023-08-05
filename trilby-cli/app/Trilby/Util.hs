@@ -1,5 +1,6 @@
 module Trilby.Util where
 
+import Control.Monad (zipWithM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Char qualified as Char
 import Data.String (IsString, fromString)
@@ -9,6 +10,7 @@ import Data.Text.IO qualified as Text
 import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
+import Text.Read (readMaybe)
 import Turtle qualified
 import Prelude hiding (error, log)
 
@@ -49,6 +51,17 @@ ask question defaultValue = do
             error "Unrecognised input"
             ask question defaultValue
 
+choose :: (Show a, MonadIO m) => Text -> [a] -> m a
+choose message values = liftIO do
+    Text.putStrLn message
+    zipWithM_ (\i v -> Text.putStrLn $ tshow i <> ") " <> tshow v) [1 :: Int ..] values
+    selection <- readMaybe . Text.unpack <$> prompt ">"
+    case selection of
+        Just i | i > 0 && i <= length values -> pure $ values !! (i - 1)
+        _ -> do
+            error "Invalid input"
+            choose message values
+
 errorExit :: (MonadIO m) => Text -> m ()
 errorExit msg = error msg >> liftIO exitFailure
 
@@ -61,8 +74,11 @@ fromText = fromString . Text.unpack
 shell :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Turtle.ExitCode
 shell cmd input = info cmd >> Turtle.shell cmd input
 
-shells :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
-shells cmd input = info cmd >> Turtle.shells cmd input
+shell_ :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
+shell_ cmd input = info cmd >> Turtle.shells cmd input
 
-sudo :: (MonadIO m) => Text -> m ()
-sudo = flip shells Turtle.stdin . ("sudo " <>)
+sudo :: (MonadIO m) => Text -> m Turtle.ExitCode
+sudo = flip shell Turtle.stdin . ("sudo " <>)
+
+sudo_ :: (MonadIO m) => Text -> m ()
+sudo_ = flip shell_ Turtle.stdin . ("sudo " <>)

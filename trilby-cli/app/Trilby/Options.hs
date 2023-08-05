@@ -84,6 +84,7 @@ data InstallOpts m = InstallOpts
     , edition :: m Edition
     , hostname :: m Text
     , username :: m Text
+    , password :: m Text
     , reboot :: m Bool
     }
     deriving stock (Generic)
@@ -110,6 +111,7 @@ parseInstallOpts f = do
     edition <- f $ flag' Workstation (long "workstation" <> help "install Trilby Workstation edition") <|> flag' Server (long "server" <> help "install Trilby Server edition")
     hostname <- f $ strOption (long "host" <> metavar "HOSTNAME" <> help "the hostname to install")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
+    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "the password of the admin user")
     reboot <- parseYesNo "reboot" "reboot when done installing" f
     pure InstallOpts{..}
 
