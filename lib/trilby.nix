@@ -87,7 +87,7 @@ rec {
         };
         imports = [
           inputs.self.nixosModules.home
-        ] ++ (u.imports or []);
+        ] ++ (u.imports or [ ]);
       };
     in
     {

@@ -1,36 +1,36 @@
 { trilby, pkgs, lib, ... }:
 
 let
-    fonts = with pkgs; [
-      (nerdfonts.override {
-        fonts = [
-          "Cousine"
-          "FiraCode"
-          "Iosevka"
-          "RobotoMono"
-          "SourceCodePro"
-        ];
-      })
-      carlito
-      dejavu_fonts
-      fira
-      fira-code
-      fira-mono
-      inconsolata
-      inter
-      inter-ui
-      libertine
-      noto-fonts
-      noto-fonts-emoji
-      noto-fonts-extra
-      roboto
-      roboto-mono
-      source-code-pro
-      source-sans-pro
-      source-serif-pro
-      twitter-color-emoji
-      unstable.corefonts
-    ];
+  fonts = with pkgs; [
+    (nerdfonts.override {
+      fonts = [
+        "Cousine"
+        "FiraCode"
+        "Iosevka"
+        "RobotoMono"
+        "SourceCodePro"
+      ];
+    })
+    carlito
+    dejavu_fonts
+    fira
+    fira-code
+    fira-mono
+    inconsolata
+    inter
+    inter-ui
+    libertine
+    noto-fonts
+    noto-fonts-emoji
+    noto-fonts-extra
+    roboto
+    roboto-mono
+    source-code-pro
+    source-sans-pro
+    source-serif-pro
+    twitter-color-emoji
+    unstable.corefonts
+  ];
 in
 {
   fonts = lib.mkMerge [
@@ -72,8 +72,8 @@ in
       '';
     }
     (if (lib.versionAtLeast trilby.release "23.11")
-      then { packages = fonts; }
-      else { inherit fonts; }
+    then { packages = fonts; }
+    else { inherit fonts; }
     )
   ];
 }
