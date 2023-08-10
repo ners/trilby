@@ -34,13 +34,14 @@ getAction ma =
 getOpts :: forall m. (MonadIO m) => UpdateOpts Maybe -> UpdateOpts m
 getOpts opts =
     UpdateOpts
-        { action = getAction opts.action
+        { flakeUpdate = maybe (pure True) pure opts.flakeUpdate
+        , action = getAction opts.action
         }
 
 update :: (MonadIO m) => UpdateOpts Maybe -> m ()
 update (getOpts -> opts) = do
     cd "/etc/trilby"
-    shell_ "nix flake update" empty
+    whenM opts.flakeUpdate $ shell_ "nix flake update" empty
     shell_ "nixos-rebuild build --flake ." empty
     shell_ "nvd diff /run/current-system result" empty
     opts.action >>= \case

@@ -39,8 +39,9 @@ deriving stock instance Eq (UpdateAction Maybe)
 
 deriving stock instance Show (UpdateAction Maybe)
 
-newtype UpdateOpts m = UpdateOpts
-    { action :: m (UpdateAction m)
+data UpdateOpts m = UpdateOpts
+    { flakeUpdate :: m Bool
+    , action :: m (UpdateAction m)
     }
     deriving stock (Generic)
 
@@ -55,6 +56,7 @@ parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|>
 
 parseUpdateOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (UpdateOpts m)
 parseUpdateOpts f = do
+    flakeUpdate <- f $ flag' False (long "no-flake-update" <> help "Do not update the flake lock")
     action <-
         f $
             flag' Switch (long "switch" <> help "Switch to the new configuration")
