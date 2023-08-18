@@ -27,6 +27,7 @@ in
     profiles.nix
     profiles.ssh
     profiles.users
+    profiles.xfs
     profiles.zram
     profiles.zsh
     inputs.disko.nixosModules.disko

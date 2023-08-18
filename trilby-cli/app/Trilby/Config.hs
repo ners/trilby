@@ -8,7 +8,7 @@ type Username = Text
 
 type Password = Text
 
-data Filesystem = Fat32 | Btrfs
+data Filesystem = Fat32 | Btrfs | XFS
     deriving stock (Generic, Show, Eq)
 
 data Mount = Mount
