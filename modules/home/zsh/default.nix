@@ -2,7 +2,6 @@
 
 {
   home.packages = with pkgs; [
-    exa
     fzf
     zsh-completions
   ];
@@ -23,7 +22,6 @@
     '';
 
     shellAliases = {
-      exa = "exa --tree --icons";
       ls = "ls --color=auto";
     };
   };

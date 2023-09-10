@@ -67,19 +67,14 @@ in
   system.stateVersion = trilby.release;
 
   environment.systemPackages = with pkgs; [
-    bat
-    exa
-    fd
     file
     git
     nvd
-    ripgrep
     rsync
     tmux
     trilby-cli
     unzip
     wget
-    xh
     zip
   ];
 
