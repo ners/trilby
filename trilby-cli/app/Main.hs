@@ -4,8 +4,10 @@
 
 module Main where
 
+import Data.Fix (Fix (Fix))
+import Nix
 import Nix.Prelude
-import Nix.Pretty (prettyNix)
+import Nix.TH (ToExpr (toExpr))
 import Options.Applicative (execParser)
 import Prettyprinter (LayoutOptions (LayoutOptions), PageWidth (AvailablePerLine), layoutPretty)
 import Prettyprinter.Render.Text (renderIO)
@@ -17,7 +19,7 @@ import Trilby.Update
 
 main :: IO ()
 main = do
-    renderIO stdout $ layoutPretty (LayoutOptions $ AvailablePerLine 80 0.4) $ prettyNix $ disko defaultTrilbyConfig.disks
+    renderIO stdout $ layoutPretty (LayoutOptions $ AvailablePerLine 80 0.4) $ prettyNix $ toExpr defaultDisko
 
 -- command <- execParser parseCommandInfo
 -- case command of

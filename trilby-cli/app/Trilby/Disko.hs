@@ -1,81 +1,75 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
 module Trilby.Disko where
 
 import Data.Fix (Fix (Fix))
-import Data.List.NonEmpty (NonEmpty((:|)))
+import Data.List.NonEmpty (NonEmpty ((:|)))
+import GHC.Generics (Generic)
 import Nix
-import Trilby.Config
+import Nix.TH (ToExpr (toExpr))
+import Trilby.Disko.Disk
+import Trilby.Disko.Filesystem
+import Trilby.Disko.Partition
+import Trilby.HNix
 import Trilby.Util
 import Prelude
-import Data.String (IsString(fromString))
-import Data.List.Extra qualified as List
 
-fakePos :: SourcePos
-fakePos = SourcePos { sourceName = "", sourceLine = mkPos 1, sourceColumn = mkPos 1 }
+newtype Disko = Disko {disks :: [Disk]}
+    deriving stock (Generic, Show, Eq)
 
-instance IsString (NAttrPath NExpr) where
-    fromString = fromListSafe "" . fmap (StaticKey . fromString) . List.splitOn "."
+instance ToExpr Disko where
+    toExpr :: Disko -> NExprLoc
+    toExpr Disko{..} =
+        Fix $
+            NSetAnnF
+                fakeSrcSpan
+                NonRecursive
+                [ "disko.devices.disk" ~:: NSetAnnF fakeSrcSpan NonRecursive (d <$> disks)
+                ]
+      where
+        d :: Disk -> Binding NExprLoc
+        d disk = DynamicKey (Plain $ fromText disk.device) :| [] ~: toExpr disk
 
-infixl 4 ~:
-(~:) :: NAttrPath r -> r -> Binding r
-k ~: v = NamedVar k v fakePos
-
-infixl 4 ~::
-(~::) :: NAttrPath (Fix f) -> f (Fix f) -> Binding (Fix f)
-k ~:: v = k ~: Fix v
-
-disko :: [DiskConfig] -> NExpr
-disko disks =
-    Fix $
-        NSet
-            NonRecursive
-            [ "disko.devices" ~:: NSet NonRecursive (diskVar <$> disks)
+defaultDisko :: Disko
+defaultDisko =
+    Disko
+        { disks =
+            [ Disk
+                { device = "/dev/nvme0n1"
+                , content =
+                    Gpt
+                        { partitions =
+                            [ EfiPartition
+                                { size = GiB 1
+                                , filesystem =
+                                    Filesystem
+                                        { format = Fat32
+                                        , mountpoint = "/boot"
+                                        , mountoptions = []
+                                        }
+                                }
+                            , LuksPartition
+                                { size = Whole
+                                , partitions =
+                                    [ BtrfsPartition
+                                        { size = Whole
+                                        , subvolumes =
+                                            [ Subvolume
+                                                { mountpoint = "/"
+                                                , mountoptions = ["compress=zstd", "noatime"]
+                                                }
+                                            , Subvolume
+                                                { mountpoint = "/home"
+                                                , mountoptions = ["compress=zstd"]
+                                                }
+                                            , Subvolume
+                                                { mountpoint = "/nix"
+                                                , mountoptions = ["compress=zstd", "noatime"]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                }
             ]
-    where
-        diskVar :: DiskConfig -> Binding NExpr
-        diskVar disk = DynamicKey (Plain $ fromText disk.path) :| [] ~: diskoDisk disk
-
-diskoDisk :: DiskConfig -> NExpr
-diskoDisk disk =
-    Fix $
-        NSet
-            NonRecursive
-            [ "device" ~:: NStr (fromText disk.path)
-            , "type" ~:: NStr "disk"
-            , "content" ~: diskoDiskContent disk.content
-            ]
-
-diskoDiskContent :: DiskContent -> NExpr
-diskoDiskContent content = Fix $ NSet NonRecursive
-    [ "type" ~:: format
-    , "partitions" ~:: partitions
-    ]
-    where
-        format = NStr $
-            case content.format of
-                Gpt -> "gpt"
-        partitions = NSet NonRecursive $ partitionVar <$> content.partitions
-        partitionVar partition = fromText partition.label ~: diskoPartition partition
-
-diskoPartition :: PartitionConfig -> NExpr
-diskoPartition partition =
-    Fix $
-        NSet
-            NonRecursive
-            [ "label" ~:: label
-            , "type" ~:: partitionType
-            , "size" ~:: partitionSize
-            ]
-    where
-        partitionType = NStr $
-            case partition.partitionType of
-                EfiPartition -> "EF00"
-                SwapPartition -> "8200"
-                LinuxFilesystem -> "8300"
-                LuksPartition -> "8309"
-                LvmPartition -> "8E00"
-        partitionSize = NStr $
-            case partition.partitionSize of
-                GiB gib -> fromString $ show gib <> "G"
-                Whole -> "100%"
-        label = NStr $ fromText partition.label
+        }
