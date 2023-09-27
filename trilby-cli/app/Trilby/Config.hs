@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 module Trilby.Config where
 
 import Data.Text (Text)
@@ -23,10 +25,15 @@ data SubvolumeConfig = SubvolumeConfig
     }
     deriving stock (Generic, Eq, Show)
 
-data PartitionType = EfiPartition | LinuxPartition
+data PartitionType = EfiPartition | SwapPartition | LinuxFilesystem | LuksPartition | LvmPartition
     deriving stock (Generic, Eq, Show)
 
-data PartitionSize = Sectors Int | GiB Int | Percent Int
+data PartitionSize = GiB Int | Whole
+    deriving stock (Generic, Eq, Show)
+
+data PartitionContent
+    = MountPoint Mount
+    | Subvolumes [SubvolumeConfig]
     deriving stock (Generic, Eq, Show)
 
 data PartitionConfig = PartitionConfig
@@ -36,17 +43,22 @@ data PartitionConfig = PartitionConfig
     , encrypted :: Bool
     , filesystem :: Filesystem
     , label :: Text
-    , content :: Either Mount [SubvolumeConfig]
+    , content :: PartitionContent
     }
     deriving stock (Generic, Eq, Show)
 
 data DiskFormat = Gpt
     deriving stock (Generic, Eq, Show)
 
+data DiskContent = DiskContent
+    { format :: DiskFormat
+    , partitions :: [PartitionConfig]
+    }
+    deriving stock (Generic, Show)
+
 data DiskConfig = DiskConfig
     { path :: Text
-    , format :: DiskFormat
-    , partitions :: [PartitionConfig]
+    , content :: DiskContent
     }
     deriving stock (Generic, Show)
 
@@ -80,41 +92,44 @@ defaultTrilbyConfig =
         , disks =
             [ DiskConfig
                 { path = "/dev/sda"
-                , format = Gpt
-                , partitions =
-                    [ PartitionConfig
-                        { partitionType = EfiPartition
-                        , partitionSize = GiB 1
-                        , encrypted = False
-                        , bootable = True
-                        , filesystem = Fat32
-                        , label = "EFI"
-                        , content = Left Mount{mountPoint = "/boot", mountFlags = []}
+                , content =
+                    DiskContent
+                        { format = Gpt
+                        , partitions =
+                            [ PartitionConfig
+                                { partitionType = EfiPartition
+                                , partitionSize = GiB 1
+                                , encrypted = False
+                                , bootable = True
+                                , filesystem = Fat32
+                                , label = "EFI"
+                                , content = MountPoint Mount{mountPoint = "/boot", mountFlags = []}
+                                }
+                            , PartitionConfig
+                                { partitionType = LinuxFilesystem
+                                , partitionSize = Whole
+                                , encrypted = True
+                                , bootable = False
+                                , filesystem = Btrfs
+                                , label = "Trilby"
+                                , content =
+                                    Subvolumes
+                                        [ SubvolumeConfig
+                                            { name = "root"
+                                            , mount = Mount{mountPoint = "/", mountFlags = ["compress=zstd", "noatime"]}
+                                            }
+                                        , SubvolumeConfig
+                                            { name = "home"
+                                            , mount = Mount{mountPoint = "/home", mountFlags = ["compress=zstd"]}
+                                            }
+                                        , SubvolumeConfig
+                                            { name = "nix"
+                                            , mount = Mount{mountPoint = "/nix", mountFlags = ["compress=zstd", "noatime"]}
+                                            }
+                                        ]
+                                }
+                            ]
                         }
-                    , PartitionConfig
-                        { partitionType = LinuxPartition
-                        , partitionSize = Percent 100
-                        , encrypted = True
-                        , bootable = False
-                        , filesystem = Btrfs
-                        , label = "Trilby"
-                        , content =
-                            Right
-                                [ SubvolumeConfig
-                                    { name = "root"
-                                    , mount = Mount{mountPoint = "/", mountFlags = ["compress=zstd", "noatime"]}
-                                    }
-                                , SubvolumeConfig
-                                    { name = "home"
-                                    , mount = Mount{mountPoint = "/home", mountFlags = ["compress=zstd"]}
-                                    }
-                                , SubvolumeConfig
-                                    { name = "nix"
-                                    , mount = Mount{mountPoint = "/nix", mountFlags = ["compress=zstd", "noatime"]}
-                                    }
-                                ]
-                        }
-                    ]
                 }
             ]
         }
