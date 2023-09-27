@@ -23,6 +23,7 @@ let
       haskell-debug-adapter
       haskell-language-server
     ];
+    withHoogle = true;
   };
 in
 trilby-cli // { inherit shell; }

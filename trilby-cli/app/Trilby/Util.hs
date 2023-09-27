@@ -3,6 +3,8 @@ module Trilby.Util where
 import Control.Monad (zipWithM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Char qualified as Char
+import Data.List.NonEmpty (NonEmpty, fromList, nonEmpty)
+import Data.Maybe (fromMaybe)
 import Data.String (IsString, fromString)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -71,6 +73,9 @@ tshow = Text.pack . show
 fromText :: (IsString a) => Text -> a
 fromText = fromString . Text.unpack
 
+fromListSafe :: a -> [a] -> NonEmpty a
+fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
+
 shell :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Turtle.ExitCode
 shell cmd input = info cmd >> Turtle.shell cmd input
 
@@ -78,7 +83,7 @@ shell_ :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
 shell_ cmd input = info cmd >> Turtle.shells cmd input
 
 sudo :: (MonadIO m) => Text -> m Turtle.ExitCode
-sudo = flip shell Turtle.stdin . ("sudo " <>)
+sudo command = shell ("sudo " <> command) Turtle.stdin
 
 sudo_ :: (MonadIO m) => Text -> m ()
-sudo_ = flip shell_ Turtle.stdin . ("sudo " <>)
+sudo_ command = shell_ ("sudo " <> command) Turtle.stdin

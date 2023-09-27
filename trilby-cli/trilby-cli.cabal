@@ -48,10 +48,14 @@ executable trilby
     main-is:          Main.hs
     other-modules:
         Trilby.Config
+        Trilby.Disko
         Trilby.Install
         Trilby.Options
         Trilby.Update
         Trilby.Util
+        Trilby.Disko.Disk
+        Trilby.Disko.Partition
+        Trilby.Disko.Filesystem
 
     -- other-extensions:
     build-depends:
@@ -68,6 +72,8 @@ executable trilby
         , text
         , turtle
         , unix
+        , prettyprinter
+        , data-fix
 
     hs-source-dirs:   app
     default-language: GHC2021
