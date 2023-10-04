@@ -36,36 +36,42 @@ infixl 4 ~::
 (~::) :: NAttrPath (Fix f) -> f (Fix f) -> Binding (Fix f)
 k ~:: v = k ~: Fix v
 
-unAnnotate :: NExprLoc -> NExprF a
-unAnnotate (Fix (Compose (AnnUnit _ e))) = foo e
+class UnAnnotate ann plain where
+    unAnnotate :: ann -> plain
 
-foo :: NExprF (Fix NExprLocF) -> NExprF r
-foo (NConstant atom) = NConstant atom
-foo (NStr str) = trace (show str) undefined
-foo (NSym varName) = NSym varName
-foo (NList xs) = NList $ trace (show xs) undefined
-foo (NSet recursivity bindings) = NSet recursivity $ b <$> bindings
-  where
-    b :: Binding (Fix NExprLocF) -> Binding r
-    b (NamedVar path r pos) =
-        NamedVar
-            (trace (show path) undefined)
-            (trace (show r) undefined)
-            pos
-    b (Inherit r vars pos) =
-        Inherit
-            (trace (show r) undefined)
-            vars
-            pos
-foo (NLiteralPath path) = NLiteralPath path
-foo (NEnvPath path) = NEnvPath path
-foo (NUnary op x) = NUnary op $ trace (show x) undefined
-foo (NBinary op x y) =
-    NBinary
-        op
-        (trace (show x) undefined)
-        (trace (show y) undefined)
-foo e = trace (show e) undefined
+instance {-# OVERLAPPABLE #-} UnAnnotate x x where
+    unAnnotate = id
 
-unAnnotateF :: NExprLocF a -> NExprF a
-unAnnotateF (AnnF _ e) = e
+instance (UnAnnotate s s', UnAnnotate r r') => UnAnnotate (Antiquoted s r) (Antiquoted s' r') where
+    unAnnotate EscapedNewline = EscapedNewline
+    unAnnotate (Plain x) = Plain (unAnnotate x)
+    unAnnotate (Antiquoted x) = Antiquoted (unAnnotate x)
+
+instance (UnAnnotate ann plain) => UnAnnotate (NString ann) (NString plain) where
+    unAnnotate (DoubleQuoted xs) = DoubleQuoted $ unAnnotate <$> xs
+    unAnnotate (Indented k xs) = Indented k $ unAnnotate <$> xs
+
+instance (UnAnnotate ann plain) => UnAnnotate (NKeyName ann) (NKeyName plain) where
+    unAnnotate (DynamicKey x) = DynamicKey (unAnnotate x)
+    unAnnotate (StaticKey x) = StaticKey x
+
+instance (UnAnnotate ann plain) => UnAnnotate (NAttrPath ann) (NAttrPath plain) where
+    unAnnotate = fmap unAnnotate
+
+instance (UnAnnotate ann plain) => UnAnnotate (Binding ann) (Binding plain) where
+    unAnnotate (NamedVar path r pos) = NamedVar (unAnnotate path) (unAnnotate r) pos
+    unAnnotate (Inherit r vars pos) = Inherit (unAnnotate <$> r) vars pos
+
+instance UnAnnotate NExprLoc NExpr where
+    unAnnotate :: NExprLoc -> NExpr
+    unAnnotate (Fix (Compose (AnnUnit _ e))) = Fix $ case e of
+        (NConstant atom) -> NConstant atom
+        (NStr str) -> NStr $ unAnnotate str
+        (NSym varName) -> NSym varName
+        (NList xs) -> NList $ fmap unAnnotate xs
+        (NSet recursivity bindings) -> NSet recursivity $ unAnnotate <$> bindings
+        (NLiteralPath path) -> NLiteralPath path
+        (NEnvPath path) -> NEnvPath path
+        (NUnary op x) -> NUnary op (unAnnotate x)
+        (NBinary op x y) -> NBinary op (unAnnotate x) (unAnnotate y)
+        _ -> trace (show e) undefined
