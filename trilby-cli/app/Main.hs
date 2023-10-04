@@ -21,10 +21,7 @@ main :: IO ()
 main = do
     renderIO stdout $
         layoutPretty (LayoutOptions $ AvailablePerLine 80 0.4) $
-            prettyNix $
-                Fix $
-                    unAnnotate $
-                        toExpr defaultDisko
+            prettyNix $ unAnnotate $ toExpr defaultDisko
 
     command <- execParser parseCommandInfo
     case command of
