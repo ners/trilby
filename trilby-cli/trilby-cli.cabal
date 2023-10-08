@@ -52,6 +52,9 @@ executable trilby
     main-is:          Main.hs
     other-modules:
         Trilby.Config
+        Trilby.Config.Edition
+        Trilby.Config.Host
+        Trilby.Config.User
         Trilby.Disko
         Trilby.Install
         Trilby.Install.Flake
@@ -66,17 +69,12 @@ executable trilby
     -- other-extensions:
     build-depends:
         , ansi-terminal
-        , async
         , base
-        , containers
         , data-fix
         , extra
-        , generic-lens
         , hnix
-        , lens
         , megaparsec
         , optparse-applicative
-        , prettyprinter
         , template-haskell
         , text
         , turtle

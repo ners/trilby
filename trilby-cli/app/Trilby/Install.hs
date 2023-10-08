@@ -16,7 +16,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Language.Haskell.TH qualified as TH
 import System.Posix (getFileStatus)
-import Trilby.Config (Edition (..))
+import Trilby.Config.Edition
 import Trilby.Options
 import Trilby.Util
 import Turtle (ExitCode (ExitSuccess))
