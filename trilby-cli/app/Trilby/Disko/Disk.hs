@@ -2,11 +2,8 @@ module Trilby.Disko.Disk where
 
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Nix
-import Nix.TH (ToExpr (toExpr))
+import Nix.TH (ToExpr (toExpr), nix)
 import Trilby.Disko.Partition (Partition)
-import Trilby.HNix
-import Trilby.Util
 import Prelude
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
@@ -14,12 +11,12 @@ newtype DiskContent = Gpt {partitions :: [Partition]}
 
 instance ToExpr DiskContent where
     toExpr Gpt{..} =
-        NSetAnn
-            fakeSrcSpan
-            NonRecursive
-            [ "type" ~:: NStrAnnF fakeSrcSpan "gpt"
-            , "partitions" ~:: NListAnnF fakeSrcSpan (toExpr <$> partitions)
-            ]
+        [nix|
+        {
+            type = "gpt";
+            partitions = partitions;
+        }
+        |]
 
 data Disk = Disk
     { device :: Text
@@ -29,10 +26,10 @@ data Disk = Disk
 
 instance ToExpr Disk where
     toExpr Disk{..} =
-        NSetAnn
-            fakeSrcSpan
-            NonRecursive
-            [ "type" ~:: NStrAnnF fakeSrcSpan "disk"
-            , "device" ~:: NStrAnnF fakeSrcSpan (fromText device)
-            , "content" ~: toExpr content
-            ]
+        [nix|
+        {
+            type = "disk";
+            device = device;
+            content = content;
+        }
+        |]

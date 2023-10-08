@@ -1,13 +1,9 @@
 module Trilby.Disko.Filesystem where
 
-import Data.Fix (Fix (Fix))
-import Data.String (IsString (fromString))
+import Data.Char (toLower)
 import Data.Text (Text)
 import GHC.Generics (Generic)
-import Nix
-import Nix.TH (ToExpr (toExpr))
-import Trilby.HNix
-import Trilby.Util
+import Nix.TH
 import Prelude
 
 data Format
@@ -18,8 +14,7 @@ data Format
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr Format where
-    toExpr :: Format -> NExprLoc
-    toExpr f = NStrAnn fakeSrcSpan $ fromString $ show f
+    toExpr = toExpr . fmap toLower . show
 
 data Filesystem = Filesystem
     { format :: Format
@@ -29,14 +24,11 @@ data Filesystem = Filesystem
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr Filesystem where
-    toExpr :: Filesystem -> NExprLoc
-    toExpr f =
-        NSetAnn
-            fakeSrcSpan
-            NonRecursive
-            [ "format" ~: toExpr f.format
-            , "mountpoint" ~: t f.mountpoint
-            , "mountoptions" ~:: NListAnnF fakeSrcSpan (t <$> f.mountoptions)
-            ]
-      where
-        t = Fix . NStrAnnF fakeSrcSpan . fromText
+    toExpr Filesystem{..} =
+        [nix|
+        {
+            format = format;
+            mountpoint = mountpoint;
+            mountoptions = mountoptions;
+        }
+        |]

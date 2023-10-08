@@ -1,28 +1,16 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE NoFieldSelectors #-}
-
 module Main where
 
-import Data.Fix (Fix (Fix))
-import Nix
-import Nix.Prelude
-import Nix.TH (ToExpr (toExpr))
 import Options.Applicative (execParser)
-import Prettyprinter (LayoutOptions (LayoutOptions), PageWidth (AvailablePerLine), layoutPretty)
-import Prettyprinter.Render.Text (renderIO)
-import Trilby.Disko
-import Trilby.HNix
-import Trilby.Install
+import Trilby.Install (install)
 import Trilby.Options
-import Trilby.Update
+    ( Command (Install, Update)
+    , parseCommandInfo
+    )
+import Trilby.Update (update)
+import Prelude
 
 main :: IO ()
 main = do
-    renderIO stdout $
-        layoutPretty (LayoutOptions $ AvailablePerLine 80 0.4) $
-            prettyNix $ unAnnotate $ toExpr defaultDisko
-
     command <- execParser parseCommandInfo
     case command of
         Update opts -> update opts

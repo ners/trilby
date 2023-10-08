@@ -4,28 +4,27 @@ import Data.Fix (Fix (Fix))
 import Data.List.NonEmpty (NonEmpty ((:|)))
 import GHC.Generics (Generic)
 import Nix
-import Nix.TH (ToExpr (toExpr))
+import Nix.TH (ToExpr (toExpr), nix)
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
-import Trilby.HNix
-import Trilby.Util
+import Trilby.HNix ((~:))
+import Trilby.Util (fromText)
 import Prelude
 
 newtype Disko = Disko {disks :: [Disk]}
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr Disko where
-    toExpr :: Disko -> NExprLoc
     toExpr Disko{..} =
-        Fix $
-            NSetAnnF
-                fakeSrcSpan
-                NonRecursive
-                [ "disko.devices.disk" ~:: NSetAnnF fakeSrcSpan NonRecursive (d <$> disks)
-                ]
+        [nix|
+        {
+            disko.devices.disk = diskSet;
+        }
+        |]
       where
-        d :: Disk -> Binding NExprLoc
+        diskSet = Fix $ NSet NonRecursive $ d <$> disks
+        d :: Disk -> Binding NExpr
         d disk = DynamicKey (Plain $ fromText disk.device) :| [] ~: toExpr disk
 
 defaultDisko :: Disko

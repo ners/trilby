@@ -25,7 +25,6 @@ common common
         -Wno-missing-kind-signatures -Wno-all-missed-specialisations
 
     default-extensions:
-        NoImplicitPrelude
         ApplicativeDo
         BlockArguments
         DataKinds
@@ -34,10 +33,15 @@ common common
         DeriveGeneric
         DerivingStrategies
         DerivingVia
+        DuplicateRecordFields
         ExplicitNamespaces
+        LambdaCase
+        NoFieldSelectors
+        NoImplicitPrelude
         OverloadedLabels
         OverloadedRecordDot
         OverloadedStrings
+        QuasiQuotes
         RecordWildCards
         RecursiveDo
         TypeFamilies
@@ -50,6 +54,7 @@ executable trilby
         Trilby.Config
         Trilby.Disko
         Trilby.Install
+        Trilby.Install.Flake
         Trilby.Options
         Trilby.Update
         Trilby.Util
