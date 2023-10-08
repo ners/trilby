@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-monomorphism-restriction #-}
+
 module Trilby.Install.Flake where
 
 import Data.Fix (Fix (Fix))
@@ -54,3 +56,32 @@ instance ToExpr Flake where
         |]
       where
         inputsSet = Fix $ NSet NonRecursive $ inputBinding <$> inputs
+
+trilbyFlake :: Flake
+trilbyFlake =
+    Flake
+        { inputs =
+            [ Input
+                { name = "trilby"
+                , url = "github:ners/trilby"
+                , flake = True
+                , overrides = []
+                }
+            ]
+        , outputs =
+            [nix|
+            inputs:
+                let lib = inputs.trilby.lib; in
+                {
+                  nixosConfigurations = with lib; pipe ./hosts [
+                    findModules
+                    (mapAttrs (_: host: importStmt host { inherit lib; }))
+                  ];
+                }
+        |]
+        }
+  where
+    importStmt = "import" :: NExpr
+    pipe = "pipe" :: NExpr
+    mapAttrs = "mapAttrs" :: NExpr
+    findModules = "findModules" :: NExpr

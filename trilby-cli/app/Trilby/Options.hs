@@ -6,7 +6,7 @@ module Trilby.Options where
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Trilby.Config (Edition (..))
+import Trilby.Config.Edition
 import Prelude
 
 data Command m
