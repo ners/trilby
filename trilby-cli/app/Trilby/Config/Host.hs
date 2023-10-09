@@ -1,43 +1,57 @@
 module Trilby.Config.Host where
 
+import Data.Default (Default (def))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix (NExpr)
-import Nix.TH (nix)
-import Trilby.Config.Edition (Edition)
+import Nix.TH (ToExpr (toExpr), nix)
+import Trilby.Config.Channel
+import Trilby.Config.Edition
 import Trilby.Config.User
+import Trilby.Util
 import Prelude
 
 data Host = Host
     { hostname :: Text
-    , channel :: Text
+    , edition :: Edition
+    , channel :: Channel
     , keyboardLayout :: Text
     , timezone :: Text
-    , edition :: Edition
     , user :: User
     }
     deriving stock (Generic, Show)
 
-host :: Host -> NExpr
-host Host{..} =
-    [nix|
-        { lib, ... }:
+instance ToExpr Host where
+    toExpr Host{..} =
+        [nix|
+            { lib, ... }:
 
-        lib.trilbySystem {
-          trilby = {
-            edition = edition;
-            channel = channel;
-          };
-          modules = [
-            {
-              networking.hostName = hostname;
-              time.timeZone = timezone;
+            lib.trilbySystem {
+              trilby = {
+                edition = edition;
+                channel = channel;
+              };
+              modules = [
+                {
+                  networking.hostName = hostname;
+                  time.timeZone = timezone;
+                }
+                ./hardware-configuration.nix
+                (import userModule { inherit lib; })
+              ];
             }
-            ./hardware-configuration.nix
-            (importStmt userModule { inherit lib; })
-          ];
-        }
-    |]
-  where
-    importStmt = "import" :: NExpr
-    userModule = "../../users/" <> user.username
+        |]
+      where
+        userModule :: NExpr
+        userModule = fromText $ "../../users/" <> user.username
+
+instance Default Host where
+    def =
+        Host
+            { hostname = "trilby"
+            , edition = def
+            , channel = def
+            , keyboardLayout = "us"
+            , timezone = "Europe/Zurich"
+            , user = def
+            }

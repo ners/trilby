@@ -11,8 +11,8 @@ let
         })
         # Fix quasiquote free variable interpolation
         (pkgs.fetchpatch {
-          url = "https://github.com/haskell-nix/hnix/commit/16777e6a3ae08cd48179a3af51546671f19459f7.diff";
-          hash = "sha256-1+HQWODW676a8Ft+xc0GLVrBThuzIhT+a3yU0ZJXVF8=";
+          url = "https://github.com/haskell-nix/hnix/commit/bec2ba06e87eec2b14b2ef003ceda5ac216cd8d3.diff";
+          hash = "sha256-lZYf6QAanDNh55vdSKUocb/9axLNTV9JUUBmgK9pnuM=";
         })
       ];
     };

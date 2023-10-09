@@ -1,0 +1,31 @@
+module Trilby.Command where
+
+import GHC.Generics (Generic)
+import Options.Applicative
+import Trilby.Install.Options
+import Trilby.Update.Options
+import Prelude
+
+data Command m
+    = Update (UpdateOpts m)
+    | Install (InstallOpts m)
+    deriving stock (Generic)
+
+deriving stock instance Eq (Command Maybe)
+
+deriving stock instance Show (Command Maybe)
+
+parseCommandInfo :: ParserInfo (Command Maybe)
+parseCommandInfo =
+    info
+        (helper <*> parseCommand)
+        (fullDesc <> progDesc "Trilby command-line tool")
+
+parseCommand :: Parser (Command Maybe)
+parseCommand = hsubparser (parseUpdate <> parseInstall)
+
+parseInstall :: Mod CommandFields (Command Maybe)
+parseInstall = command "install" $ info (Install <$> parseInstallOpts optional) (progDesc "install desc")
+
+parseUpdate :: Mod CommandFields (Command Maybe)
+parseUpdate = command "update" $ info (Update <$> parseUpdateOpts optional) (progDesc "update desc")

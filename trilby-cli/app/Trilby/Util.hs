@@ -9,6 +9,9 @@ import Data.String (IsString, fromString)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Nix (prettyNix)
+import Nix.TH (ToExpr (toExpr))
+import Options.Applicative (Parser, flag', help, long, (<|>))
 import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
@@ -83,7 +86,33 @@ shell_ :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
 shell_ cmd input = info cmd >> Turtle.shells cmd input
 
 sudo :: (MonadIO m) => Text -> m Turtle.ExitCode
-sudo command = shell ("sudo " <> command) Turtle.stdin
+sudo cmd = shell ("sudo " <> cmd) Turtle.stdin
 
 sudo_ :: (MonadIO m) => Text -> m ()
-sudo_ command = shell_ ("sudo " <> command) Turtle.stdin
+sudo_ cmd = shell_ ("sudo " <> cmd) Turtle.stdin
+
+singleQuoted :: Text -> Text
+singleQuoted t = d <> escape t <> d
+  where
+    d = "'" :: Text
+    escape = Text.replace d (d <> "\\" <> d <> d)
+
+doubleQuoted :: Text -> Text
+doubleQuoted t = d <> escape t <> d
+  where
+    d = "\"" :: Text
+    escape = Text.replace d (d <> "\\" <> d <> d)
+
+inshellstrict :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Text
+inshellstrict cmd = Turtle.strict . Turtle.inshell cmd
+
+parseYesNo :: String -> String -> (Parser Bool -> Parser (m Bool)) -> Parser (m Bool)
+parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
+  where
+    noLong = "no-" <> yesLong
+
+showNix :: (ToExpr e, IsString s) => e -> s
+showNix = fromString . show . prettyNix . toExpr
+
+writeNixFile :: (ToExpr a, MonadIO m) => a -> FilePath -> m ()
+writeNixFile = flip Turtle.output . Turtle.toLines . pure . showNix
