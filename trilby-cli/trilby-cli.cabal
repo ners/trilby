@@ -51,30 +51,38 @@ executable trilby
     import:           common
     main-is:          Main.hs
     other-modules:
+        Trilby.Command
         Trilby.Config
+        Trilby.Config.Channel
         Trilby.Config.Edition
         Trilby.Config.Host
         Trilby.Config.User
         Trilby.Disko
+        Trilby.Disko.Disk
+        Trilby.Disko.Filesystem
+        Trilby.Disko.Partition
+        Trilby.HNix
         Trilby.Install
         Trilby.Install.Flake
-        Trilby.Options
+        Trilby.Install.Options
         Trilby.Update
+        Trilby.Update.Options
         Trilby.Util
-        Trilby.Disko.Disk
-        Trilby.Disko.Partition
-        Trilby.Disko.Filesystem
-        Trilby.HNix
 
     -- other-extensions:
     build-depends:
         , ansi-terminal
         , base
+        , data-default
         , data-fix
         , extra
+        , generic-lens
         , hnix
+        , lens
+        , lens-family-th
         , megaparsec
         , optparse-applicative
+        , prettyprinter
         , template-haskell
         , text
         , turtle

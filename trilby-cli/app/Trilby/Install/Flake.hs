@@ -1,10 +1,11 @@
-{-# OPTIONS_GHC -Wno-monomorphism-restriction #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Trilby.Install.Flake where
 
+import Data.Default (Default (def))
 import Data.Fix (Fix (Fix))
-import Data.Maybe (catMaybes)
 import Data.Text (Text)
+import Data.Text qualified as Text
 import GHC.Generics (Generic)
 import Nix
 import Nix.TH (ToExpr (toExpr), nix)
@@ -19,26 +20,28 @@ data Input = Input
     { name :: Text
     , url :: Text
     , flake :: Bool
-    , overrides :: [InputOverride]
+    , inputs :: [InputOverride]
     }
     deriving stock (Generic, Show, Eq)
 
 inputBinding :: Input -> Binding NExpr
 inputBinding Input{..} =
-    canonicalSetBinding
-        $ fromText name
-        ~:: NSet
-            NonRecursive
-            ( catMaybes
-                [ Just $ "url" ~: fromText url
-                , if flake then Nothing else Just $ "flake" ~: toExpr False
-                , if null overrides then Nothing else Just overridesSet
-                ]
-            )
+    canonicalBinding $
+        fromText name
+            ~: [nix|
+                {
+                    url = url;
+                    flake = flakeBinding;
+                    inputs = inputsSet;
+                }
+                |]
   where
-    overridesSet = canonicalSetBinding $ "inputs" ~:: NSet NonRecursive (io <$> overrides)
+    flakeBinding = if flake then Nothing else Just False
+    inputsSet = Fix $ NSet NonRecursive $ io <$> inputs
     io :: InputOverride -> Binding NExpr
-    io (Follows s t) = fromText s ~: fromText t
+    io (Follows s t) = fromText (s' <> ".follows") ~: toExpr t
+      where
+        s' = if Text.elem '.' s then doubleQuoted s else s
 
 data Flake = Flake
     { inputs :: [Input]
@@ -48,40 +51,49 @@ data Flake = Flake
 
 instance ToExpr Flake where
     toExpr Flake{..} =
-        [nix|
-        {
-            inputs = inputsSet;
-            outputs = outputs;
-        }
-        |]
+        canonicalSet
+            [nix|
+            {
+                inputs = inputsSet;
+                outputs = outputs;
+            }
+            |]
       where
         inputsSet = Fix $ NSet NonRecursive $ inputBinding <$> inputs
 
-trilbyFlake :: Flake
-trilbyFlake =
-    Flake
-        { inputs =
-            [ Input
-                { name = "trilby"
-                , url = "github:ners/trilby"
-                , flake = True
-                , overrides = []
-                }
-            ]
-        , outputs =
-            [nix|
-            inputs:
+instance Default Flake where
+    def =
+        Flake
+            { inputs =
+                [ Input
+                    { name = "nixpkgs"
+                    , url = "github:nixos/nixpkgs/nixos-unstable"
+                    , flake = True
+                    , inputs = []
+                    }
+                , Input
+                    { name = "nixpkgs-23_05"
+                    , url = "github:nixos/nixpkgs/nixos-23.05"
+                    , flake = True
+                    , inputs = []
+                    }
+                , Input
+                    { name = "trilby"
+                    , url = "github:ners/trilby"
+                    , flake = True
+                    , inputs = [Follows "nixpkgs-unstable" "nixpkgs", Follows "nixpkgs-23.05" "nixpkgs-23_05"]
+                    }
+                ]
+            , outputs =
+                [nix|
+                inputs:
+                with builtins;
                 let lib = inputs.trilby.lib; in
                 {
                   nixosConfigurations = with lib; pipe ./hosts [
                     findModules
-                    (mapAttrs (_: host: importStmt host { inherit lib; }))
+                    (mapAttrs (_: host: import host { inherit lib; }))
                   ];
                 }
-        |]
-        }
-  where
-    importStmt = "import" :: NExpr
-    pipe = "pipe" :: NExpr
-    mapAttrs = "mapAttrs" :: NExpr
-    findModules = "findModules" :: NExpr
+                |]
+            }

@@ -3,40 +3,15 @@
 module Trilby.Update where
 
 import Control.Applicative (empty)
-import Control.Monad.Extra (ifM, whenM)
+import Control.Monad.Extra (whenM)
 import Control.Monad.IO.Class (MonadIO)
-import Trilby.Options
+import Trilby.Update.Options
 import Trilby.Util
 import Turtle.Prelude hiding (shell)
 import Prelude
 
-getAction :: (MonadIO m) => Maybe (UpdateAction Maybe) -> m (UpdateAction m)
-getAction ma =
-    ifM
-        askSwitch
-        (pure Switch)
-        (ifM askBoot (pure Boot{..}) (pure NoAction))
-  where
-    askSwitch = maybe (ask "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
-    askBoot = maybe (ask "Apply the new configuration at boot? (sudo)" False) pure isBoot
-    reboot = maybe (ask "Reboot to new configuration now? (sudo)" False) pure isReboot
-    isBoot = case ma of
-        Nothing -> Nothing
-        Just Boot{} -> Just True
-        _ -> Just False
-    isReboot = case ma of
-        Just Boot{reboot} -> reboot
-        _ -> Nothing
-
-getOpts :: forall m. (MonadIO m) => UpdateOpts Maybe -> UpdateOpts m
-getOpts opts =
-    UpdateOpts
-        { flakeUpdate = maybe (pure True) pure opts.flakeUpdate
-        , action = getAction opts.action
-        }
-
 update :: (MonadIO m) => UpdateOpts Maybe -> m ()
-update (getOpts -> opts) = do
+update (askOpts -> opts) = do
     cd "/etc/trilby"
     whenM opts.flakeUpdate $ shell_ "nix flake update" empty
     shell_ "nixos-rebuild build --flake ." empty

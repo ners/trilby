@@ -1,61 +1,26 @@
-{-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module Trilby.Install where
 
 import Control.Applicative (empty)
 import Control.Monad
-import Control.Monad.Extra (ifM, unlessM, whenM)
+import Control.Monad.Extra (unlessM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
+import Data.Default (Default (def))
 import Data.Functor ((<&>))
 import Data.List qualified
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
-import Language.Haskell.TH qualified as TH
-import System.Posix (getFileStatus)
-import Trilby.Config.Edition
-import Trilby.Options
+import Trilby.Config.Channel (Channel (Unstable))
+import Trilby.Config.Host
+import Trilby.Config.User
+import Trilby.Install.Flake (Flake)
+import Trilby.Install.Options
 import Trilby.Util
 import Turtle (ExitCode (ExitSuccess))
 import Turtle.Prelude hiding (shell)
 import Prelude hiding (error)
-
-getDisk :: (MonadIO m) => m Text
-getDisk = do
-    disks <- fmap ("/dev/" <>) . Text.lines <$> strict (inshell "lsblk --raw | grep '\\W\\+disk\\W\\+$' | awk '{print $1}'" empty)
-    disk <- choose "Choose installation disk:" disks
-    diskStatus <- liftIO $ getFileStatus $ Text.unpack disk
-    if isBlockDevice diskStatus
-        then pure disk
-        else do
-            error $ "Cannot find disk: " <> disk
-            getDisk
-
-getLuks :: (MonadIO m) => Maybe (LuksOpts Maybe) -> m (LuksOpts m)
-getLuks opts = ifM askLuks (pure UseLuks{..}) (pure NoLuks)
-  where
-    askLuks = maybe (ask "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
-
-getEdition :: (MonadIO m) => m Edition
-getEdition = choose "Choose edition:" [Workstation, Server]
-
-getOpts :: forall m. (MonadIO m) => InstallOpts Maybe -> InstallOpts m
-getOpts opts = do
-    InstallOpts
-        { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
-        , luks = getLuks opts.luks
-        , disk = maybe getDisk pure opts.disk
-        , format = maybe (ask "Format the disk?" True) pure opts.format
-        , edition = maybe getEdition pure opts.edition
-        , hostname = maybe (prompt "Choose hostname:") pure opts.hostname
-        , username = maybe (prompt "Choose admin username:") pure opts.username
-        , password = maybe (prompt "Choose admin password:") pure opts.password
-        , reboot = maybe (ask "Reboot system?" True) pure opts.reboot
-        }
 
 efiLabel :: Text
 efiLabel = "EFI"
@@ -102,20 +67,11 @@ trilbyDir = rootMount <> "/etc/trilby"
 luksPasswordFile :: Text
 luksPasswordFile = "/tmp/luksPassword"
 
-flakeTemplate :: Text
-flakeTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/flake.nix")
-
-hostTemplate :: Text
-hostTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/host.nix")
-
-userTemplate :: Text
-userTemplate = $(TH.stringE . Text.unpack <=< TH.runIO . Text.readFile $ "assets/install/user.nix")
-
 applySubstitutions :: [(Text, Text)] -> Text -> Text
 applySubstitutions = flip $ Data.List.foldr $ uncurry Text.replace
 
 install :: (MonadIO m) => InstallOpts Maybe -> m ()
-install (getOpts -> opts) = do
+install (askOpts -> opts) = do
     whenM opts.format $ doFormat opts
     rootIsMounted <- sudo ("mountpoint -q " <> rootMount) <&> (== ExitSuccess)
     unless rootIsMounted do
@@ -126,26 +82,32 @@ install (getOpts -> opts) = do
     cd $ fromText trilbyDir
     hostname <- opts.hostname
     username <- opts.username
-    password <- opts.password
-    initialHashedPassword <- fmap Text.strip . strict $ inshell ("mkpasswd '" <> password <> "'") empty
+    rawPassword <- opts.password
+    password <- HashedPassword . Text.strip <$> inshellstrict ("mkpasswd " <> singleQuoted rawPassword) empty
     edition <- opts.edition
     let hostDir = "hosts/" <> hostname
     let userDir = "users/" <> username
-    shell_ ("mkdir -p " <> hostDir <> " " <> userDir) empty
+    flip shell_ empty $
+        Text.unwords
+            [ "mkdir"
+            , "-p"
+            , hostDir
+            , userDir
+            ]
     let
-        substitute :: Text -> Text
-        substitute =
-            applySubstitutions
-                [ ("$hostname", hostname)
-                , ("$username", username)
-                , ("$initialHashedPassword", initialHashedPassword)
-                , ("$edition", tshow edition)
-                , ("$channel", "unstable")
-                ]
-    output "flake.nix" $ toLines $ pure $ substitute flakeTemplate
-    output (fromText $ hostDir <> "/default.nix") $ toLines $ pure $ substitute hostTemplate
-    output (fromText $ userDir <> "/default.nix") $ toLines $ pure $ substitute userTemplate
-    output (fromText $ hostDir <> "/hardware-configuration.nix") $
+    let flake = def @Flake
+    writeNixFile flake "flake.nix"
+    let user = User{uid = 1000, ..}
+    writeNixFile user $ fromText userDir <> "/default.nix"
+    let host =
+            Host
+                { channel = Unstable
+                , keyboardLayout = "us"
+                , timezone = "Europe/Zurich"
+                , ..
+                }
+    writeNixFile host $ fromText hostDir <> "/default.nix"
+    output (fromText hostDir <> "/hardware-configuration.nix") $
         inshell ("sudo nixos-generate-config --show-hardware-config --root " <> rootMount) stdin
     sudo_ $
         Text.unwords
@@ -173,7 +135,7 @@ doFormat opts = do
     let useLuks = case luks of
             UseLuks{} -> True
             _ -> False
-    let rootPartNum = if efi then 2 else 1
+    let rootPartNum = if efi then 2 else 1 :: Int
     let rootLabel = if useLuks then luksLabel else trilbyLabel
     sudo_ $
         Text.unwords

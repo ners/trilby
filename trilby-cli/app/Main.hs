@@ -1,11 +1,11 @@
 module Main where
 
 import Options.Applicative (execParser)
-import Trilby.Install (install)
-import Trilby.Options
-    ( Command (Install, Update)
+import Trilby.Command
+    ( Command (..)
     , parseCommandInfo
     )
+import Trilby.Install (install)
 import Trilby.Update (update)
 import Prelude
 
