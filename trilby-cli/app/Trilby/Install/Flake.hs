@@ -3,18 +3,20 @@
 module Trilby.Install.Flake where
 
 import Data.Default (Default (def))
-import Data.Fix (Fix (Fix))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
-import Nix
 import Nix.TH (ToExpr (toExpr), nix)
 import Trilby.HNix
 import Trilby.Util
 import Prelude
+import Nix (NExpr, NAttrPath)
 
 data InputOverride = Follows Text Text
     deriving stock (Generic, Show, Eq)
+
+instance ToExpr InputOverride where
+    toExpr (Follows _ t) = [nix| { follows = t; } |]
 
 data Input = Input
     { name :: Text
@@ -24,24 +26,19 @@ data Input = Input
     }
     deriving stock (Generic, Show, Eq)
 
-inputBinding :: Input -> Binding NExpr
-inputBinding Input{..} =
-    canonicalBinding $
-        fromText name
-            ~: [nix|
-                {
-                    url = url;
-                    flake = flakeBinding;
-                    inputs = inputsSet;
-                }
-                |]
-  where
-    flakeBinding = if flake then Nothing else Just False
-    inputsSet = Fix $ NSet NonRecursive $ io <$> inputs
-    io :: InputOverride -> Binding NExpr
-    io (Follows s t) = fromText (s' <> ".follows") ~: toExpr t
+instance ToExpr Input where
+    toExpr Input{..} =
+        [nix|
+        {
+            url = url;
+            flake = flakeBinding;
+            inputs = inputsSet;
+        }
+        |]
       where
-        s' = if Text.elem '.' s then doubleQuoted s else s
+        flakeBinding = if flake then Nothing else Just False
+        inputsSet = listToSet io inputs
+        io (Follows s _) = fromText @(NAttrPath NExpr) $ if Text.elem '.' s then doubleQuoted s else s
 
 data Flake = Flake
     { inputs :: [Input]
@@ -59,7 +56,7 @@ instance ToExpr Flake where
             }
             |]
       where
-        inputsSet = Fix $ NSet NonRecursive $ inputBinding <$> inputs
+        inputsSet = listToSet (fromText . (.name)) inputs
 
 instance Default Flake where
     def =
@@ -81,7 +78,10 @@ instance Default Flake where
                     { name = "trilby"
                     , url = "github:ners/trilby"
                     , flake = True
-                    , inputs = [Follows "nixpkgs-unstable" "nixpkgs", Follows "nixpkgs-23.05" "nixpkgs-23_05"]
+                    , inputs =
+                        [ Follows "nixpkgs-unstable" "nixpkgs"
+                        , Follows "nixpkgs-23.05" "nixpkgs-23_05"
+                        ]
                     }
                 ]
             , outputs =

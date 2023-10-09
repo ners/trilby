@@ -3,7 +3,9 @@ module Trilby.Disko.Disk where
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix.TH (ToExpr (toExpr), nix)
-import Trilby.Disko.Partition (Partition)
+import Trilby.Disko.Partition
+import Trilby.HNix
+import Trilby.Util
 import Prelude
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
@@ -14,9 +16,11 @@ instance ToExpr DiskContent where
         [nix|
         {
             type = "gpt";
-            partitions = partitions;
+            partitions = partitionsSet;
         }
         |]
+      where
+        partitionsSet = listToSet (fromText . (.name)) partitions
 
 data Disk = Disk
     { device :: Text
