@@ -6,6 +6,8 @@ import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix.TH (ToExpr (toExpr), nix)
 import Trilby.Disko.Filesystem (Filesystem)
+import Trilby.HNix
+import Trilby.Util
 import Prelude
 
 data Size = GiB Int | Whole
@@ -16,7 +18,8 @@ instance ToExpr Size where
     toExpr Whole = toExpr @String "100%"
 
 data Subvolume = Subvolume
-    { mountpoint :: Text
+    { name :: Text
+    , mountpoint :: Text
     , mountoptions :: [Text]
     }
     deriving stock (Generic, Show, Eq)
@@ -26,59 +29,56 @@ instance ToExpr Subvolume where
         [nix|
         {
             mountpoint = mountpoint;
-            mountoptions = mountoptions;
+            mountOptions = mountoptions;
         }
         |]
 
-data Partition
-    = EfiPartition
-        { size :: Size
-        , filesystem :: Filesystem
-        }
-    | LuksPartition
-        { size :: Size
-        , partitions :: [Partition]
-        }
-    | BtrfsPartition
-        { size :: Size
-        , subvolumes :: [Subvolume]
-        }
-    | DataPartition
-        { size :: Size
-        , filesystem :: Filesystem
-        }
+data PartitionContent
+    = BtrfsPartition {subvolumes :: [Subvolume]}
+    | EfiPartition {filesystem :: Filesystem}
+    | FilesystemPartition {filesystem :: Filesystem}
+    | LuksPartition {name :: Text, content :: PartitionContent}
     deriving stock (Generic, Show, Eq)
 
-instance ToExpr Partition where
-    toExpr EfiPartition{..} =
-        [nix|
-        {
-            size = size;
-            type = "EF00";
-            content = filesystem;
-        }
-        |]
-    toExpr LuksPartition{..} =
-        [nix|
-        {
-            size = size;
-            type = "luks";
-            partitions = partitions;
-        }
-        |]
+instance ToExpr PartitionContent where
     toExpr BtrfsPartition{..} =
         [nix|
         {
-            size = size;
             type = "btrfs";
-            subvolumes = subvolumes;
+            subvolumes = subvolumesSet;
         }
         |]
-    toExpr DataPartition{..} =
+      where
+        subvolumesSet = listToSet (fromText . doubleQuoted . (.name)) subvolumes
+    toExpr EfiPartition{..} = toExpr filesystem
+    toExpr FilesystemPartition{..} = toExpr filesystem
+    toExpr LuksPartition{..} =
         [nix|
         {
-            size = size;
-            type = "8300";
-            content = filesystem;
+            type = "luks";
+            name = name;
+            content = content;
         }
         |]
+
+data Partition = Partition
+    { name :: Text
+    , size :: Size
+    , content :: PartitionContent
+    }
+    deriving stock (Generic, Show, Eq)
+
+instance ToExpr Partition where
+    toExpr Partition{..} =
+        canonicalSet
+            [nix|
+            {
+                size = size;
+                type = typ;
+                content = content;
+            }
+            |]
+      where
+        typ = toExpr $ case content of
+            EfiPartition{} -> Just @String "EF00"
+            _ -> Nothing

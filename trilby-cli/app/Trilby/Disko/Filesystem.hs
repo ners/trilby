@@ -14,7 +14,8 @@ data Format
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr Format where
-    toExpr = toExpr . fmap toLower . show
+    toExpr Fat32 = "vfat"
+    toExpr fs = toExpr $ toLower <$> show fs
 
 data Filesystem = Filesystem
     { format :: Format
@@ -27,8 +28,9 @@ instance ToExpr Filesystem where
     toExpr Filesystem{..} =
         [nix|
         {
+            type = "filesystem";
             format = format;
             mountpoint = mountpoint;
-            mountoptions = mountoptions;
+            mountOptions = mountoptions;
         }
         |]

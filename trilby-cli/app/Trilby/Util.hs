@@ -114,5 +114,5 @@ parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|>
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
-writeNixFile :: (ToExpr a, MonadIO m) => a -> FilePath -> m ()
-writeNixFile = flip Turtle.output . Turtle.toLines . pure . showNix
+writeNixFile :: (ToExpr a, MonadIO m) => FilePath -> a -> m ()
+writeNixFile f = Turtle.output f . Turtle.toLines . pure . showNix

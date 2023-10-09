@@ -3,11 +3,13 @@
 module Trilby.Install where
 
 import Control.Applicative (empty)
+import Control.Lens ((%~), (&), (.~), _head)
 import Control.Monad
 import Control.Monad.Extra (unlessM, whenM)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Default (Default (def))
 import Data.Functor ((<&>))
+import Data.Generics.Labels ()
 import Data.List qualified
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -15,10 +17,11 @@ import Data.Text.IO qualified as Text
 import Trilby.Config.Channel (Channel (Unstable))
 import Trilby.Config.Host
 import Trilby.Config.User
+import Trilby.Disko (Disko (Disko))
 import Trilby.Install.Flake (Flake)
 import Trilby.Install.Options
 import Trilby.Util
-import Turtle (ExitCode (ExitSuccess))
+import Turtle (ExitCode (ExitSuccess), IsString (fromString))
 import Turtle.Prelude hiding (shell)
 import Prelude hiding (error)
 
@@ -96,9 +99,9 @@ install (askOpts -> opts) = do
             ]
     let
     let flake = def @Flake
-    writeNixFile flake "flake.nix"
+    writeNixFile "flake.nix" flake
     let user = User{uid = 1000, ..}
-    writeNixFile user $ fromText userDir <> "/default.nix"
+    writeNixFile (fromText userDir <> "/default.nix") user
     let host =
             Host
                 { channel = Unstable
@@ -106,9 +109,10 @@ install (askOpts -> opts) = do
                 , timezone = "Europe/Zurich"
                 , ..
                 }
-    writeNixFile host $ fromText hostDir <> "/default.nix"
+    writeNixFile (fromText hostDir <> "/default.nix") host
     output (fromText hostDir <> "/hardware-configuration.nix") $
-        inshell ("sudo nixos-generate-config --show-hardware-config --root " <> rootMount) stdin
+        inshell ("sudo nixos-generate-config --show-hardware-config --no-filesystems --root " <> rootMount) stdin
+    writeNixFile @Disko (fromText hostDir <> "/disko.nix") def
     sudo_ $
         Text.unwords
             [ "nixos-install"
@@ -121,72 +125,11 @@ install (askOpts -> opts) = do
 doFormat :: (MonadIO m) => InstallOpts m -> m ()
 doFormat opts = do
     disk <- opts.disk
-    sudo_ $ "sgdisk --zap-all -o " <> disk
-    efi <- opts.efi
-    when efi do
-        sudo_ $
-            Text.unwords
-                [ "sgdisk"
-                , "-n 1:0:+1G"
-                , "-t 1:EF00"
-                , "-c 1:" <> efiLabel <> " " <> disk
-                ]
-    luks <- opts.luks
-    let useLuks = case luks of
-            UseLuks{} -> True
-            _ -> False
-    let rootPartNum = if efi then 2 else 1 :: Int
-    let rootLabel = if useLuks then luksLabel else trilbyLabel
-    sudo_ $
-        Text.unwords
-            [ "sgdisk"
-            , "-n " <> tshow rootPartNum <> ":0:0"
-            , "-t " <> tshow rootPartNum <> ":8300"
-            , "-c " <> tshow rootPartNum <> ":" <> rootLabel
-            , disk
-            ]
-    sudo_ "partprobe"
-    when efi do
-        sudo_ $ "mkfs.fat -F32 -n" <> efiLabel <> " " <> efiDevice
-    when useLuks do
-        luks.luksPassword >>= liftIO . Text.writeFile (fromText luksPasswordFile)
-        sudo_ $ "cryptsetup luksFormat --type luks2 -d " <> luksPasswordFile <> " " <> luksDevice
-        sudo_ $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
-        rm $ fromText luksPasswordFile
-    let rootDevice = if useLuks then luksOpenDevice else trilbyDevice
-    sudo_ $ "mkfs.btrfs -f -L " <> trilbyLabel <> " " <> rootDevice
-    sudo_ "partprobe"
-    sudo_ $ "mount " <> rootDevice <> " " <> rootMount
-    sudo_ $ "btrfs subvolume create " <> rootVol
-    sudo_ $ "btrfs subvolume create " <> homeVol
-    sudo_ $ "btrfs subvolume create " <> nixVol
-    unless efi do
-        sudo_ $ "btrfs subvolume create " <> bootVol
-    sudo_ $ "umount " <> rootMount
-    sudo_ $ "mount -o subvol=root,ssd,compress=zstd,noatime " <> rootDevice <> " " <> rootMount
-    sudo_ $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
-    if efi
-        then sudo_ $ "mount " <> efiDevice <> " " <> bootVol
-        else sudo_ $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
-    sudo_ $ "mount -o subvol=home,ssd,compress=zstd " <> rootDevice <> " " <> homeVol
-    sudo_ $ "mount -o subvol=nix,ssd,compress=zstd,noatime " <> rootDevice <> " " <> nixVol
+    let disko = def @Disko & #disks . _head %~ #device .~ disk
+    let diskoFile = "/tmp/disko.nix" :: FilePath
+    writeNixFile diskoFile disko
+    sudo_ $ "disko -m disko " <> fromString diskoFile
+    pure ()
 
 doMount :: (MonadIO m) => InstallOpts m -> m ()
-doMount opts = do
-    efi <- opts.efi
-    luks <- opts.luks
-    let useLuks = case luks of
-            UseLuks{} -> True
-            _ -> False
-    when useLuks do
-        luks.luksPassword >>= liftIO . Text.writeFile (fromText luksPasswordFile)
-        sudo_ $ "cryptsetup luksOpen -d " <> luksPasswordFile <> " " <> luksDevice <> " " <> luksName
-        rm $ fromText luksPasswordFile
-    let rootDevice = if useLuks then luksOpenDevice else trilbyDevice
-    sudo_ $ "mount -o subvol=root,compress=zstd,noatime " <> rootDevice <> " " <> rootMount
-    sudo_ $ "mkdir -p " <> Text.unwords [bootVol, homeVol, nixVol]
-    if efi
-        then sudo_ $ "mount " <> efiDevice <> " " <> bootVol
-        else sudo_ $ "mount -o subvol=boot " <> rootDevice <> " " <> bootVol
-    sudo_ $ "mount -o subvol=home,compress=zstd " <> rootDevice <> " " <> homeVol
-    sudo_ $ "mount -o subvol=nix,compress=zstd,noatime " <> rootDevice <> " " <> nixVol
+doMount opts = pure ()

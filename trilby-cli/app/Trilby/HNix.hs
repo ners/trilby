@@ -13,6 +13,7 @@ import Data.String (IsString (fromString))
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Nix.TH (ToExpr (toExpr))
 import Trilby.Util (fromListSafe)
 import Prelude
 
@@ -43,7 +44,7 @@ canonicalBinding (NamedVar p1 s@(Fix (NSet{})) pos) = NamedVar p1 (canonicalSet 
 canonicalBinding b = b
 
 canonicalSet :: NExpr -> NExpr
-canonicalSet (Fix (NSet recursivity bindings)) = Fix $ NSet recursivity $ canonicalBinding <$> filter (not . isNullBinding) bindings
+canonicalSet (Fix (NSet r bs)) = Fix $ NSet r $ canonicalBinding <$> filter (not . isNullBinding) bs
   where
     isNullBinding :: Binding NExpr -> Bool
     isNullBinding (NamedVar _ (Fix (NConstant NNull)) _) = True
@@ -52,9 +53,5 @@ canonicalSet (Fix (NSet recursivity bindings)) = Fix $ NSet recursivity $ canoni
     isNullBinding _ = False
 canonicalSet s = error $ "canonicalSet bottom: " <> show s
 
-appendBinding :: Binding NExpr -> NExpr -> NExpr
-appendBinding b (Fix (NSet recursivity bindings)) = Fix $ NSet recursivity $ bindings <> [b]
-appendBinding b (Fix (NBinary o f@(Fix (NSet{})) e)) = Fix $ NBinary o (appendBinding b f) e
-appendBinding b (Fix (NBinary o f e@(Fix (NSet{})))) = Fix $ NBinary o f (appendBinding b e)
-appendBinding b (Fix (NAbs params e)) = Fix $ NAbs params $ appendBinding b e
-appendBinding _ e = error $ "appendBinding bottom: " <> show e
+listToSet :: (ToExpr a) => (a -> NAttrPath NExpr) -> [a] -> NExpr
+listToSet f xs = Fix $ NSet NonRecursive $ (\x -> f x ~: toExpr x) <$> xs
