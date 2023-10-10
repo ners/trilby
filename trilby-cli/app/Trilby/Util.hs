@@ -3,15 +3,16 @@ module Trilby.Util where
 import Control.Monad (zipWithM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Char qualified as Char
+import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, fromList, nonEmpty)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.String (IsString, fromString)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Nix (prettyNix)
 import Nix.TH (ToExpr (toExpr))
-import Options.Applicative (Parser, flag', help, long, (<|>))
+import Options.Applicative
 import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
@@ -19,20 +20,20 @@ import Text.Read (readMaybe)
 import Turtle qualified
 import Prelude hiding (error, log)
 
-error :: (MonadIO m) => Text -> m ()
-error t = liftIO do
+logerror :: (MonadIO m) => Text -> m ()
+logerror t = liftIO do
     hSetSGR stderr [SetColor Foreground Dull Red]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-warn :: (MonadIO m) => Text -> m ()
-warn t = liftIO do
+logwarn :: (MonadIO m) => Text -> m ()
+logwarn t = liftIO do
     hSetSGR stderr [SetColor Foreground Dull Yellow]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-info :: (MonadIO m) => Text -> m ()
-info t = liftIO do
+loginfo :: (MonadIO m) => Text -> m ()
+loginfo t = liftIO do
     hSetSGR stderr [SetColor Foreground Dull White]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
@@ -53,25 +54,37 @@ ask question defaultValue = do
         Just (Char.toLower -> 'y', _) -> pure True
         Just (Char.toLower -> 'n', _) -> pure False
         _ -> do
-            error "Unrecognised input"
+            logerror "Unrecognised input"
             ask question defaultValue
 
-choose :: (Show a, MonadIO m) => Text -> [a] -> m a
-choose message values = liftIO do
+askChoice :: (Show a, MonadIO m) => Text -> [a] -> m a
+askChoice message values = liftIO do
     Text.putStrLn message
     zipWithM_ (\i v -> Text.putStrLn $ tshow i <> ") " <> tshow v) [1 :: Int ..] values
     selection <- readMaybe . Text.unpack <$> prompt ">"
     case selection of
         Just i | i > 0 && i <= length values -> pure $ values !! (i - 1)
         _ -> do
-            error "Invalid input"
-            choose message values
+            logerror "Invalid input"
+            askChoice message values
+
+askEnum :: (Bounded a, Enum a, Show a, MonadIO m) => Text -> m a
+askEnum = flip askChoice [minBound .. maxBound]
 
 errorExit :: (MonadIO m) => Text -> m ()
-errorExit msg = error msg >> liftIO exitFailure
+errorExit msg = logerror msg >> liftIO exitFailure
 
 tshow :: (Show a) => a -> Text
 tshow = Text.pack . show
+
+readsPrecBoundedEnumOn :: (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
+readsPrecBoundedEnumOn m _ s = f [minBound .. maxBound]
+  where
+    f = maybeToList . asum . fmap g
+    g e = (e,) <$> List.stripPrefix (m $ show e) (m s)
+
+readsPrecBoundedEnum :: (Show a, Bounded a, Enum a) => Int -> String -> [(a, String)]
+readsPrecBoundedEnum = readsPrecBoundedEnumOn id
 
 fromText :: (IsString a) => Text -> a
 fromText = fromString . Text.unpack
@@ -80,10 +93,10 @@ fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
 
 shell :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Turtle.ExitCode
-shell cmd input = info cmd >> Turtle.shell cmd input
+shell cmd input = loginfo cmd >> Turtle.shell cmd input
 
 shell_ :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
-shell_ cmd input = info cmd >> Turtle.shells cmd input
+shell_ cmd input = loginfo cmd >> Turtle.shells cmd input
 
 sudo :: (MonadIO m) => Text -> m Turtle.ExitCode
 sudo cmd = shell ("sudo " <> cmd) Turtle.stdin
@@ -110,6 +123,11 @@ parseYesNo :: String -> String -> (Parser Bool -> Parser (m Bool)) -> Parser (m 
 parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
   where
     noLong = "no-" <> yesLong
+
+parseEnum :: forall a m. (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> (Parser a -> Parser (m a)) -> Parser (m a)
+parseEnum m f = f $ option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
+  where
+    options = show <$> [minBound @a .. maxBound]
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr

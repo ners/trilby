@@ -80,10 +80,7 @@ executable trilby
         , hnix
         , lens
         , lens-family-th
-        , megaparsec
         , optparse-applicative
-        , prettyprinter
-        , template-haskell
         , text
         , turtle
         , unix

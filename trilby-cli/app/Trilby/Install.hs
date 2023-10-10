@@ -6,22 +6,19 @@ import Control.Applicative (empty)
 import Control.Lens ((%~), (&), (.~), _head)
 import Control.Monad
 import Control.Monad.Extra (unlessM, whenM)
-import Control.Monad.IO.Class (MonadIO (liftIO))
 import Data.Default (Default (def))
 import Data.Functor ((<&>))
 import Data.Generics.Labels ()
 import Data.List qualified
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Data.Text.IO qualified as Text
 import Trilby.Config.Channel (Channel (Unstable))
 import Trilby.Config.Host
 import Trilby.Config.User
-import Trilby.Disko (Disko (Disko))
 import Trilby.Install.Flake (Flake)
 import Trilby.Install.Options
 import Trilby.Util
-import Turtle (ExitCode (ExitSuccess), IsString (fromString))
+import Turtle (ExitCode (ExitSuccess), IsString (fromString), MonadIO)
 import Turtle.Prelude hiding (shell)
 import Prelude hiding (error)
 
