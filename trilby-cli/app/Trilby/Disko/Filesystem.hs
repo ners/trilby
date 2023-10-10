@@ -11,10 +11,10 @@ data Format
     | Ext4
     | Fat32
     | XFS
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic, Show, Read, Eq, Bounded, Enum)
 
 instance ToExpr Format where
-    toExpr Fat32 = "vfat"
+    toExpr Fat32 = toExpr @String "vfat"
     toExpr fs = toExpr $ toLower <$> show fs
 
 data Filesystem = Filesystem

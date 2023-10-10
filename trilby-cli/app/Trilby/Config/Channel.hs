@@ -3,6 +3,7 @@ module Trilby.Config.Channel where
 import Data.Default (Default (def))
 import GHC.Generics (Generic)
 import Nix.TH (ToExpr (toExpr))
+import Trilby.Util
 import Prelude
 
 data Channel
@@ -15,6 +16,9 @@ instance Show Channel where
     show Unstable = "unstable"
     show Stable_23_11 = "23.11"
     show Stable_23_05 = "23.05"
+
+instance Read Channel where
+    readsPrec = readsPrecBoundedEnum
 
 instance ToExpr Channel where
     toExpr = toExpr . show
