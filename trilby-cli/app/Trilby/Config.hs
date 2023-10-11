@@ -1,6 +1,5 @@
 module Trilby.Config where
 
-import Data.Default (Default (def))
 import GHC.Generics (Generic)
 import Trilby.Config.Host (Host)
 import Trilby.Disko (Disko)
@@ -11,6 +10,3 @@ data InstallConfig = InstallConfig
     , disko :: Disko
     }
     deriving stock (Generic, Show)
-
-instance Default InstallConfig where
-    def = InstallConfig{host = def, disko = def}

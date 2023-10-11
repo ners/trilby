@@ -37,7 +37,7 @@ data PartitionContent
     = BtrfsPartition {subvolumes :: [Subvolume]}
     | EfiPartition {filesystem :: Filesystem}
     | FilesystemPartition {filesystem :: Filesystem}
-    | LuksPartition {name :: Text, content :: PartitionContent}
+    | LuksPartition {name :: Text, keyFile :: Maybe Text, content :: PartitionContent}
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr PartitionContent where
@@ -58,6 +58,7 @@ instance ToExpr PartitionContent where
             type = "luks";
             name = name;
             content = content;
+            settings.keyFile = keyFile;
         }
         |]
 

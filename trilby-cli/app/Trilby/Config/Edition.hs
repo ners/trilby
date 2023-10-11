@@ -14,6 +14,6 @@ instance Read Edition where
     readsPrec = readsPrecBoundedEnumOn (fmap toLower)
 
 instance ToExpr Edition where
-    toExpr = toExpr @String . fmap toLower . show
+    toExpr = toExpr . fmap toLower . show
 
 instance Default Edition where def = Workstation
