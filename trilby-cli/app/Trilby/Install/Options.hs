@@ -3,16 +3,18 @@
 module Trilby.Install.Options where
 
 import Control.Monad.Extra (ifM)
-import Control.Monad.IO.Class (MonadIO (liftIO))
+import Control.Monad.Logger (logError, logInfo)
 import Data.Text (Text)
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
+import Trilby.App (App)
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Disko.Filesystem
 import Trilby.Util
+import UnliftIO (MonadIO (liftIO))
 import Prelude hiding (error)
 
 data LuksOpts m
@@ -55,23 +57,23 @@ parseInstallOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (In
 parseInstallOpts f = do
     luks <- parseLuks f
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
-    format <- parseYesNo "format" "format the installation disk" f
-    filesystem <- parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem") f
-    edition <- parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install") f
-    channel <- parseEnum (long "channel" <> metavar "CHANNEL" <> help "the nixpkgs channel to use") f
+    format <- f $ parseYesNo "format" "format the installation disk"
+    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem")
+    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
+    channel <- f $ parseEnum (long "channel" <> metavar "CHANNEL" <> help "the nixpkgs channel to use")
     hostname <- f $ strOption (long "host" <> metavar "HOSTNAME" <> help "the hostname to install")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
     password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "the password of the admin user")
-    reboot <- parseYesNo "reboot" "reboot when done installing" f
+    reboot <- f $ parseYesNo "reboot" "reboot when done installing"
     pure InstallOpts{..}
 
-askDisk :: (MonadIO m) => m Text
+askDisk :: App Text
 askDisk = do
     disks <- fmap ("/dev/" <>) . Text.lines <$> inshellstrict "lsblk --raw | grep '\\W\\+disk\\W\\+$' | awk '{print $1}'" empty
     case disks of
         [] -> errorExit "No disks found"
         [d] -> do
-            loginfo $ "Using disk: " <> d
+            $(logInfo) $ "Using disk: " <> d
             pure d
         _ -> do
             disk <- askChoice "Choose installation disk:" disks
@@ -79,26 +81,26 @@ askDisk = do
             if isBlockDevice diskStatus
                 then pure disk
                 else do
-                    logerror $ "Cannot find disk: " <> disk
+                    $(logError) $ "Cannot find disk: " <> disk
                     askDisk
 
-askLuks :: (MonadIO m) => Maybe (LuksOpts Maybe) -> m (LuksOpts m)
+askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
 askLuks opts = ifM useLuks (pure UseLuks{..}) (pure NoLuks)
   where
-    useLuks = maybe (ask "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
+    useLuks = maybe (askYesNo "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
     luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
-askOpts :: forall m. (MonadIO m) => InstallOpts Maybe -> InstallOpts m
+askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts = do
     InstallOpts
         { luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
-        , format = maybe (ask "Format the disk?" True) pure opts.format
+        , format = maybe (askYesNo "Format the disk?" True) pure opts.format
         , filesystem = maybe (askEnum "Choose root partition filesystem:") pure opts.filesystem
         , edition = maybe (askEnum "Choose edition:") pure opts.edition
         , channel = maybe (askEnum "Choose channel:") pure opts.channel
         , hostname = maybe (prompt "Choose hostname:") pure opts.hostname
         , username = maybe (prompt "Choose admin username:") pure opts.username
         , password = maybe (prompt "Choose admin password:") pure opts.password
-        , reboot = maybe (ask "Reboot system?" True) pure opts.reboot
+        , reboot = maybe (askYesNo "Reboot system?" True) pure opts.reboot
         }

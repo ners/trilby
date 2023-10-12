@@ -4,6 +4,7 @@ import Data.Char (toLower)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix.TH
+import Trilby.Util
 import Prelude
 
 data Format
@@ -11,7 +12,9 @@ data Format
     | Ext4
     | Fat32
     | XFS
-    deriving stock (Generic, Show, Read, Eq, Bounded, Enum)
+    deriving stock (Generic, Show, Eq, Bounded, Enum)
+
+instance Read Format where readsPrec = readsPrecBoundedEnumOn (fmap toLower)
 
 instance ToExpr Format where
     toExpr Fat32 = toExpr @String "vfat"

@@ -15,12 +15,6 @@ deriving stock instance Eq (Command Maybe)
 
 deriving stock instance Show (Command Maybe)
 
-parseCommandInfo :: ParserInfo (Command Maybe)
-parseCommandInfo =
-    info
-        (helper <*> parseCommand)
-        (fullDesc <> progDesc "Trilby command-line tool")
-
 parseCommand :: Parser (Command Maybe)
 parseCommand = hsubparser (parseUpdate <> parseInstall)
 

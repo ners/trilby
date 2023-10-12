@@ -1,11 +1,14 @@
 module Trilby.Util where
 
-import Control.Lens (Getting, (^?))
+import Control.Lens (Getting, view, (^?))
 import Control.Monad (zipWithM_)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Extra (whenM)
+import Control.Monad.Logger (LogLevel (LevelInfo), logError, logInfo)
+import Control.Monad.Reader (MonadReader (ask))
 import Data.Char qualified as Char
+import Data.Generics.Labels ()
 import Data.List qualified as List
-import Data.List.NonEmpty (NonEmpty, fromList, nonEmpty)
+import Data.List.NonEmpty (NonEmpty ((:|)), fromList, nonEmpty)
 import Data.Maybe (fromMaybe, isJust, maybeToList)
 import Data.Monoid (First)
 import Data.String (IsString, fromString)
@@ -16,39 +19,46 @@ import Nix (prettyNix)
 import Nix.TH (ToExpr (toExpr))
 import Options.Applicative
 import System.Console.ANSI
-import System.Exit (exitFailure)
-import System.IO (hFlush, stderr, stdout)
+import System.Exit (ExitCode (..), exitFailure, exitWith)
+import System.IO (stderr, stdout)
 import Text.Read (readMaybe)
-import Turtle (dirname)
+import Trilby.App
 import Turtle qualified
-import Prelude hiding (error, log)
+import UnliftIO (MonadIO (liftIO), askRunInIO, hFlush, readTVarIO)
+import Prelude hiding (error, log, writeFile)
 
-logerror :: (MonadIO m) => Text -> m ()
-logerror t = liftIO do
-    hSetSGR stderr [SetColor Foreground Dull Red]
+printError :: Text -> IO ()
+printError t = do
+    hSetSGR stderr [SetColor Foreground Vivid Red]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-logwarn :: (MonadIO m) => Text -> m ()
-logwarn t = liftIO do
-    hSetSGR stderr [SetColor Foreground Dull Yellow]
+printWarn :: Text -> IO ()
+printWarn t = do
+    hSetSGR stderr [SetColor Foreground Vivid Yellow]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-loginfo :: (MonadIO m) => Text -> m ()
-loginfo t = liftIO do
-    hSetSGR stderr [SetColor Foreground Dull White]
+printInfo :: Text -> IO ()
+printInfo t = do
+    hSetSGR stderr [SetColor Foreground Dull Cyan]
     Text.hPutStrLn stderr t
     hSetSGR stderr [Reset]
 
-prompt :: (MonadIO m) => Text -> m Text
+printDebug :: Text -> IO ()
+printDebug t = do
+    hSetSGR stderr [SetColor Foreground Dull Magenta]
+    Text.hPutStrLn stderr t
+    hSetSGR stderr [Reset]
+
+prompt :: Text -> App Text
 prompt message = liftIO do
     Text.putStr $ message <> " "
     hFlush stdout
     Text.getLine
 
-ask :: (MonadIO m) => Text -> Bool -> m Bool
-ask question defaultValue = do
+askYesNo :: Text -> Bool -> App Bool
+askYesNo question defaultValue = do
     answer <-
         prompt $
             question <> " " <> (if defaultValue then "[Y/n]" else "[y/N]")
@@ -57,34 +67,33 @@ ask question defaultValue = do
         Just (Char.toLower -> 'y', _) -> pure True
         Just (Char.toLower -> 'n', _) -> pure False
         _ -> do
-            logerror "Unrecognised input"
-            ask question defaultValue
+            $(logError) "Invalid input"
+            askYesNo question defaultValue
 
-askChoice :: (Show a, MonadIO m) => Text -> [a] -> m a
-askChoice message values = liftIO do
-    Text.putStrLn message
-    zipWithM_ (\i v -> Text.putStrLn $ tshow i <> ") " <> tshow v) [1 :: Int ..] values
+askChoice :: (Show a) => Text -> [a] -> App a
+askChoice message values = do
+    liftIO $ Text.putStrLn message
+    zipWithM_ (\i v -> liftIO $ Text.putStrLn $ tshow i <> ") " <> tshow v) [1 :: Int ..] values
     selection <- readMaybe . Text.unpack <$> prompt ">"
     case selection of
         Just i | i > 0 && i <= length values -> pure $ values !! (i - 1)
         _ -> do
-            logerror "Invalid input"
+            $(logError) "Invalid input"
             askChoice message values
 
-askEnum :: (Bounded a, Enum a, Show a, MonadIO m) => Text -> m a
+askEnum :: (Bounded a, Enum a, Show a) => Text -> App a
 askEnum = flip askChoice [minBound .. maxBound]
 
-errorExit :: (MonadIO m) => Text -> m a
-errorExit msg = logerror msg >> liftIO exitFailure
+errorExit :: Text -> App a
+errorExit msg = $(logError) msg >> liftIO exitFailure
 
 tshow :: (Show a) => a -> Text
 tshow = Text.pack . show
 
-readsPrecBoundedEnumOn :: (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
-readsPrecBoundedEnumOn m _ s = f [minBound .. maxBound]
+readsPrecBoundedEnumOn :: forall a. (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
+readsPrecBoundedEnumOn m _ s = maybeToList $ asum $ map f [minBound .. maxBound]
   where
-    f = maybeToList . asum . fmap g
-    g e = (e,) <$> List.stripPrefix (m $ show e) (m s)
+    f e = (e,) <$> List.stripPrefix (m $ show e) (m s)
 
 readsPrecBoundedEnum :: (Show a, Bounded a, Enum a) => Int -> String -> [(a, String)]
 readsPrecBoundedEnum = readsPrecBoundedEnumOn id
@@ -95,17 +104,36 @@ fromText = fromString . Text.unpack
 fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
 
-shell :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Turtle.ExitCode
-shell cmd input = loginfo cmd >> Turtle.shell cmd input
+cmd' :: NonEmpty Text -> App (ExitCode, Text)
+cmd' (p :| args) = do
+    $(logInfo) $ Text.intercalate " " (p : args)
+    Turtle.procStrict p args Turtle.stdin
 
-shell_ :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m ()
-shell_ cmd input = loginfo cmd >> Turtle.shells cmd input
+cmd :: NonEmpty Text -> App Text
+cmd args = do
+    (code, out) <- cmd' args
+    case code of
+        ExitSuccess -> pure out
+        ExitFailure{} -> liftIO $ exitWith code
 
-sudo :: (MonadIO m) => Text -> m Turtle.ExitCode
-sudo cmd = shell ("sudo " <> cmd) Turtle.stdin
+cmd_ :: NonEmpty Text -> App ()
+cmd_ args = do
+    out <- cmd args
+    whenM (verbosityAtLeast LevelInfo) do
+        liftIO $ Text.putStr out
+        hFlush stdout
 
-sudo_ :: (MonadIO m) => Text -> m ()
-sudo_ cmd = shell_ ("sudo " <> cmd) Turtle.stdin
+prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
+prepend x = (pure x <>)
+
+sudo' :: NonEmpty Text -> App (ExitCode, Text)
+sudo' = cmd' . prepend "sudo"
+
+sudo :: NonEmpty Text -> App Text
+sudo = cmd . prepend "sudo"
+
+sudo_ :: NonEmpty Text -> App ()
+sudo_ = cmd_ . prepend "sudo"
 
 singleQuoted :: Text -> Text
 singleQuoted t = d <> escape t <> d
@@ -119,29 +147,53 @@ doubleQuoted t = d <> escape t <> d
     d = "\"" :: Text
     escape = Text.replace d (d <> "\\" <> d <> d)
 
-inshellstrict :: (MonadIO m) => Text -> Turtle.Shell Turtle.Line -> m Text
-inshellstrict cmd = Turtle.strict . Turtle.inshell cmd
+inshellstrict :: Text -> Turtle.Shell Turtle.Line -> App Text
+inshellstrict = (Turtle.strict .) . Turtle.inshell
 
-parseYesNo :: String -> String -> (Parser Bool -> Parser (m Bool)) -> Parser (m Bool)
-parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
+parseYesNo :: String -> String -> Parser Bool
+parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
   where
     noLong = "no-" <> yesLong
 
-parseEnum :: forall a m. (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> (Parser a -> Parser (m a)) -> Parser (m a)
-parseEnum m f = f $ option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
+parseChoiceWith :: forall a. (a -> String) -> (String -> Maybe a) -> Mod OptionFields a -> [a] -> Parser a
+parseChoiceWith show' read' m xs = option (maybeReader read') $ m <> showDefaultWith show' <> completeWith options
   where
-    options = show @a <$> [minBound .. maxBound]
+    options = show' <$> xs
+
+parseChoice :: forall a. (Show a, Read a) => Mod OptionFields a -> [a] -> Parser a
+parseChoice m xs = option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
+  where
+    options = show @a <$> xs
+
+parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
+parseEnum = flip parseChoice [minBound .. maxBound]
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
-ensureDir :: (MonadIO m) => FilePath -> m ()
-ensureDir d = shell_ ("mkdir -p " <> fromString d) empty
+ensureDir :: FilePath -> App ()
+ensureDir "" = pure ()
+ensureDir "." = pure ()
+ensureDir d@('/' : _) = sudo_ ["mkdir", "-p", fromString d]
+ensureDir d = cmd_ ["mkdir", "-p", fromString d]
 
-writeNixFile :: (ToExpr a, MonadIO m) => FilePath -> a -> m ()
-writeNixFile f a = do
-    ensureDir $ dirname f
-    Turtle.output f . Turtle.toLines . pure $ showNix a
+inDir :: FilePath -> App a -> App a
+inDir d a = do
+    ensureDir d
+    unlift <- askRunInIO
+    liftIO $ Turtle.with (Turtle.pushd d) (const $ unlift a)
+
+writeFile :: FilePath -> Text -> App ()
+writeFile f = Turtle.output f . Turtle.toLines . pure
+
+writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
+writeNixFile f = writeFile f . showNix
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
+
+getVerbosity :: App LogLevel
+getVerbosity = ask >>= readTVarIO . view #verbosity
+
+verbosityAtLeast :: LogLevel -> App Bool
+verbosityAtLeast v = (v >=) <$> getVerbosity
