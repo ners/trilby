@@ -66,7 +66,7 @@ instance ToExpr PartitionContent where
     toExpr MbrPartition{} = toExpr ()
 
 data Partition = Partition
-    { name :: Text
+    { label :: Text
     , size :: Size
     , content :: PartitionContent
     }
@@ -77,6 +77,7 @@ instance ToExpr Partition where
         canonicalSet
             [nix|
             {
+                label = label;
                 size = size;
                 type = typ;
                 content = content;

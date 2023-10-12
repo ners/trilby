@@ -1,6 +1,5 @@
 module Trilby.Config.Host where
 
-import Data.Default (Default (def))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix (NExpr)
@@ -37,6 +36,7 @@ instance ToExpr Host where
                   time.timeZone = timezone;
                 }
                 ./hardware-configuration.nix
+                ./disko.nix
                 (import userModule { inherit lib; })
               ];
             }
@@ -44,14 +44,3 @@ instance ToExpr Host where
       where
         userModule :: NExpr
         userModule = fromText $ "../../users/" <> user.username
-
-instance Default Host where
-    def =
-        Host
-            { hostname = "trilby"
-            , edition = def
-            , channel = def
-            , keyboardLayout = "us"
-            , timezone = "Europe/Zurich"
-            , user = def
-            }

@@ -51,42 +51,15 @@
       {
         inherit lib nixosModules;
       }
-      (lib.foreach configurations (trilby:
-        let
-          lib = import ./lib { inherit inputs; inherit (trilby.nixpkgs) lib; };
-          system = lib.trilbySystem { inherit trilby; };
-          name = trilby.configurationName;
-        in
-        lib.recursiveUpdate
-          {
-            nixosConfigurations.${name} = system;
-            packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
-          }
-          (lib.optionalAttrs (trilby.format == "isoImage") (lib.foreach [ "gzip" "lzo" "lz4" "xz" "zstd" ] (algo:
-            let
-              system = lib.trilbySystem {
-                inherit trilby;
-                modules = [{ isoImage.squashfsCompression = algo; }];
-              };
-              name = "${trilby.configurationName}_${algo}";
-            in
-            {
-              nixosConfigurations.${name} = system;
-              packages.${trilby.buildPlatform}.${name} = system.config.system.build.${trilby.format};
-            }
-          )))
-      ))
+      (lib.foreach
+        configurations
+        (import ./outputs/configuration.nix { inherit inputs lib; })
+      )
       (lib.foreach buildPlatforms (buildPlatform:
         let
-          overlaySrcs = builtins.attrValues inputs.self.nixosModules.overlays;
-          pkgs = import inputs.nixpkgs-unstable {
+          pkgs = lib.pkgsFor {
+            nixpkgs = inputs.nixpkgs-unstable;
             system = buildPlatform;
-            overlays = lib.pipe overlaySrcs [
-              (map (o: import o {
-                inherit lib inputs;
-                overlays = overlaySrcs;
-              }))
-            ];
           };
         in
         {
@@ -96,7 +69,7 @@
               packages = with pkgs; [ nixpkgs-fmt ];
             };
           };
-          packages.${buildPlatform} = pkgs;
+          legacyPackages.${buildPlatform} = pkgs;
         }
       ))
     ];
