@@ -3,6 +3,20 @@
 with builtins;
 with lib;
 rec {
+  pkgsFor = { nixpkgs, system }:
+    let
+      overlaySrcs = attrValues inputs.self.nixosModules.overlays;
+      overlays = map
+        (o: import o {
+          inherit inputs lib;
+          overlays = overlaySrcs;
+        })
+        overlaySrcs;
+    in
+    import nixpkgs {
+      inherit system overlays;
+    };
+
   trilbyConfig = pipef [
     (t: {
       name = "trilby";

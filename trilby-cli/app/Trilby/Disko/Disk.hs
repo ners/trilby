@@ -20,7 +20,7 @@ instance ToExpr DiskContent where
         }
         |]
       where
-        partitionsSet = listToSet (fromText . (.name)) partitions
+        partitionsSet = listToSet (fromText . (.label)) partitions
 
 data Disk = Disk
     { device :: Text

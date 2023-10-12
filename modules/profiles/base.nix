@@ -2,19 +2,10 @@
 
 with builtins;
 let
-  overlaySrcs = attrValues inputs.self.nixosModules.overlays;
-  overlays = lib.pipe overlaySrcs [
-    (map (o: import o {
-      inherit lib inputs;
-      overlays = overlaySrcs;
-    }))
-  ];
-  pkgs = lib.pipe trilby.nixpkgs [
-    (ps: import ps {
-      system = trilby.hostPlatform;
-      inherit overlays;
-    })
-  ];
+  pkgs = lib.pkgsFor {
+    inherit (trilby) nixpkgs;
+    system = trilby.hostPlatform;
+  };
 in
 {
   imports = with inputs.self.nixosModules; [
@@ -47,7 +38,7 @@ in
 
   nixpkgs = lib.mkMerge [
     {
-      inherit overlays;
+      inherit (pkgs) overlays;
       inherit (trilby) hostPlatform;
     }
     (lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {

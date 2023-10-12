@@ -142,13 +142,13 @@ getDisko opts = do
     filesystem <- opts.filesystem
     let mbrPartition =
             Partition
-                { name = "boot"
+                { label = "boot"
                 , size = Trilby.Disko.Partition.GiB 1
                 , content = MbrPartition
                 }
     let efiPartition =
             Partition
-                { name = "ESP"
+                { label = "EFI"
                 , size = Trilby.Disko.Partition.GiB 1
                 , content =
                     EfiPartition
@@ -189,13 +189,13 @@ getDisko opts = do
                         }
     let rootLuksContent =
             LuksPartition
-                { name = "LUKS"
+                { name = "cryptroot"
                 , keyFile = Just luksPasswordFile
                 , content = rootContent
                 }
     let rootPartition =
             Partition
-                { name = "Trilby"
+                { label = "Trilby"
                 , size = Whole
                 , content = if useLuks then rootLuksContent else rootContent
                 }

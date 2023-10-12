@@ -1,7 +1,6 @@
 module Trilby.Config.User where
 
 import Control.Lens
-import Data.Default (Default (def))
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Nix.Expr.Types
@@ -41,6 +40,3 @@ instance ToExpr User where
             case password of
                 PlainPassword p -> (Just p, Nothing)
                 HashedPassword p -> (Nothing, Just p)
-
-instance Default User where
-    def = User{uid = 1000, username = "trilby", password = PlainPassword "trilby"}
