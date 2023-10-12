@@ -1,11 +1,13 @@
 module Trilby.Util where
 
+import Control.Lens (Getting, (^?))
 import Control.Monad (zipWithM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.Char qualified as Char
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, fromList, nonEmpty)
-import Data.Maybe (fromMaybe, maybeToList)
+import Data.Maybe (fromMaybe, isJust, maybeToList)
+import Data.Monoid (First)
 import Data.String (IsString, fromString)
 import Data.Text (Text)
 import Data.Text qualified as Text
@@ -17,6 +19,7 @@ import System.Console.ANSI
 import System.Exit (exitFailure)
 import System.IO (hFlush, stderr, stdout)
 import Text.Read (readMaybe)
+import Turtle (dirname)
 import Turtle qualified
 import Prelude hiding (error, log)
 
@@ -71,7 +74,7 @@ askChoice message values = liftIO do
 askEnum :: (Bounded a, Enum a, Show a, MonadIO m) => Text -> m a
 askEnum = flip askChoice [minBound .. maxBound]
 
-errorExit :: (MonadIO m) => Text -> m ()
+errorExit :: (MonadIO m) => Text -> m a
 errorExit msg = logerror msg >> liftIO exitFailure
 
 tshow :: (Show a) => a -> Text
@@ -127,10 +130,18 @@ parseYesNo yesLong yesHelp f = f $ flag' True (long yesLong <> help yesHelp) <|>
 parseEnum :: forall a m. (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> (Parser a -> Parser (m a)) -> Parser (m a)
 parseEnum m f = f $ option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
   where
-    options = show <$> [minBound @a .. maxBound]
+    options = show @a <$> [minBound .. maxBound]
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
+ensureDir :: (MonadIO m) => FilePath -> m ()
+ensureDir d = shell_ ("mkdir -p " <> fromString d) empty
+
 writeNixFile :: (ToExpr a, MonadIO m) => FilePath -> a -> m ()
-writeNixFile f = Turtle.output f . Turtle.toLines . pure . showNix
+writeNixFile f a = do
+    ensureDir $ dirname f
+    Turtle.output f . Turtle.toLines . pure $ showNix a
+
+is :: a -> Getting (First c) a c -> Bool
+is a c = isJust $ a ^? c
