@@ -2,15 +2,14 @@
 
 module Trilby.Install where
 
-import Control.Applicative (empty)
 import Control.Lens
 import Control.Monad
 import Control.Monad.Extra (unlessM, whenM)
-import Control.Monad.IO.Class (MonadIO)
 import Data.Default (Default (def))
 import Data.Generics.Labels ()
-import Data.Text (Text)
+import Data.Generics.Sum.Typed ()
 import Data.Text qualified as Text
+import Trilby.App (App)
 import Trilby.Config.Host
 import Trilby.Config.User
 import Trilby.Disko
@@ -20,85 +19,80 @@ import Trilby.Disko.Partition
 import Trilby.Install.Flake (Flake)
 import Trilby.Install.Options
 import Trilby.Util
-import Turtle (ExitCode (ExitSuccess))
+import Turtle (ExitCode (ExitSuccess), IsString (fromString), directory)
 import Turtle.Prelude hiding (shell)
-import Prelude hiding (error)
+import Prelude hiding (error, writeFile)
 
-efiLabel :: Text
+efiLabel :: (IsString s) => s
 efiLabel = "EFI"
 
-luksLabel :: Text
+luksLabel :: (IsString s) => s
 luksLabel = "LUKS"
 
-trilbyLabel :: Text
+trilbyLabel :: (IsString s) => s
 trilbyLabel = "Trilby"
 
-luksDevice :: Text
-luksDevice = "/dev/disk/by-partlabel/" <> luksLabel
+luksDevice :: (IsString s) => s
+luksDevice = fromString $ "/dev/disk/by-partlabel/" <> luksLabel
 
-luksName :: Text
+luksName :: (IsString s) => s
 luksName = "cryptroot"
 
-luksOpenDevice :: Text
-luksOpenDevice = "/dev/mapper/" <> luksName
+luksOpenDevice :: (IsString s) => s
+luksOpenDevice = fromString $ "/dev/mapper/" <> luksName
 
-trilbyDevice :: Text
-trilbyDevice = "/dev/disk/by-partlabel/" <> trilbyLabel
+trilbyDevice :: (IsString s) => s
+trilbyDevice = fromString $ "/dev/disk/by-partlabel/" <> trilbyLabel
 
-efiDevice :: Text
-efiDevice = "/dev/disk/by-partlabel/" <> efiLabel
+efiDevice :: (IsString s) => s
+efiDevice = fromString $ "/dev/disk/by-partlabel/" <> efiLabel
 
-rootMount :: Text
+rootMount :: (IsString s) => s
 rootMount = "/mnt"
 
-rootVol :: Text
-rootVol = rootMount <> "/root"
+rootVol :: (IsString s) => s
+rootVol = fromString $ rootMount <> "/root"
 
-bootVol :: Text
-bootVol = rootMount <> "/boot"
+bootVol :: (IsString s) => s
+bootVol = fromString $ rootMount <> "/boot"
 
-homeVol :: Text
-homeVol = rootMount <> "/home"
+homeVol :: (IsString s) => s
+homeVol = fromString $ rootMount <> "/home"
 
-nixVol :: Text
-nixVol = rootMount <> "/nix"
+nixVol :: (IsString s) => s
+nixVol = fromString $ rootMount <> "/nix"
 
-trilbyDir :: Text
-trilbyDir = rootMount <> "/etc/trilby"
+trilbyDir :: (IsString s) => s
+trilbyDir = fromString $ rootMount <> "/etc/trilby"
 
-luksPasswordFile :: Text
+luksPasswordFile :: (IsString s) => s
 luksPasswordFile = "/tmp/luksPassword"
 
-diskoFile :: Text
+diskoFile :: (IsString s) => s
 diskoFile = "/tmp/disko.nix"
 
-install :: (MonadIO m) => InstallOpts Maybe -> m ()
+install :: InstallOpts Maybe -> App ()
 install (askOpts -> opts) = do
     disko <- getDisko opts
-    writeNixFile (fromText diskoFile) disko
-    whenM opts.format $ sudo_ $ "disko -m disko " <> diskoFile
-    rootIsMounted <- sudo ("mountpoint -q " <> rootMount) <&> (== ExitSuccess)
-    unless rootIsMounted do
-        unlessM (ask "Attempt to mount the partitions?" True) $ errorExit "/mnt is not a mountpoint"
-        sudo_ $ "disko -m mount " <> diskoFile
-    sudo_ $ "mkdir -p " <> trilbyDir
-    sudo_ $ "chown -R 1000:1000 " <> trilbyDir
+    inDir (directory diskoFile) $ writeNixFile diskoFile disko
+    whenM opts.format $ sudo_ ["disko", "-m", "disko", diskoFile]
+    let rootIsMounted = (ExitSuccess ==) . fst <$> sudo' ["mountpoint", "-q", rootMount]
+    unlessM rootIsMounted do
+        unlessM (askYesNo "Attempt to mount the partitions?" True) $
+            errorExit "/mnt is not a mountpoint"
+        sudo_ ["disko", "-m", "mount", diskoFile]
+    inDir trilbyDir $
+        sudo_ ["chown", "-R", "1000:1000", trilbyDir]
     cd $ fromText trilbyDir
     username <- opts.username
-    rawPassword <- opts.password
-    password <- HashedPassword . Text.strip <$> inshellstrict ("mkpasswd " <> singleQuoted rawPassword) empty
-    let userDir = "users/" <> username
-    flip shell_ empty $
-        Text.unwords
-            [ "mkdir"
-            , "-p"
-            , userDir
-            ]
-    let
-    let flake = def @Flake
-    writeNixFile "flake.nix" flake
+    password <- do
+        rawPassword <- opts.password
+        hash <- Text.strip <$> cmd ["mkpasswd", rawPassword]
+        pure $ HashedPassword hash
+    writeNixFile "flake.nix" $ def @Flake
     let user = User{uid = 1000, ..}
-    writeNixFile (fromText userDir <> "/default.nix") user
+    let userDir = "users/" <> fromText username
+    inDir userDir $ writeNixFile "default.nix" user
     hostname <- opts.hostname
     edition <- opts.edition
     channel <- opts.channel
@@ -108,26 +102,43 @@ install (askOpts -> opts) = do
                 , timezone = "Europe/Zurich"
                 , ..
                 }
-    let hostDir = "hosts/" <> hostname
-    writeNixFile (fromText hostDir <> "/default.nix") host
-    output (fromText hostDir <> "/hardware-configuration.nix") $
-        inshell ("sudo nixos-generate-config --show-hardware-config --no-filesystems --root " <> rootMount) stdin
-    writeNixFile @Disko (fromText hostDir <> "/disko.nix") disko
-    sudo_ $
-        Text.unwords
-            [ "nixos-install"
-            , "--flake " <> trilbyDir <> "#" <> hostname
-            , "--no-root-password"
-            , "--impure"
-            ]
-    whenM opts.reboot $ sudo_ "reboot"
+    let hostDir = "hosts/" <> fromText hostname
+    inDir hostDir do
+        writeNixFile "default.nix" host
+        writeFile "hardware-configuration.nix"
+            =<< sudo
+                [ "nixos-generate-config"
+                , "--show-hardware-config"
+                , "--no-filesystems"
+                , "--root"
+                , rootMount
+                ]
+        writeNixFile "disko.nix" $
+            disko
+                & #disks
+                    . traverse
+                    . #content
+                    . #partitions
+                    . traverse
+                    . #content
+                    . #_LuksPartition
+                    . _2
+                    .~ Nothing
+    sudo_
+        [ "nixos-install"
+        , "--flake"
+        , trilbyDir <> "#" <> hostname
+        , "--no-root-password"
+        , "--impure"
+        ]
+    whenM opts.reboot $ sudo_ ["reboot"]
 
-getDisko :: (MonadIO m) => InstallOpts m -> m Disko
+getDisko :: InstallOpts App -> App Disko
 getDisko opts = do
     disk <- opts.disk
     luks <- opts.luks
     let useLuks = luks `is` #_UseLuks
-    when useLuks $ output (fromText luksPasswordFile) . toLines . pure =<< luks.luksPassword
+    when useLuks $ writeFile luksPasswordFile =<< luks.luksPassword
     filesystem <- opts.filesystem
     let mbrPartition =
             Partition
@@ -167,7 +178,15 @@ getDisko opts = do
                             , mountoptions = ["compress=zstd", "noatime"]
                             }
                         ]
-                format -> FilesystemPartition{filesystem = Filesystem{format, mountpoint = "/", mountoptions = []}}
+                format ->
+                    FilesystemPartition
+                        { filesystem =
+                            Filesystem
+                                { format
+                                , mountpoint = "/"
+                                , mountoptions = []
+                                }
+                        }
     let rootLuksContent =
             LuksPartition
                 { name = "LUKS"

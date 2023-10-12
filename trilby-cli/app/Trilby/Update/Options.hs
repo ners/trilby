@@ -4,9 +4,9 @@
 module Trilby.Update.Options where
 
 import Control.Monad.Extra (ifM)
-import Control.Monad.IO.Class (MonadIO)
 import GHC.Generics (Generic)
 import Options.Applicative
+import Trilby.App (App)
 import Trilby.Util
 import Prelude
 
@@ -38,21 +38,21 @@ parseUpdateOpts f = do
             flag' Switch (long "switch" <> help "Switch to the new configuration")
                 <|> do
                     boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
-                    reboot <- parseYesNo "reboot" "Reboot to the new configuration" f
+                    reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
                     pure $ boot reboot
                 <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
     pure UpdateOpts{..}
 
-askAction :: (MonadIO m) => Maybe (UpdateAction Maybe) -> m (UpdateAction m)
+askAction :: Maybe (UpdateAction Maybe) -> App (UpdateAction App)
 askAction ma =
     ifM
         askSwitch
         (pure Switch)
         (ifM askBoot (pure Boot{..}) (pure NoAction))
   where
-    askSwitch = maybe (ask "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
-    askBoot = maybe (ask "Apply the new configuration at boot? (sudo)" False) pure isBoot
-    reboot = maybe (ask "Reboot to new configuration now? (sudo)" False) pure isReboot
+    askSwitch = maybe (askYesNo "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
+    askBoot = maybe (askYesNo "Apply the new configuration at boot? (sudo)" False) pure isBoot
+    reboot = maybe (askYesNo "Reboot to new configuration now? (sudo)" False) pure isReboot
     isBoot = case ma of
         Nothing -> Nothing
         Just Boot{} -> Just True
@@ -61,7 +61,7 @@ askAction ma =
         Just Boot{reboot} -> reboot
         _ -> Nothing
 
-askOpts :: forall m. (MonadIO m) => UpdateOpts Maybe -> UpdateOpts m
+askOpts :: UpdateOpts Maybe -> UpdateOpts App
 askOpts opts =
     UpdateOpts
         { flakeUpdate = maybe (pure True) pure opts.flakeUpdate
