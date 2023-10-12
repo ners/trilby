@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Trilby.Install.Options where
@@ -26,8 +25,7 @@ deriving stock instance Eq (LuksOpts Maybe)
 deriving stock instance Show (LuksOpts Maybe)
 
 data InstallOpts m = InstallOpts
-    { efi :: m Bool
-    , luks :: m (LuksOpts m)
+    { luks :: m (LuksOpts m)
     , disk :: m Text
     , format :: m Bool
     , filesystem :: m Format
@@ -55,7 +53,6 @@ parseLuks f = do
 
 parseInstallOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseInstallOpts f = do
-    efi <- f $ flag' True (long "efi" <> help "use EFI boot") <|> flag' False (long "bios" <> help "use BIOS boot")
     luks <- parseLuks f
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
     format <- parseYesNo "format" "format the installation disk" f
@@ -71,25 +68,30 @@ parseInstallOpts f = do
 askDisk :: (MonadIO m) => m Text
 askDisk = do
     disks <- fmap ("/dev/" <>) . Text.lines <$> inshellstrict "lsblk --raw | grep '\\W\\+disk\\W\\+$' | awk '{print $1}'" empty
-    disk <- askChoice "Choose installation disk:" disks
-    diskStatus <- liftIO $ getFileStatus $ Text.unpack disk
-    if isBlockDevice diskStatus
-        then pure disk
-        else do
-            logerror $ "Cannot find disk: " <> disk
-            askDisk
+    case disks of
+        [] -> errorExit "No disks found"
+        [d] -> do
+            loginfo $ "Using disk: " <> d
+            pure d
+        _ -> do
+            disk <- askChoice "Choose installation disk:" disks
+            diskStatus <- liftIO . getFileStatus $ Text.unpack disk
+            if isBlockDevice diskStatus
+                then pure disk
+                else do
+                    logerror $ "Cannot find disk: " <> disk
+                    askDisk
 
 askLuks :: (MonadIO m) => Maybe (LuksOpts Maybe) -> m (LuksOpts m)
-askLuks opts = ifM askLuks (pure UseLuks{..}) (pure NoLuks)
+askLuks opts = ifM useLuks (pure UseLuks{..}) (pure NoLuks)
   where
-    askLuks = maybe (ask "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
+    useLuks = maybe (ask "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
     luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
 askOpts :: forall m. (MonadIO m) => InstallOpts Maybe -> InstallOpts m
 askOpts opts = do
     InstallOpts
-        { efi = maybe (ask "Use EFI boot?" True) pure opts.efi
-        , luks = askLuks opts.luks
+        { luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
         , format = maybe (ask "Format the disk?" True) pure opts.format
         , filesystem = maybe (askEnum "Choose root partition filesystem:") pure opts.filesystem

@@ -10,10 +10,11 @@ import Trilby.HNix
 import Trilby.Util
 import Prelude
 
-data Size = GiB Int | Whole
+data Size = MiB Int | GiB Int | Whole
     deriving stock (Generic, Eq, Show)
 
 instance ToExpr Size where
+    toExpr (MiB mib) = toExpr $ show mib <> "M"
     toExpr (GiB gib) = toExpr $ show gib <> "G"
     toExpr Whole = toExpr @String "100%"
 
@@ -38,6 +39,7 @@ data PartitionContent
     | EfiPartition {filesystem :: Filesystem}
     | FilesystemPartition {filesystem :: Filesystem}
     | LuksPartition {name :: Text, keyFile :: Maybe Text, content :: PartitionContent}
+    | MbrPartition
     deriving stock (Generic, Show, Eq)
 
 instance ToExpr PartitionContent where
@@ -61,6 +63,7 @@ instance ToExpr PartitionContent where
             settings.keyFile = keyFile;
         }
         |]
+    toExpr MbrPartition{} = toExpr ()
 
 data Partition = Partition
     { name :: Text
@@ -80,6 +83,7 @@ instance ToExpr Partition where
             }
             |]
       where
-        typ = toExpr $ case content of
-            EfiPartition{} -> Just @String "EF00"
+        typ = toExpr @(Maybe String) $ case content of
+            EfiPartition{} -> Just "EF00"
+            MbrPartition{} -> Just "EF02"
             _ -> Nothing

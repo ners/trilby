@@ -6,11 +6,11 @@ import Control.Applicative (empty)
 import Control.Lens
 import Control.Monad
 import Control.Monad.Extra (unlessM, whenM)
+import Control.Monad.IO.Class (MonadIO)
 import Data.Default (Default (def))
 import Data.Generics.Labels ()
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Trilby.Config.Channel (Channel (Unstable))
 import Trilby.Config.Host
 import Trilby.Config.User
 import Trilby.Disko
@@ -20,10 +20,9 @@ import Trilby.Disko.Partition
 import Trilby.Install.Flake (Flake)
 import Trilby.Install.Options
 import Trilby.Util
+import Turtle (ExitCode (ExitSuccess))
 import Turtle.Prelude hiding (shell)
 import Prelude hiding (error)
-import Control.Monad.IO.Class (MonadIO)
-import Turtle (ExitCode(ExitSuccess))
 
 efiLabel :: Text
 efiLabel = "EFI"
@@ -85,18 +84,14 @@ install (askOpts -> opts) = do
     sudo_ $ "mkdir -p " <> trilbyDir
     sudo_ $ "chown -R 1000:1000 " <> trilbyDir
     cd $ fromText trilbyDir
-    hostname <- opts.hostname
     username <- opts.username
     rawPassword <- opts.password
     password <- HashedPassword . Text.strip <$> inshellstrict ("mkpasswd " <> singleQuoted rawPassword) empty
-    edition <- opts.edition
-    let hostDir = "hosts/" <> hostname
     let userDir = "users/" <> username
     flip shell_ empty $
         Text.unwords
             [ "mkdir"
             , "-p"
-            , hostDir
             , userDir
             ]
     let
@@ -104,13 +99,16 @@ install (askOpts -> opts) = do
     writeNixFile "flake.nix" flake
     let user = User{uid = 1000, ..}
     writeNixFile (fromText userDir <> "/default.nix") user
+    hostname <- opts.hostname
+    edition <- opts.edition
+    channel <- opts.channel
     let host =
             Host
-                { channel = Unstable
-                , keyboardLayout = "us"
+                { keyboardLayout = "us"
                 , timezone = "Europe/Zurich"
                 , ..
                 }
+    let hostDir = "hosts/" <> hostname
     writeNixFile (fromText hostDir <> "/default.nix") host
     output (fromText hostDir <> "/hardware-configuration.nix") $
         inshell ("sudo nixos-generate-config --show-hardware-config --no-filesystems --root " <> rootMount) stdin
@@ -127,84 +125,72 @@ install (askOpts -> opts) = do
 getDisko :: (MonadIO m) => InstallOpts m -> m Disko
 getDisko opts = do
     disk <- opts.disk
-    efi <- opts.efi
     luks <- opts.luks
-    useLuks <-
-        case luks of
-            UseLuks{..} -> do
-                output (fromText luksPasswordFile) . toLines . pure =<< luksPassword
-                pure True
-            NoLuks -> pure False
+    let useLuks = luks `is` #_UseLuks
+    when useLuks $ output (fromText luksPasswordFile) . toLines . pure =<< luks.luksPassword
     filesystem <- opts.filesystem
-    let bootFs =
-            Filesystem
-                { format = Fat32
-                , mountpoint = "/mnt/boot"
-                , mountoptions = []
+    let mbrPartition =
+            Partition
+                { name = "boot"
+                , size = Trilby.Disko.Partition.GiB 1
+                , content = MbrPartition
                 }
-    let bootPartition =
-            if efi
-                then
-                    Partition
-                        { name = "ESP"
-                        , size = Trilby.Disko.Partition.GiB 1
-                        , content =
-                            EfiPartition
-                                { filesystem = bootFs
-                                }
-                        }
-                else
-                    Partition
-                        { name = "boot"
-                        , size = Trilby.Disko.Partition.GiB 1
-                        , content =
-                            FilesystemPartition
-                                { filesystem = bootFs
-                                }
-                        }
+    let efiPartition =
+            Partition
+                { name = "ESP"
+                , size = Trilby.Disko.Partition.GiB 1
+                , content =
+                    EfiPartition
+                        Filesystem
+                            { format = Fat32
+                            , mountpoint = "/boot"
+                            , mountoptions = []
+                            }
+                }
     let rootContent =
             case filesystem of
                 Btrfs ->
                     BtrfsPartition
-                        { subvolumes =
-                            [ Subvolume
-                                { name = "root"
-                                , mountpoint = "/"
-                                , mountoptions = ["compress=zstd", "noatime"]
-                                }
-                            , Subvolume
-                                { name = "home"
-                                , mountpoint = "/home"
-                                , mountoptions = ["compress=zstd"]
-                                }
-                            , Subvolume
-                                { name = "nix"
-                                , mountpoint = "/nix"
-                                , mountoptions = ["compress=zstd", "noatime"]
-                                }
-                            ]
-                        }
+                        [ Subvolume
+                            { name = "root"
+                            , mountpoint = "/"
+                            , mountoptions = ["compress=zstd", "noatime"]
+                            }
+                        , Subvolume
+                            { name = "home"
+                            , mountpoint = "/home"
+                            , mountoptions = ["compress=zstd"]
+                            }
+                        , Subvolume
+                            { name = "nix"
+                            , mountpoint = "/nix"
+                            , mountoptions = ["compress=zstd", "noatime"]
+                            }
+                        ]
                 format -> FilesystemPartition{filesystem = Filesystem{format, mountpoint = "/", mountoptions = []}}
+    let rootLuksContent =
+            LuksPartition
+                { name = "LUKS"
+                , keyFile = Just luksPasswordFile
+                , content = rootContent
+                }
     let rootPartition =
             Partition
                 { name = "Trilby"
                 , size = Whole
-                , content =
-                    if useLuks
-                        then
-                            LuksPartition
-                                { name = "LUKS"
-                                , keyFile = Just luksPasswordFile
-                                , content = rootContent
-                                }
-                        else rootContent
+                , content = if useLuks then rootLuksContent else rootContent
                 }
     pure
         Disko
             { disks =
                 [ Disk
                     { device = disk
-                    , content = Gpt{partitions = [bootPartition, rootPartition]}
+                    , content =
+                        Gpt
+                            [ mbrPartition
+                            , efiPartition
+                            , rootPartition
+                            ]
                     }
                 ]
             }
