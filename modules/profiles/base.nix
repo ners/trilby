@@ -2,10 +2,7 @@
 
 with builtins;
 let
-  pkgs = lib.pkgsFor {
-    inherit (trilby) nixpkgs;
-    system = trilby.hostPlatform;
-  };
+  pkgs = lib.pkgsFor trilby;
 in
 {
   imports = with inputs.self.nixosModules; [

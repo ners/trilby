@@ -63,25 +63,10 @@ instance Default Flake where
         Flake
             { inputs =
                 [ Input
-                    { name = "nixpkgs"
-                    , url = "github:nixos/nixpkgs/nixos-unstable"
-                    , flake = True
-                    , inputs = []
-                    }
-                , Input
-                    { name = "nixpkgs-23_05"
-                    , url = "github:nixos/nixpkgs/nixos-23.05"
-                    , flake = True
-                    , inputs = []
-                    }
-                , Input
                     { name = "trilby"
                     , url = "github:ners/trilby"
                     , flake = True
-                    , inputs =
-                        [ Follows "nixpkgs-unstable" "nixpkgs"
-                        , Follows "nixpkgs-23.05" "nixpkgs-23_05"
-                        ]
+                    , inputs = []
                     }
                 ]
             , outputs =
