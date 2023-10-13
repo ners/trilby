@@ -58,8 +58,8 @@
       (lib.foreach buildPlatforms (buildPlatform:
         let
           pkgs = lib.pkgsFor {
-            nixpkgs = inputs.nixpkgs-unstable;
-            system = buildPlatform;
+            inherit buildPlatform;
+            hostPlatform = buildPlatform;
           };
         in
         {

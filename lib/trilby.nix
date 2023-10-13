@@ -3,18 +3,20 @@
 with builtins;
 with lib;
 rec {
-  pkgsFor = { nixpkgs, system }:
+  pkgsFor = t:
     let
+      trilby = trilbyConfig t;
       overlaySrcs = attrValues inputs.self.nixosModules.overlays;
       overlays = map
         (o: import o {
-          inherit inputs lib;
+          inherit inputs lib trilby;
           overlays = overlaySrcs;
         })
         overlaySrcs;
     in
-    import nixpkgs {
-      inherit system overlays;
+    import trilby.nixpkgs {
+      inherit overlays;
+      system = trilby.hostPlatform;
     };
 
   trilbyConfig = pipef [
@@ -63,6 +65,46 @@ rec {
       ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
       ++ attrs.modules or [ ];
       specialArgs = { inherit inputs lib trilby; };
+    };
+
+  trilbyTest = attrs:
+    let
+      trilby = trilbyConfig (attrs.trilby or { });
+      lib = import ../lib {
+        inherit inputs;
+        inherit (trilby.nixpkgs) lib;
+      };
+      nixosLib = import "${trilby.nixpkgs}/nixos/lib" {
+        inherit lib;
+      };
+    in
+    nixosLib.runTest {
+      name = attrs.name or "trilby";
+      hostPkgs = pkgsFor {
+        inherit (trilby) nixpkgs;
+        system = trilby.buildPlatform;
+      };
+      node = {
+        specialArgs = { inherit inputs trilby lib; };
+        pkgs = pkgsFor {
+        inherit (trilby) nixpkgs;
+        system = trilby.hostPlatform;
+      };
+        pkgsReadOnly = false;
+      };
+      nodes = (attrs.nodes or {}) // {
+        trilby = {
+          imports = with inputs.self.nixosModules; [
+            editions.${trilby.edition}
+            hostPlatforms.${trilby.hostPlatform}
+          ]
+          ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
+          ++ attrs.imports or [ ];
+        };
+      };
+      testScript = ''
+        ${attrs.testScript or ""}
+      '';
     };
 
   trilbyUser = u:

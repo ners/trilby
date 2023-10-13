@@ -3,9 +3,10 @@ module Trilby.Util where
 import Control.Lens (Getting, view, (^?))
 import Control.Monad (zipWithM_)
 import Control.Monad.Extra (whenM)
-import Control.Monad.Logger (LogLevel (LevelInfo), logError, logInfo)
+import Control.Monad.Logger (LogLevel (LevelInfo), logDebug, logError, logInfo)
 import Control.Monad.Reader (MonadReader (ask))
 import Data.Char qualified as Char
+import Data.Foldable (toList)
 import Data.Generics.Labels ()
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty ((:|)), fromList, nonEmpty)
@@ -21,6 +22,7 @@ import Options.Applicative
 import System.Console.ANSI
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (stderr, stdout)
+import System.Posix (getEffectiveUserID)
 import Text.Read (readMaybe)
 import Trilby.App
 import Turtle qualified
@@ -106,12 +108,13 @@ fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
 
 cmd' :: NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
-    $(logInfo) $ Text.intercalate " " (p : args)
+    $(logInfo) $ Text.unwords $ p : args
     Turtle.procStrict p args Turtle.stdin
 
 cmd :: NonEmpty Text -> App Text
 cmd args = do
     (code, out) <- cmd' args
+    $(logDebug) $ "cmd return code: " <> tshow code
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code
@@ -126,14 +129,22 @@ cmd_ args = do
 prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 prepend x = (pure x <>)
 
+asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRoot c t = do
+    uid <- liftIO getEffectiveUserID
+    c $
+        if uid == 0
+            then t
+            else prepend "sudo" t
+
 sudo' :: NonEmpty Text -> App (ExitCode, Text)
-sudo' = cmd' . prepend "sudo"
+sudo' = asRoot cmd'
 
 sudo :: NonEmpty Text -> App Text
-sudo = cmd . prepend "sudo"
+sudo = asRoot cmd
 
 sudo_ :: NonEmpty Text -> App ()
-sudo_ = cmd_ . prepend "sudo"
+sudo_ = asRoot cmd_
 
 singleQuoted :: Text -> Text
 singleQuoted t = d <> escape t <> d
@@ -184,7 +195,10 @@ inDir d a = do
     liftIO $ Turtle.with (Turtle.pushd d) (const $ unlift a)
 
 writeFile :: FilePath -> Text -> App ()
-writeFile f = Turtle.output f . Turtle.toLines . pure
+writeFile f t = do
+    $(logDebug) $ "writeFile " <> fromString f
+    Turtle.output f $ Turtle.toLines $ pure t
+    $(logDebug) "writeFile completed"
 
 writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
 writeNixFile f = writeFile f . showNix

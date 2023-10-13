@@ -124,10 +124,12 @@ install (askOpts -> opts) = do
                     . #_LuksPartition
                     . _2
                     .~ Nothing
+    realpath "/etc/trilby"
+        >>= cmd_ . (["nix", "flake", "lock", "--override-input", "trilby"] <>) . pure . fromString
     sudo_
         [ "nixos-install"
         , "--flake"
-        , trilbyDir <> "#" <> hostname
+        , ".#" <> hostname
         , "--no-root-password"
         , "--impure"
         ]
