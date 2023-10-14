@@ -87,12 +87,12 @@ rec {
       node = {
         specialArgs = { inherit inputs trilby lib; };
         pkgs = pkgsFor {
-        inherit (trilby) nixpkgs;
-        system = trilby.hostPlatform;
-      };
+          inherit (trilby) nixpkgs;
+          system = trilby.hostPlatform;
+        };
         pkgsReadOnly = false;
       };
-      nodes = (attrs.nodes or {}) // {
+      nodes = (attrs.nodes or { }) // {
         trilby = {
           imports = with inputs.self.nixosModules; [
             editions.${trilby.edition}

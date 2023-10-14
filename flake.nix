@@ -25,6 +25,10 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
+    hnix = {
+      url = "github:ners/hnix";
+      flake = false;
+    };
   };
 
   outputs = inputs:
