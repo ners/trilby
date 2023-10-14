@@ -66,9 +66,9 @@ executable trilby
         Trilby.Disko.Partition
         Trilby.HNix
         Trilby.Install
+        Trilby.Install.Disko
         Trilby.Install.Flake
         Trilby.Install.Options
-        Trilby.Logger
         Trilby.Options
         Trilby.Update
         Trilby.Update.Options
@@ -80,18 +80,15 @@ executable trilby
         , base
         , data-default
         , data-fix
-        , exceptions
         , extra
         , generic-lens
         , hnix
         , lens
         , lens-family-th
-        , monad-control
         , monad-logger
         , mtl
         , optparse-applicative
         , text
-        , transformers-base
         , turtle
         , unix
         , unliftio

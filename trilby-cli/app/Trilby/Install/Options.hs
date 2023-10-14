@@ -69,7 +69,9 @@ parseInstallOpts f = do
 
 askDisk :: App Text
 askDisk = do
-    disks <- fmap ("/dev/" <>) . Text.lines <$> inshellstrict "lsblk --raw | grep '\\W\\+disk\\W\\+$' | awk '{print $1}'" empty
+    disks <-
+        Text.lines
+            <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     case disks of
         [] -> errorExit "No disks found"
         [d] -> do
@@ -77,7 +79,7 @@ askDisk = do
             pure d
         _ -> do
             disk <- askChoice "Choose installation disk:" disks
-            diskStatus <- liftIO . getFileStatus $ Text.unpack disk
+            diskStatus <- liftIO . getFileStatus $ fromText disk
             if isBlockDevice diskStatus
                 then pure disk
                 else do

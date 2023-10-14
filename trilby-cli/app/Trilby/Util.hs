@@ -2,11 +2,9 @@ module Trilby.Util where
 
 import Control.Lens (Getting, view, (^?))
 import Control.Monad (zipWithM_)
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (ifM, whenM)
 import Control.Monad.Logger (LogLevel (LevelInfo), logDebug, logError, logInfo)
-import Control.Monad.Reader (MonadReader (ask))
 import Data.Char qualified as Char
-import Data.Foldable (toList)
 import Data.Generics.Labels ()
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty ((:|)), fromList, nonEmpty)
@@ -106,6 +104,12 @@ fromText = fromString . Text.unpack
 fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
 
+prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
+prepend x xs = pure x <> xs
+
+append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
+append x xs = xs <> pure x
+
 cmd' :: NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
     $(logInfo) $ Text.unwords $ p : args
@@ -126,12 +130,21 @@ cmd_ args = do
         liftIO $ Text.putStr out
         hFlush stdout
 
-prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
-prepend x = (pure x <>)
+quietCmd_ :: NonEmpty Text -> App ()
+quietCmd_ (p :| args) = do
+    ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
+        $(logInfo) $ Text.unwords $ p : args
+        (code, _, err) <- Turtle.procStrictWithErr p args Turtle.stdin
+        case code of
+            ExitSuccess -> pure ()
+            ExitFailure{} -> liftIO do
+                Text.hPutStrLn stderr err
+                exitWith code
 
 asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRoot c t = do
     uid <- liftIO getEffectiveUserID
+    $(logDebug) $ "asRoot uid: " <> tshow uid
     c $
         if uid == 0
             then t
@@ -146,6 +159,9 @@ sudo = asRoot cmd
 sudo_ :: NonEmpty Text -> App ()
 sudo_ = asRoot cmd_
 
+quietSudo_ :: NonEmpty Text -> App ()
+quietSudo_ = asRoot quietCmd_
+
 singleQuoted :: Text -> Text
 singleQuoted t = d <> escape t <> d
   where
@@ -158,8 +174,11 @@ doubleQuoted t = d <> escape t <> d
     d = "\"" :: Text
     escape = Text.replace d (d <> "\\" <> d <> d)
 
-inshellstrict :: Text -> Turtle.Shell Turtle.Line -> App Text
-inshellstrict = (Turtle.strict .) . Turtle.inshell
+shell :: Text -> Turtle.Shell Turtle.Line -> App Text
+shell t = Turtle.strict . Turtle.inshell t
+
+proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
+proc (p :| args) = Turtle.strict . Turtle.inproc p args
 
 parseYesNo :: String -> String -> Parser Bool
 parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
@@ -198,7 +217,6 @@ writeFile :: FilePath -> Text -> App ()
 writeFile f t = do
     $(logDebug) $ "writeFile " <> fromString f
     Turtle.output f $ Turtle.toLines $ pure t
-    $(logDebug) "writeFile completed"
 
 writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
 writeNixFile f = writeFile f . showNix
@@ -207,7 +225,7 @@ is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
 getVerbosity :: App LogLevel
-getVerbosity = ask >>= readTVarIO . view #verbosity
+getVerbosity = liftIO . readTVarIO =<< view #verbosity
 
 verbosityAtLeast :: LogLevel -> App Bool
 verbosityAtLeast v = (v >=) <$> getVerbosity

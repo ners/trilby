@@ -20,14 +20,24 @@ lib.recursiveUpdate
     {
       checks.${trilby.buildPlatform}."${name}-test" = lib.trilbyTest {
         inherit name trilby;
+        modules = [
+          {
+            documentation.enable = false; # speed up eval
+            systemd.services.mdmonitor.enable = false; # silence some weird warnings
+            virtualisation.emptyDiskImages = [ 8192 ]; # create an 8 GiB disk /dev/vdb
+            #virtualisation.diskSize = 8192;
+          }
+        ];
         testScript = ''
           start_all()
-          trilby.wait_for_unit('multi-user.target')
+          trilby.wait_for_unit('default.target')
+          trilby.succeed('fdisk -l | logger')
           trilby.succeed(" ".join([
             'trilby',
             '--verbosity debug',
             'install',
-            '--disk /dev/vda',
+            '--format',
+            '--disk /dev/vdb',
             '--luks --luks-password foo',
             '--filesystem btrfs',
             '--edition server',
@@ -38,6 +48,7 @@ lib.recursiveUpdate
             '--no-reboot',
             '| logger'
           ]))
+          trilby.succeed('cryptsetup isLuks /dev/vdb3');
           trilby.succeed('findmnt /mnt')
           trilby.succeed('findmnt /mnt/home')
           trilby.succeed('findmnt /mnt/nix')
