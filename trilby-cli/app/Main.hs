@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Monad.Extra (whenM)
+import Control.Monad.Extra (forM_, whenM)
 import Control.Monad.Logger
 import Data.List qualified as List
 import Data.String (IsString (fromString))
@@ -10,21 +10,11 @@ import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Command
 import Trilby.Install (install)
-import Trilby.Logger (ErrorLoggingT (runErrorLoggingT))
 import Trilby.Options
 import Trilby.Update (update)
 import Trilby.Util
 import UnliftIO (MonadIO (liftIO), atomically, newTVarIO, readTVarIO, writeTVar)
 import Prelude
-
-app :: AppState -> ErrorLoggingT IO ()
-app state = do
-    runApp state do
-        opts <- liftIO $ execParser parseOptionsInfo
-        mapM_ (atomically . writeTVar state.verbosity) opts.verbosity
-        case opts.command of
-            Update o -> update o
-            Install o -> install o
 
 printLog :: IO LogLevel -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
 printLog verbosity loc _logSource logLevel (Text.decodeUtf8 . fromLogStr -> logText) =
@@ -53,4 +43,9 @@ main :: IO ()
 main = do
     verbosity <- newTVarIO LevelWarn
     let state = AppState{..}
-    runLoggingT (runErrorLoggingT $ app state) (printLog $ readTVarIO state.verbosity)
+    flip runLoggingT (printLog $ readTVarIO verbosity) $ runApp state do
+        opts <- liftIO $ execParser parseOptionsInfo
+        forM_ opts.verbosity $ atomically . writeTVar state.verbosity
+        case opts.command of
+            Update o -> update o
+            Install o -> install o

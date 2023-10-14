@@ -99,7 +99,7 @@ rec {
             hostPlatforms.${trilby.hostPlatform}
           ]
           ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
-          ++ attrs.imports or [ ];
+          ++ attrs.modules or [ ];
         };
       };
       testScript = ''
