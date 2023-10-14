@@ -10,7 +10,7 @@ self: super: {
     config.allowUnfree = true;
     overlays = with builtins; lib.pipe overlays [
       (filter (o: o != ./unstable.nix))
-      (map (o: import o args))
+      (map (o: import o (args // { unstable = true; })))
     ];
   };
 }

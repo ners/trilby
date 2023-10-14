@@ -28,8 +28,8 @@ infixl 4 ~:
 (~:) :: NAttrPath r -> r -> Binding r
 k ~: v = NamedVar k v fakeSourcePos
   where
-    fakePos = mkPos 1
-    fakeSourcePos = SourcePos "<foo>" fakePos fakePos
+    fakeSourcePos = NSourcePos "<foo>" fakePos fakePos
+    fakePos = NPos $ mkPos 1
 
 infixl 4 ~::
 

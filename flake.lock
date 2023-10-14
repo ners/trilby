@@ -20,6 +20,22 @@
         "type": "github"
       }
     },
+    "hnix": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1697311859,
+        "narHash": "sha256-VDoGOiey9VPM8J20CAoOKQ1SfbAJVuizOua1svILaao=",
+        "owner": "ners",
+        "repo": "hnix",
+        "rev": "3ea6f44a2bfcf473196de1ca65c4386cfbb7e932",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ners",
+        "repo": "hnix",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -129,6 +145,7 @@
     "root": {
       "inputs": {
         "disko": "disko",
+        "hnix": "hnix",
         "home-manager": "home-manager",
         "nix-filter": "nix-filter",
         "nix-monitored": "nix-monitored",
