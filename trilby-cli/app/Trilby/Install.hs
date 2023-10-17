@@ -2,6 +2,7 @@
 
 module Trilby.Install where
 
+import Control.Lens ((^.))
 import Control.Monad
 import Control.Monad.Extra (unlessM, whenM)
 import Control.Monad.Logger (logWarn)
@@ -9,6 +10,7 @@ import Data.Default (Default (def))
 import Data.Generics.Labels ()
 import Data.Generics.Sum.Typed ()
 import Data.Text qualified as Text
+import System.FilePath.Lens (directory)
 import Trilby.App (App)
 import Trilby.Config.Host
 import Trilby.Config.User
@@ -16,7 +18,7 @@ import Trilby.Install.Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Util
-import Turtle (Alternative (empty), ExitCode (ExitSuccess), IsString (fromString), cd, directory, realpath)
+import Turtle (Alternative (empty), ExitCode (ExitSuccess), IsString (fromString))
 import Prelude hiding (error, writeFile)
 
 efiLabel :: (IsString s) => s
@@ -62,60 +64,82 @@ trilbyDir :: (IsString s) => s
 trilbyDir = fromString $ rootMount <> "/etc/trilby"
 
 install :: InstallOpts Maybe -> App ()
+install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
+    whenM opts.format do
+        $(logWarn) "Formatting disk"
+        runDisko $ FormatFlake flakeRef
+    let rootIsMounted = (ExitSuccess ==) . fst <$> asRoot cmd' ["mountpoint", "-q", rootMount]
+    unlessM rootIsMounted do
+        $(logWarn) "Partitions are not mounted"
+        unlessM (askYesNo "Attempt to mount the partitions?" True) $
+            errorExit "Cannot install without mounted partitions"
+        runDisko $ MountFlake flakeRef
+    (withTrace . asRoot)
+        cmd_
+        [ "nixos-install"
+        , "--flake"
+        , flakeRef
+        , "--no-root-password"
+        , "--impure"
+        ]
+    whenM copyFlake do
+        let flakeUri = Text.takeWhile (/= '#') flakeRef
+        storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeUri <> " | jq --raw-output .path") empty
+        asRoot cmd_ ["cp", "-r", storePath, trilbyDir]
+        asRoot cmd_ ["chown", "-R", "1000:1000", trilbyDir]
+    whenM opts.reboot $ asRoot cmd_ ["reboot"]
 install (askOpts -> opts) = do
     disko <- getDisko opts
-    inDir (directory diskoFile) $ writeNixFile diskoFile disko
+    inDir (diskoFile ^. directory) $ writeNixFile diskoFile disko
     whenM opts.format $ do
         $(logWarn) "Formatting disk"
         runDisko Format
-    let rootIsMounted = (ExitSuccess ==) . fst <$> sudo' ["mountpoint", "-q", rootMount]
+    let rootIsMounted = (ExitSuccess ==) . fst <$> asRoot cmd' ["mountpoint", "-q", rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
         unlessM (askYesNo "Attempt to mount the partitions?" True) $
             errorExit "Cannot install without mounted partitions"
         runDisko Mount
-    $(logWarn) "Performing installation"
-    inDir trilbyDir $
-        sudo_ ["chown", "-R", "1000:1000", trilbyDir]
-    cd $ fromText trilbyDir
-    username <- opts.username
-    password <- do
-        rawPassword <- opts.password
-        HashedPassword . Text.strip <$> proc ["mkpasswd", rawPassword] empty
-    writeNixFile "flake.nix" $ def @Flake
-    let user = User{uid = 1000, ..}
-    let userDir = "users/" <> fromText username
-    inDir userDir $ writeNixFile "default.nix" user
-    hostname <- opts.hostname
-    edition <- opts.edition
-    channel <- opts.channel
-    let host =
-            Host
-                { keyboardLayout = "us"
-                , timezone = "Europe/Zurich"
-                , ..
-                }
-    let hostDir = "hosts/" <> fromText hostname
-    inDir hostDir do
-        writeNixFile "default.nix" host
-        writeFile "hardware-configuration.nix"
-            =<< sudo
-                [ "nixos-generate-config"
-                , "--show-hardware-config"
-                , "--no-filesystems"
-                , "--root"
-                , rootMount
-                ]
-        writeNixFile "disko.nix" $ clearLuksFiles disko
-    cmd_
-        . flip append ["nix", "flake", "lock", "--override-input", "trilby"]
-        . fromString
-        =<< realpath "/etc/trilby"
-    sudo_
-        [ "nixos-install"
-        , "--flake"
-        , ".#" <> hostname
-        , "--no-root-password"
-        , "--impure"
-        ]
-    whenM opts.reboot $ sudo_ ["reboot"]
+    inDir trilbyDir do
+        asRoot cmd_ ["chown", "-R", "1000:1000", trilbyDir]
+        username <- opts.username
+        password <- do
+            rawPassword <- opts.password
+            HashedPassword . Text.strip <$> proc ["mkpasswd", rawPassword] empty
+        writeNixFile "flake.nix" $ def @Flake
+        let user = User{uid = 1000, ..}
+        let userDir = "users/" <> fromText username
+        inDir userDir $ writeNixFile "default.nix" user
+        hostname <- opts.hostname
+        edition <- opts.edition
+        channel <- opts.channel
+        let host =
+                Host
+                    { keyboardLayout = "us"
+                    , timezone = "Europe/Zurich"
+                    , ..
+                    }
+        let hostDir = "hosts/" <> fromText hostname
+        inDir hostDir do
+            writeNixFile "default.nix" host
+            writeFile "hardware-configuration.nix"
+                =<< asRoot
+                    cmd
+                    [ "nixos-generate-config"
+                    , "--show-hardware-config"
+                    , "--no-filesystems"
+                    , "--root"
+                    , rootMount
+                    ]
+            writeNixFile "disko.nix" $ clearLuksFiles disko
+        $(logWarn) "Performing installation"
+        cmd_ ["nix", "flake", "lock", "--override-input", "trilby", "trilby"]
+        (withTrace . asRoot)
+            cmd_
+            [ "nixos-install"
+            , "--flake"
+            , ".#" <> hostname
+            , "--no-root-password"
+            , "--impure"
+            ]
+        whenM opts.reboot $ asRoot cmd_ ["reboot"]

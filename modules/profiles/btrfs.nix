@@ -1,9 +1,14 @@
-{ pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
-  boot.initrd.supportedFilesystems = [ "btrfs" ];
+  boot = {
+    supportedFilesystems = [ "btrfs" ];
+    initrd.supportedFilesystems = [ "btrfs" ];
+  };
   environment.systemPackages = with pkgs; [ btrfs-progs compsize ];
-
+}
+  //
+lib.mkIf (config.fileSystems."/".fsType == "btrfs") {
   services.btrfs.autoScrub = {
     enable = true;
     fileSystems = [ "/" ];

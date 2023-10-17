@@ -1,9 +1,10 @@
 module Trilby.Util where
 
-import Control.Lens (Getting, view, (^?))
+import Control.Lens (Each (each), Getting, anyOf, noneOf, view, (^?))
 import Control.Monad (zipWithM_)
 import Control.Monad.Extra (ifM, whenM)
-import Control.Monad.Logger (LogLevel (LevelInfo), logDebug, logError, logInfo)
+import Control.Monad.Logger (LogLevel (LevelDebug, LevelInfo), logDebug, logError, logInfo)
+import Data.Bool (bool)
 import Data.Char qualified as Char
 import Data.Generics.Labels ()
 import Data.List qualified as List
@@ -23,6 +24,7 @@ import System.IO (stderr, stdout)
 import System.Posix (getEffectiveUserID)
 import Text.Read (readMaybe)
 import Trilby.App
+import Turtle (isAbsolute)
 import Turtle qualified
 import UnliftIO (MonadIO (liftIO), askRunInIO, hFlush, readTVarIO)
 import Prelude hiding (error, log, writeFile)
@@ -141,26 +143,11 @@ quietCmd_ (p :| args) = do
                 Text.hPutStrLn stderr err
                 exitWith code
 
+isRoot :: App Bool
+isRoot = (0 ==) <$> liftIO getEffectiveUserID
+
 asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-asRoot c t = do
-    uid <- liftIO getEffectiveUserID
-    $(logDebug) $ "asRoot uid: " <> tshow uid
-    c $
-        if uid == 0
-            then t
-            else prepend "sudo" t
-
-sudo' :: NonEmpty Text -> App (ExitCode, Text)
-sudo' = asRoot cmd'
-
-sudo :: NonEmpty Text -> App Text
-sudo = asRoot cmd
-
-sudo_ :: NonEmpty Text -> App ()
-sudo_ = asRoot cmd_
-
-quietSudo_ :: NonEmpty Text -> App ()
-quietSudo_ = asRoot quietCmd_
+asRoot c t = ifM isRoot (c t) (c $ prepend "sudo" t)
 
 singleQuoted :: Text -> Text
 singleQuoted t = d <> escape t <> d
@@ -204,8 +191,7 @@ showNix = fromString . show . prettyNix . toExpr
 ensureDir :: FilePath -> App ()
 ensureDir "" = pure ()
 ensureDir "." = pure ()
-ensureDir d@('/' : _) = sudo_ ["mkdir", "-p", fromString d]
-ensureDir d = cmd_ ["mkdir", "-p", fromString d]
+ensureDir d = bool id asRoot (isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
 
 inDir :: FilePath -> App a -> App a
 inDir d a = do
@@ -229,3 +215,14 @@ getVerbosity = liftIO . readTVarIO =<< view #verbosity
 
 verbosityAtLeast :: LogLevel -> App Bool
 verbosityAtLeast v = (v >=) <$> getVerbosity
+
+withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+withTrace f (x :| xs) =
+    verbosityAtLeast LevelDebug
+        >>= f . (x :|) . bool xs ("--show-trace" : xs)
+
+containsAnyOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
+containsAnyOf = anyOf each . flip elem
+
+containsNoneOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
+containsNoneOf = noneOf each . flip elem

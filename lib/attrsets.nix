@@ -47,6 +47,9 @@ with lib;
   flattenAttrsWith = merge: pipef [
     flattenAttrs
     (map (pipef [ merge nameValuePairToAttrs ]))
-    (foldr recursiveUpdate { })
+    recursiveConcat
   ];
+
+  # Concats a list of attrsets into a single attrset, updating them recursively.
+  recursiveConcat = foldr recursiveUpdate { };
 }

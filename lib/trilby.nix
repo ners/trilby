@@ -64,7 +64,7 @@ rec {
       ]
       ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
       ++ attrs.modules or [ ];
-      specialArgs = { inherit inputs lib trilby; };
+      specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
     };
 
   trilbyTest = attrs:
@@ -79,11 +79,15 @@ rec {
       };
     in
     nixosLib.runTest {
-      name = attrs.name or "trilby";
+      inherit (attrs) name testScript;
+      extraDriverArgs = attrs.extraDriverArgs or [ ];
+      skipLint = attrs.skipLint or false;
+
       hostPkgs = pkgsFor {
         inherit (trilby) nixpkgs;
         system = trilby.buildPlatform;
       };
+
       node = {
         specialArgs = { inherit inputs trilby lib; };
         pkgs = pkgsFor {
@@ -92,6 +96,7 @@ rec {
         };
         pkgsReadOnly = false;
       };
+
       nodes = (attrs.nodes or { }) // {
         trilby = {
           imports = with inputs.self.nixosModules; [
@@ -102,9 +107,6 @@ rec {
           ++ attrs.modules or [ ];
         };
       };
-      testScript = ''
-        ${attrs.testScript or ""}
-      '';
     };
 
   trilbyUser = u:

@@ -10,6 +10,7 @@ import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Command
 import Trilby.Install (install)
+import Trilby.Install.Options (validateParsedInstallOpts)
 import Trilby.Options
 import Trilby.Update (update)
 import Trilby.Util
@@ -41,11 +42,12 @@ printLog verbosity loc _logSource logLevel (Text.decodeUtf8 . fromLogStr -> logT
 
 main :: IO ()
 main = do
-    verbosity <- newTVarIO LevelWarn
-    let state = AppState{..}
-    flip runLoggingT (printLog $ readTVarIO verbosity) $ runApp state do
+    state <- do
+        verbosity <- newTVarIO LevelWarn
+        pure AppState{..}
+    flip runLoggingT (printLog $ readTVarIO state.verbosity) $ runApp state do
         opts <- liftIO $ execParser parseOptionsInfo
         forM_ opts.verbosity $ atomically . writeTVar state.verbosity
         case opts.command of
             Update o -> update o
-            Install o -> install o
+            Install o -> install =<< validateParsedInstallOpts o
