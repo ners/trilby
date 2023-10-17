@@ -10,10 +10,10 @@ with lib;
   not = x: !x;
 
   # Map each element of a list or attrset to an attrset, then flatten the attrsets.
-  foreach = xs: f: foldr recursiveUpdate { } (
+  foreach = xs: f: recursiveConcat (
     if isList xs then map f xs
     else if isAttrs xs then mapAttrsToList f xs
-    else error "foreach: expected list or attrset"
+    else error "lib.foreach: First argument is of type ${builtins.typeOf xs}, but a list or attrset was expected."
   );
 
   isEmpty = x: x == null || x == "" || x == [ ] || x == { };

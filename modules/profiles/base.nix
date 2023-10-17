@@ -57,6 +57,7 @@ in
   environment.systemPackages = with pkgs; [
     file
     git
+    jq
     nvd
     rsync
     tmux

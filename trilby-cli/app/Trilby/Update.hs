@@ -13,11 +13,11 @@ update :: UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
     cd "/etc/trilby"
     whenM opts.flakeUpdate $ cmd_ ["nix", "flake", "update"]
-    cmd_ ["nixos-rebuild", "build", "--flake", "."]
+    withTrace cmd_ ["nixos-rebuild", "build", "--flake", "."]
     cmd_ ["nvd", "diff", "/run/current-system", "result"]
     opts.action >>= \case
-        Switch -> sudo_ ["nixos-rebuild", "switch", "--flake", "."]
+        Switch -> (withTrace . asRoot) cmd_ ["nixos-rebuild", "switch", "--flake", "."]
         Boot reboot -> do
-            sudo_ ["nixos-rebuild", "boot", "--flake", ".", "--install-bootloader"]
-            whenM reboot $ sudo_ ["reboot"]
+            (withTrace . asRoot) cmd_ ["nixos-rebuild", "boot", "--flake", ".", "--install-bootloader"]
+            whenM reboot $ asRoot cmd_ ["reboot"]
         NoAction -> pure ()

@@ -20,6 +20,7 @@
         } ''
         convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
       '';
+      storeContents = builtins.attrValues inputs;
     }
     (lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
       appendToMenuLabel = "";
@@ -36,7 +37,6 @@
     pciutils
     usbutils
   ];
-  environment.etc.trilby.source = ../../..;
   services.xserver.displayManager = {
     gdm.autoSuspend = false;
     autoLogin = {

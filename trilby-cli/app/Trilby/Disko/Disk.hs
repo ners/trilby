@@ -23,7 +23,8 @@ instance ToExpr DiskContent where
         partitionsSet = listToSet (fromText . (.label)) partitions
 
 data Disk = Disk
-    { device :: Text
+    { name :: Text
+    , device :: Text
     , content :: DiskContent
     }
     deriving stock (Generic, Show, Eq)

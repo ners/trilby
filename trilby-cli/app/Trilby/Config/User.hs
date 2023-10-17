@@ -34,7 +34,7 @@ instance ToExpr User where
           initialHashedPassword = initialHashedPassword;
         }
         |]
-            & _Fix . _NAbs . _2 . _Fix . _NBinary . _3 %~ canonicalSet
+            & _Fix . _NAbs . _2 . _Fix . _NApp . _2 %~ canonicalSet
       where
         (initialPassword, initialHashedPassword) =
             case password of

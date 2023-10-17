@@ -1,11 +1,12 @@
-{ trilby, inputs, lib, ... }:
+{ trilby, inputs, ... }:
 
 {
-  imports = lib.optionals (trilby.edition == "workstation") [
-    inputs.self.nixosModules.profiles.nix-monitored
+  imports = [
+    inputs.nix-monitored.nixosModules.default
   ];
 
   nix = {
+    monitored.enable = true;
     settings = {
       auto-optimise-store = true;
       preallocate-contents = false;
@@ -17,7 +18,10 @@
       options = "--delete-older-than 30d";
       dates = "monthly";
     };
-    registry.nixpkgs.flake = trilby.nixpkgs;
+    registry = {
+      nixpkgs.flake = trilby.nixpkgs;
+      trilby.flake = inputs.self;
+    };
     nixPath = [ "nixpkgs=/etc/channels/nixpkgs" ];
   };
 

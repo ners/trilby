@@ -51,14 +51,15 @@
         ];
       });
     in
-    lib.foldr1 lib.recursiveUpdate [
+    lib.recursiveConcat [
       {
         inherit lib nixosModules;
       }
-      (lib.foreach
-        configurations
-        (import ./outputs/configuration.nix { inherit inputs lib; })
-      )
+      (lib.foreach configurations (trilby:
+        import ./outputs/configuration {
+          inherit inputs trilby lib;
+        }
+      ))
       (lib.foreach buildPlatforms (buildPlatform:
         let
           pkgs = lib.pkgsFor {
@@ -74,6 +75,7 @@
             };
           };
           legacyPackages.${buildPlatform} = pkgs;
+          packages.${buildPlatform}.default = pkgs.trilby-cli;
         }
       ))
     ];
