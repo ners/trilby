@@ -33,7 +33,7 @@ data DiskoAction
 
 runDisko :: DiskoAction -> App ()
 runDisko action =
-    withTrace quietCmd_ $ case action of
+    (withTrace . asRoot) quietCmd_ $ case action of
         Format -> ["disko", "-m", "disko", diskoFile]
         (FormatFlake flakeUri) -> ["disko", "-m", "disko", "--flake", flakeUri]
         Mount -> ["disko", "-m", "mount", diskoFile]

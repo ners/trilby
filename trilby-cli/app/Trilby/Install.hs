@@ -68,7 +68,7 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     whenM opts.format do
         $(logWarn) "Formatting disk"
         runDisko $ FormatFlake flakeRef
-    let rootIsMounted = (ExitSuccess ==) . fst <$> asRoot cmd' ["mountpoint", "-q", rootMount]
+    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
         unlessM (askYesNo "Attempt to mount the partitions?" True) $
@@ -94,7 +94,7 @@ install (askOpts -> opts) = do
     whenM opts.format $ do
         $(logWarn) "Formatting disk"
         runDisko Format
-    let rootIsMounted = (ExitSuccess ==) . fst <$> asRoot cmd' ["mountpoint", "-q", rootMount]
+    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
         unlessM (askYesNo "Attempt to mount the partitions?" True) $
