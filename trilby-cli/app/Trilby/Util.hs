@@ -112,6 +112,18 @@ prepend x xs = pure x <> xs
 append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
+-- | Does not suppress a command's stdout or stderr
+rawCmd :: NonEmpty Text -> App ExitCode
+rawCmd (p :| args) = do
+    $(logInfo) $ Text.unwords $ p : args
+    Turtle.proc p args Turtle.stdin
+
+-- | Does not suppress a command's stdout or stderr
+rawCmd_ :: NonEmpty Text -> App ()
+rawCmd_ (p :| args) = do
+    $(logInfo) $ Text.unwords $ p : args
+    Turtle.procs p args Turtle.stdin
+
 cmd' :: NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
     $(logInfo) $ Text.unwords $ p : args
@@ -132,6 +144,7 @@ cmd_ args = do
         liftIO $ Text.putStr out
         hFlush stdout
 
+-- | Suppresses a command's stderr if verbosity is not at least LevelInfo
 quietCmd_ :: NonEmpty Text -> App ()
 quietCmd_ (p :| args) = do
     ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do

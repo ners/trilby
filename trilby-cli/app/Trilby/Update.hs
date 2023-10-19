@@ -12,12 +12,12 @@ import Prelude
 update :: UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
     cd "/etc/trilby"
-    whenM opts.flakeUpdate $ cmd_ ["nix", "flake", "update"]
-    withTrace cmd_ ["nixos-rebuild", "build", "--flake", "."]
-    cmd_ ["nvd", "diff", "/run/current-system", "result"]
+    whenM opts.flakeUpdate $ rawCmd_ ["nix", "flake", "update"]
+    withTrace rawCmd_ ["nixos-rebuild", "build", "--flake", "."]
+    rawCmd_ ["nvd", "diff", "/run/current-system", "result"]
     opts.action >>= \case
-        Switch -> (withTrace . asRoot) cmd_ ["nixos-rebuild", "switch", "--flake", "."]
+        Switch -> (withTrace . asRoot) rawCmd_ ["nixos-rebuild", "switch", "--flake", "."]
         Boot reboot -> do
-            (withTrace . asRoot) cmd_ ["nixos-rebuild", "boot", "--flake", ".", "--install-bootloader"]
+            (withTrace . asRoot) rawCmd_ ["nixos-rebuild", "boot", "--flake", ".", "--install-bootloader"]
             whenM reboot $ asRoot cmd_ ["reboot"]
         NoAction -> pure ()
