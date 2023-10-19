@@ -135,7 +135,7 @@ install (askOpts -> opts) = do
         $(logWarn) "Performing installation"
         cmd_ ["nix", "flake", "lock", "--override-input", "trilby", "trilby"]
         (withTrace . asRoot)
-            cmd_
+            rawCmd_
             [ "nixos-install"
             , "--flake"
             , ".#" <> hostname
