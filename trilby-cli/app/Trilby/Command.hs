@@ -19,7 +19,7 @@ parseCommand :: Parser (Command Maybe)
 parseCommand = hsubparser (parseUpdate <> parseInstall)
 
 parseInstall :: Mod CommandFields (Command Maybe)
-parseInstall = command "install" $ info (Install <$> parseInstallOpts optional) (progDesc "install desc")
+parseInstall = command "install" $ info (Install <$> parseInstallOpts optional) (progDesc "install Trilby")
 
 parseUpdate :: Mod CommandFields (Command Maybe)
-parseUpdate = command "update" $ info (Update <$> parseUpdateOpts optional) (progDesc "update desc")
+parseUpdate = command "update" $ info (Update <$> parseUpdateOpts optional) (progDesc "update Trilby")
