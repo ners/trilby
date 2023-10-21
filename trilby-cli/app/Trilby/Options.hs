@@ -13,10 +13,10 @@ data Options m = Options
     }
 
 readLogLevel :: String -> Maybe LogLevel
-readLogLevel "debug" = Just LevelDebug
-readLogLevel "info" = Just LevelInfo
-readLogLevel "warn" = Just LevelWarn
-readLogLevel "error" = Just LevelError
+readLogLevel (fmap toLower -> "debug") = Just LevelDebug
+readLogLevel (fmap toLower -> "info") = Just LevelInfo
+readLogLevel (fmap toLower -> "warn") = Just LevelWarn
+readLogLevel (fmap toLower -> "error") = Just LevelError
 readLogLevel _ = Nothing
 
 showLogLevel :: LogLevel -> String
@@ -32,7 +32,7 @@ parseOptions = do
         optional $
             parseChoiceWith
                 showLogLevel
-                (readLogLevel . fmap toLower)
+                readLogLevel
                 (long "verbosity" <> metavar "LOGLEVEL" <> help "output verbosity")
                 [LevelDebug, LevelInfo, LevelWarn, LevelError]
     command <- parseCommand
