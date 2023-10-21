@@ -26,7 +26,7 @@ import Text.Read (readMaybe)
 import Trilby.App
 import Turtle (isAbsolute)
 import Turtle qualified
-import UnliftIO (MonadIO (liftIO), askRunInIO, hFlush, readTVarIO)
+import UnliftIO (MonadIO (liftIO), askRunInIO, hFlush)
 import Prelude hiding (error, log, writeFile)
 
 printError :: Text -> IO ()
@@ -223,11 +223,8 @@ writeNixFile f = writeFile f . showNix
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
-getVerbosity :: App LogLevel
-getVerbosity = liftIO . readTVarIO =<< view #verbosity
-
 verbosityAtLeast :: LogLevel -> App Bool
-verbosityAtLeast v = (v >=) <$> getVerbosity
+verbosityAtLeast v = (v >=) <$> view #verbosity
 
 withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 withTrace f (x :| xs) =

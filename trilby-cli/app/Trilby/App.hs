@@ -7,10 +7,10 @@ import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
 import Data.Functor (Functor)
 import GHC.Generics (Generic)
 import System.IO (IO)
-import UnliftIO (MonadIO, MonadUnliftIO, TVar)
+import UnliftIO (MonadIO, MonadUnliftIO)
 
 newtype AppState = AppState
-    { verbosity :: TVar LogLevel
+    { verbosity :: LogLevel
     }
     deriving stock (Generic)
 
