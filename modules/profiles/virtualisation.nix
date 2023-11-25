@@ -1,4 +1,4 @@
-{ pkgs, lib, trilby, ... }:
+{ config, pkgs, lib, trilby, ... }:
 
 {
   virtualisation = {
@@ -37,10 +37,10 @@
   environment.systemPackages = with pkgs; [
     fuse-overlayfs
     libguestfs
-    podman-compose
     spice-vdagent
     swtpm
-  ];
+  ]
+  ++ (lib.optional config.virtualisation.podman.enable podman-compose);
 
   boot.kernelModules = [ "kvm-amd" "kvm-intel" ];
 }

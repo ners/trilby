@@ -26,7 +26,7 @@
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
     hnix = {
-      url = "github:ners/hnix";
+      url = "github:haskell-nix/hnix";
       flake = false;
     };
   };

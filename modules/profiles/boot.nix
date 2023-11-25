@@ -2,7 +2,8 @@
 
 let
   inherit (lib) mkDefault mkForce;
-  hasEfi = (config.fileSystems."/boot".fsType or "") == "vfat";
+  inherit (config.boot.loader.efi) efiSysMountPoint;
+  hasEfi = (config.fileSystems.${efiSysMountPoint}.fsType or "") == "vfat";
 in
 {
   boot = {
