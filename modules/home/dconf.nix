@@ -25,8 +25,8 @@
                 mouse.speed = 0.5;
                 keyboard = {
                   repeat = true;
-                  delay = 200;
-                  repeat-interval = 10;
+                  delay = lib.hm.gvariant.mkUint32 240;
+                  repeat-interval = lib.hm.gvariant.mkUint32 16;
                 };
               };
             };
@@ -42,7 +42,6 @@
                 search-filter-time-type = "last_modified";
                 search-view = "list-view";
                 show-image-thumbnails = "always";
-                thumbnail-limit = 10;
               };
               list-view.use-tree-view = true;
             };
