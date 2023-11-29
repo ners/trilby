@@ -1,12 +1,17 @@
 { lib, ... }:
 
+let
+  inherit (lib.hm.gvariant) mkUint32;
+  inherit (lib) mkDefault;
+in
 {
   dconf = {
     enable = true;
     settings =
-      lib.dconfFlatten
+      lib.dconfFlattenWith mkDefault
         {
           org.gnome = {
+            Console.theme = "night";
             desktop = {
               interface = {
                 font-antialiasing = "grayscale";
@@ -25,8 +30,8 @@
                 mouse.speed = 0.5;
                 keyboard = {
                   repeat = true;
-                  delay = lib.hm.gvariant.mkUint32 240;
-                  repeat-interval = lib.hm.gvariant.mkUint32 16;
+                  delay = mkUint32 240;
+                  repeat-interval = mkUint32 16;
                 };
               };
             };

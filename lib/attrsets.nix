@@ -47,7 +47,8 @@ with lib;
   # merged into a single string, and may change the value as well.
   flattenAttrsWith = cond: merge: pipef [
     (flattenAttrs cond)
-    (map (pipef [ merge nameValuePairToAttrs ]))
+    (map merge)
+    (map nameValuePairToAttrs)
     recursiveConcat
   ];
 
