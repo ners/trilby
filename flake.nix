@@ -8,8 +8,7 @@
   };
 
   inputs = {
-    "nixpkgs-22.11".url = "github:nixos/nixpkgs/nixos-22.11";
-    "nixpkgs-23.05".url = "github:nixos/nixpkgs/nixos-23.05";
+    "nixpkgs-23.11".url = "github:nixos/nixpkgs/nixos-23.11";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     nix-filter.url = "github:numtide/nix-filter";
     nix-monitored = {

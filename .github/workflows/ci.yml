@@ -19,7 +19,7 @@ jobs:
           - workstation
           - server
         channel:
-          - 23_05
+          - 23_11
         hostArch:
           - x86_64
         format:
