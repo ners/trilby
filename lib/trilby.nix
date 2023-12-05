@@ -62,7 +62,7 @@ rec {
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
       ]
-      ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
+      ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
       ++ attrs.modules or [ ];
       specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
     };
@@ -103,7 +103,7 @@ rec {
             editions.${trilby.edition}
             hostPlatforms.${trilby.hostPlatform}
           ]
-          ++ optional (trilby ? format && !isEmpty trilby.format) formats.${trilby.format}
+          ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
           ++ attrs.modules or [ ];
         };
       };

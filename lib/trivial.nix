@@ -1,5 +1,6 @@
 { lib, ... }:
 
+with builtins;
 with lib;
 {
   # Pipes a value through a list of functions.
@@ -13,10 +14,12 @@ with lib;
   foreach = xs: f: recursiveConcat (
     if isList xs then map f xs
     else if isAttrs xs then mapAttrsToList f xs
-    else error "lib.foreach: First argument is of type ${builtins.typeOf xs}, but a list or attrset was expected."
+    else throw "lib.foreach: First argument is of type ${builtins.typeOf xs}, but a list or attrset was expected."
   );
 
   isEmpty = x: x == null || x == "" || x == [ ] || x == { };
+
+  isNotEmpty = x: not (isEmpty x);
 
   # A convenient attribute to debug which version of lib we are using.
   zzz = "zzz";
