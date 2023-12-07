@@ -4,8 +4,13 @@ let
   haskellPackages = attrs.haskellPackages.override {
     overrides = self: super: with pkgs.haskell.lib; builtins.trace "GHC ${super.ghc.version}" {
       hnix = dontCheck (super.callCabal2nix "hnix" inputs.hnix { });
-      hnix-store-core = super.hnix-store-core_0_6_1_0;
-      hnix-store-remote = super.hnix-store-remote_0_6_0_0;
+      hnix-store-core = doJailbreak (super.callCabal2nix "hnix-store-core" "${inputs.hnix-store}/hnix-store-core" { });
+      hnix-store-db = super.callCabal2nix "hnix-store-db" "${inputs.hnix-store}/hnix-store-db" { };
+      hnix-store-nar = super.callCabal2nix "hnix-store-nar" "${inputs.hnix-store}/hnix-store-nar" { };
+      hnix-store-readonly = super.callCabal2nix "hnix-store-readonly" "${inputs.hnix-store}/hnix-store-readonly" { };
+      hnix-store-remote = super.callCabal2nix "hnix-store-remote" "${inputs.hnix-store}/hnix-store-remote" { };
+      hnix-store-tests = super.callCabal2nix "hnix-store-tests" "${inputs.hnix-store}/hnix-store-tests" { };
+      some = super.some_1_0_6;
     };
   };
   pname = "trilby-cli";
@@ -23,7 +28,7 @@ let
   trilby-cli = haskellPackages.callCabal2nix pname src { };
   shell = haskellPackages.shellFor {
     packages = _: [ trilby-cli ];
-    nativeBuildInputs = with pkgs; with haskellPackages; [
+    nativeBuildInputs = with pkgs; with attrs.haskellPackages; [
       cabal-install
       fourmolu
       cabal-fmt
