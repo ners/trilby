@@ -20,6 +20,21 @@
         "type": "github"
       }
     },
+    "flake-compat": {
+      "locked": {
+        "lastModified": 1702565135,
+        "narHash": "sha256-FKWxdzQDnbQGdbZm83urVpz5MIQTawt4srwfbhz825U=",
+        "owner": "ners",
+        "repo": "flake-compat",
+        "rev": "2323e528ab6b500cf3175e3cb61d14d6d31c0a9b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ners",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
     "hnix": {
       "flake": false,
       "locked": {
@@ -146,6 +161,7 @@
     "root": {
       "inputs": {
         "disko": "disko",
+        "flake-compat": "flake-compat",
         "hnix": "hnix",
         "hnix-store": "hnix-store",
         "home-manager": "home-manager",
