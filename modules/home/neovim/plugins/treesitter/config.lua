@@ -15,7 +15,7 @@ cfg.setup {
     rainbow = {
         enable = true,
         query = 'rainbow-parens',
-        strategy = require('ts-rainbow').strategy['global'],
+        strategy = require('rainbow-delimiters').strategy['global'],
     },
     textobjects = {
         select = {

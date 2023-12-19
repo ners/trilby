@@ -6,7 +6,7 @@ synopsis:        Trilby command line tools
 -- description:
 homepage:        https://github.com/ners/trilby
 license:         Apache-2.0
-license-file:    LICENCE
+license-file:    LICENCE.md
 author:          ners
 maintainer:      ners@gmx.ch
 
