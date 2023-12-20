@@ -1,15 +1,12 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, ... }:
 
 let
-  inherit (lib) mkDefault mkForce;
+  inherit (lib) mkDefault;
   inherit (config.boot.loader.efi) efiSysMountPoint;
   hasEfi = (config.fileSystems.${efiSysMountPoint}.fsType or "") == "vfat";
 in
 {
   boot = {
-    # Use the latest kernel!
-    kernelPackages = mkForce pkgs.linuxPackages_latest;
-
     loader = {
       # The number of seconds for user intervention before the default boot option is selected.
       timeout = mkDefault 3;

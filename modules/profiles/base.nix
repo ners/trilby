@@ -6,11 +6,12 @@ let
 in
 {
   imports = with inputs.self.nixosModules; [
-    profiles.boot
+    profiles.bootloader
     profiles.btrfs
     profiles.console
     profiles.documentation
     profiles.getty
+    profiles.kernel
     profiles.network
     profiles.nix
     profiles.ssh

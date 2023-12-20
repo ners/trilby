@@ -6,7 +6,7 @@
 
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
-    ./user.nix
+    inputs.self.nixosModules.profiles.installer
   ];
 
   isoImage = lib.mkMerge [
@@ -27,34 +27,12 @@
       prependToMenuLabel = "Install ";
     })
   ];
-  environment.systemPackages = with pkgs; [
-    cryptsetup
-    disko
-    efibootmgr
-    efivar
-    gptfdisk
-    parted
-    pciutils
-    usbutils
-  ];
-  services.xserver.displayManager = {
-    gdm.autoSuspend = false;
-    autoLogin = {
-      enable = true;
-      user = "trilby";
-    };
-  };
-  # Automatically log in at the virtual consoles.
-  services.getty = {
-    autologinUser = lib.mkForce "trilby";
-    helpLine = lib.mkForce "";
-  };
+
   services.openssh =
     if (lib.versionAtLeast trilby.release "23.05")
     then { settings.PasswordAuthentication = true; }
     else { passwordAuthentication = true; };
 
-  users.motd = builtins.readFile ./motd.txt;
   boot.initrd = {
     luks.devices = { };
     systemd.enable = false;

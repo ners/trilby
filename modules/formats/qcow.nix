@@ -16,7 +16,6 @@
   boot = {
     #not supported by systemd-boot yet
     #growPartition = true;
-    kernelParams = [ "console=ttyS0" ];
     loader = {
       grub.device = lib.mkDefault (
         if trilby.hostPlatform == "x86_64-linux" then
