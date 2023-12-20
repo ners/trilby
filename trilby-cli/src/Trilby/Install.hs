@@ -2,24 +2,21 @@
 
 module Trilby.Install where
 
-import Control.Lens ((^.))
-import Control.Monad
-import Control.Monad.Extra (unlessM, whenM)
-import Control.Monad.Logger (logWarn)
-import Data.Default (Default (def))
-import Data.Generics.Labels ()
-import Data.Generics.Sum.Typed ()
 import Data.Text qualified as Text
+import Internal.Prelude
 import System.FilePath.Lens (directory)
-import Trilby.App (App)
 import Trilby.Config.Host
 import Trilby.Config.User
 import Trilby.Install.Disko
+import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
-import Trilby.Util
-import Turtle (Alternative (empty), ExitCode (ExitSuccess), IsString (fromString))
-import Prelude hiding (error, writeFile)
+
+showNix :: (ToExpr e, IsString s) => e -> s
+showNix = fromString . show . prettyNix . toExpr
+
+writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
+writeNixFile f = writeFile f . showNix
 
 efiLabel :: (IsString s) => s
 efiLabel = "EFI"
@@ -30,50 +27,50 @@ luksLabel = "LUKS"
 trilbyLabel :: (IsString s) => s
 trilbyLabel = "Trilby"
 
-luksDevice :: (IsString s) => s
-luksDevice = fromString $ "/dev/disk/by-partlabel/" <> luksLabel
+luksDevice :: FilePath
+luksDevice = "/dev/disk/by-partlabel/" <> luksLabel
 
 luksName :: (IsString s) => s
 luksName = "cryptroot"
 
-luksOpenDevice :: (IsString s) => s
-luksOpenDevice = fromString $ "/dev/mapper/" <> luksName
+luksOpenDevice :: FilePath
+luksOpenDevice = "/dev/mapper/" <> luksName
 
-trilbyDevice :: (IsString s) => s
-trilbyDevice = fromString $ "/dev/disk/by-partlabel/" <> trilbyLabel
+trilbyDevice :: FilePath
+trilbyDevice = "/dev/disk/by-partlabel/" <> trilbyLabel
 
-efiDevice :: (IsString s) => s
-efiDevice = fromString $ "/dev/disk/by-partlabel/" <> efiLabel
+efiDevice :: FilePath
+efiDevice = "/dev/disk/by-partlabel/" <> efiLabel
 
-rootMount :: (IsString s) => s
+rootMount :: FilePath
 rootMount = "/mnt"
 
-rootVol :: (IsString s) => s
-rootVol = fromString $ rootMount <> "/root"
+rootVol :: FilePath
+rootVol = rootMount <> "/root"
 
-bootVol :: (IsString s) => s
-bootVol = fromString $ rootMount <> "/boot"
+bootVol :: FilePath
+bootVol = rootMount <> "/boot"
 
-homeVol :: (IsString s) => s
-homeVol = fromString $ rootMount <> "/home"
+homeVol :: FilePath
+homeVol = rootMount <> "/home"
 
-nixVol :: (IsString s) => s
-nixVol = fromString $ rootMount <> "/nix"
+nixVol :: FilePath
+nixVol = rootMount <> "/nix"
 
-trilbyDir :: (IsString s) => s
-trilbyDir = fromString $ rootMount <> "/etc/trilby"
+trilbyDir :: FilePath
+trilbyDir = rootMount <> "/etc/trilby"
 
 install :: InstallOpts Maybe -> App ()
 install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     whenM opts.format do
         $(logWarn) "Formatting disk"
-        runDisko $ FormatFlake flakeRef
-    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", rootMount]
+        runDisko $ Format $ Disko.Flake flakeRef
+    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True) $
-            errorExit "Cannot install without mounted partitions"
-        runDisko $ MountFlake flakeRef
+        unlessM (askYesNo "Attempt to mount the partitions?" True)
+            $ errorExit "Cannot install without mounted partitions"
+        runDisko $ Mount $ Disko.Flake flakeRef
     (withTrace . asRoot)
         cmd_
         [ "nixos-install"
@@ -85,23 +82,23 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     whenM copyFlake do
         let flakeUri = Text.takeWhile (/= '#') flakeRef
         storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeUri <> " | jq --raw-output .path") empty
-        asRoot cmd_ ["cp", "-r", storePath, trilbyDir]
-        asRoot cmd_ ["chown", "-R", "1000:1000", trilbyDir]
+        asRoot cmd_ ["cp", "-r", storePath, fromString trilbyDir]
+        asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
     whenM opts.reboot $ asRoot cmd_ ["reboot"]
 install (askOpts -> opts) = do
     disko <- getDisko opts
     inDir (diskoFile ^. directory) $ writeNixFile diskoFile disko
     whenM opts.format $ do
         $(logWarn) "Formatting disk"
-        runDisko Format
-    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", rootMount]
+        runDisko $ Format $ Disko.File diskoFile
+    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True) $
-            errorExit "Cannot install without mounted partitions"
-        runDisko Mount
+        unlessM (askYesNo "Attempt to mount the partitions?" True)
+            $ errorExit "Cannot install without mounted partitions"
+        runDisko $ Mount $ Disko.File diskoFile
     inDir trilbyDir do
-        asRoot cmd_ ["chown", "-R", "1000:1000", trilbyDir]
+        asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
         username <- opts.username
         password <- do
             rawPassword <- opts.password
@@ -129,7 +126,7 @@ install (askOpts -> opts) = do
                     , "--show-hardware-config"
                     , "--no-filesystems"
                     , "--root"
-                    , rootMount
+                    , fromString rootMount
                     ]
             writeNixFile "disko.nix" $ clearLuksFiles disko
         $(logWarn) "Performing installation"

@@ -1,14 +1,9 @@
 module Trilby.Config.Host where
 
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Nix (NExpr)
-import Nix.TH (ToExpr (toExpr), nix)
+import Internal.Prelude
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.User
-import Trilby.Util
-import Prelude
 
 data Host = Host
     { hostname :: Text

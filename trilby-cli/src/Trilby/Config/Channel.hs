@@ -1,10 +1,6 @@
 module Trilby.Config.Channel where
 
-import Data.Default (Default (def))
-import GHC.Generics (Generic)
-import Nix.TH (ToExpr (toExpr))
-import Trilby.Util
-import Prelude
+import Internal.Prelude
 
 data Channel
     = Unstable

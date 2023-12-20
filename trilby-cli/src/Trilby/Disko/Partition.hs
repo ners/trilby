@@ -2,13 +2,9 @@
 
 module Trilby.Disko.Partition where
 
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Nix.TH (ToExpr (toExpr), nix)
+import Internal.Prelude
 import Trilby.Disko.Filesystem (Filesystem)
 import Trilby.HNix
-import Trilby.Util
-import Prelude
 
 data Size = MiB Int | GiB Int | Whole
     deriving stock (Generic, Eq, Show)

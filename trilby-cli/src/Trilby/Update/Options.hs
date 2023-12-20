@@ -3,12 +3,8 @@
 
 module Trilby.Update.Options where
 
-import Control.Monad.Extra (ifM)
-import GHC.Generics (Generic)
+import Internal.Prelude
 import Options.Applicative
-import Trilby.App (App)
-import Trilby.Util
-import Prelude
 
 data UpdateAction m
     = Switch
@@ -34,13 +30,13 @@ parseUpdateOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (Upd
 parseUpdateOpts f = do
     flakeUpdate <- f $ flag' False (long "no-flake-update" <> help "Do not update the flake lock")
     action <-
-        f $
-            flag' Switch (long "switch" <> help "Switch to the new configuration")
-                <|> do
-                    boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
-                    reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
-                    pure $ boot reboot
-                <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
+        f
+            $ flag' Switch (long "switch" <> help "Switch to the new configuration")
+            <|> do
+                boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
+                reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
+                pure $ boot reboot
+            <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
     pure UpdateOpts{..}
 
 askAction :: Maybe (UpdateAction Maybe) -> App (UpdateAction App)

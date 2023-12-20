@@ -1,12 +1,8 @@
 module Trilby.Disko.Disk where
 
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Nix.TH (ToExpr (toExpr), nix)
+import Internal.Prelude
 import Trilby.Disko.Partition
 import Trilby.HNix
-import Trilby.Util
-import Prelude
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
     deriving stock (Generic, Show, Eq)

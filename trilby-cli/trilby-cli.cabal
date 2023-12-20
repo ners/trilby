@@ -49,10 +49,11 @@ common common
         TypeFamilies
         ViewPatterns
 
-executable trilby
-    import:           common
-    main-is:          Main.hs
-    other-modules:
+library
+    import:          common
+    hs-source-dirs:  src
+    other-modules:   Internal.Prelude
+    exposed-modules:
         Trilby.App
         Trilby.Command
         Trilby.Config
@@ -72,11 +73,8 @@ executable trilby
         Trilby.Options
         Trilby.Update
         Trilby.Update.Options
-        Trilby.Util
 
-    -- other-extensions:
     build-depends:
-        , ansi-terminal
         , base
         , data-default
         , data-fix
@@ -93,5 +91,14 @@ executable trilby
         , unix
         , unliftio
 
-    hs-source-dirs:   app
-    default-language: GHC2021
+executable trilby
+    import:         common
+    main-is:        Main.hs
+    hs-source-dirs: app
+    build-depends:
+        , ansi-terminal
+        , base
+        , monad-logger
+        , optparse-applicative
+        , text
+        , trilby-cli

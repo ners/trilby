@@ -1,10 +1,9 @@
 module Trilby.Command where
 
-import GHC.Generics (Generic)
+import Internal.Prelude
 import Options.Applicative
 import Trilby.Install.Options
 import Trilby.Update.Options
-import Prelude
 
 data Command m
     = Update (UpdateOpts m)

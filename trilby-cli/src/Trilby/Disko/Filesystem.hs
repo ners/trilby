@@ -1,11 +1,6 @@
 module Trilby.Disko.Filesystem where
 
-import Data.Char (toLower)
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Nix.TH
-import Trilby.Util
-import Prelude
+import Internal.Prelude
 
 data Format
     = Btrfs

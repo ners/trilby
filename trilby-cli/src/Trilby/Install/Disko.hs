@@ -1,43 +1,40 @@
 module Trilby.Install.Disko where
 
-import Control.Applicative (Alternative (empty))
 import Control.Lens
-import Control.Monad (when)
-import Control.Monad.Logger (logInfo)
 import Data.Generics.Labels ()
 import Data.List (sortOn)
 import Data.List.Extra (headDef)
-import Data.String (IsString (fromString))
-import Data.Text (Text)
+import Internal.Prelude
 import System.FilePath.Lens
-import Trilby.App (App)
 import Trilby.Disko
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
 import Trilby.Install.Options
-import Trilby.Util
-import Prelude hiding (writeFile)
 
-diskoFile :: (IsString s) => s
+diskoFile :: FilePath
 diskoFile = "/tmp/disko.nix"
 
-luksPasswordFile :: (IsString s) => s
+luksPasswordFile :: FilePath
 luksPasswordFile = "/tmp/luksPassword"
 
+data FileOrFlake
+    = File FilePath
+    | Flake Text
+    deriving stock (Generic)
+
 data DiskoAction
-    = Format
-    | Mount
-    | FormatFlake Text
-    | MountFlake Text
+    = Format FileOrFlake
+    | Mount FileOrFlake
+    deriving stock (Generic)
 
 runDisko :: DiskoAction -> App ()
 runDisko action =
     (withTrace . asRoot) quietCmd_ $ case action of
-        Format -> ["disko", "-m", "disko", diskoFile]
-        (FormatFlake flakeUri) -> ["disko", "-m", "disko", "--flake", flakeUri]
-        Mount -> ["disko", "-m", "mount", diskoFile]
-        (MountFlake flakeUri) -> ["disko", "-m", "mount", "--flake", flakeUri]
+        Format (File f) -> ["disko", "-m", "disko", fromString f]
+        Format (Flake f) -> ["disko", "-m", "disko", "--flake", f]
+        Mount (File f) -> ["disko", "-m", "mount", fromString f]
+        Mount (Flake f) -> ["disko", "-m", "mount", "--flake", f]
 
 getDisko :: InstallOpts App -> App Disko
 getDisko opts = do

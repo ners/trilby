@@ -1,13 +1,9 @@
 module Trilby.Disko where
 
-import GHC.Generics (Generic)
-import Nix
+import Internal.Prelude
 import Nix.Prelude (One (one))
-import Nix.TH (ToExpr (toExpr), nix)
 import Trilby.Disko.Disk
 import Trilby.HNix
-import Trilby.Util (fromText)
-import Prelude
 
 newtype Disko = Disko {disks :: [Disk]}
     deriving stock (Generic, Show, Eq)

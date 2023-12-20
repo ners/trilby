@@ -2,15 +2,9 @@
 
 module Trilby.Install.Flake where
 
-import Data.Default (Default (def))
-import Data.Text (Text)
 import Data.Text qualified as Text
-import GHC.Generics (Generic)
-import Nix (NAttrPath, NExpr)
-import Nix.TH (ToExpr (toExpr), nix)
+import Internal.Prelude
 import Trilby.HNix
-import Trilby.Util
-import Prelude
 
 data InputOverride = Follows Text Text
     deriving stock (Generic, Show, Eq)

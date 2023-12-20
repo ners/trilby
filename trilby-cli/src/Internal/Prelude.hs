@@ -1,57 +1,134 @@
-module Trilby.Util where
+module Internal.Prelude
+    ( module Control.Applicative
+    , module Control.Lens.Combinators
+    , module Control.Lens.Operators
+    , module Control.Monad
+    , module Control.Monad.Extra
+    , module Control.Monad.Logger
+    , module Control.Monad.Reader
+    , module Control.Monad.State
+    , module Control.Monad.Trans
+    , module Data.Bool
+    , module Data.Char
+    , module Data.Default
+    , module Data.List.NonEmpty
+    , module Data.Maybe
+    , module Data.String
+    , module Data.Text
+    , module GHC.Generics
+    , module GHC.IsList
+    , module Nix.Expr.Types
+    , module Nix.Pretty
+    , module Nix.TH
+    , module Prelude
+    , module System.Exit
+    , module System.IO
+    , module Trilby.App
+    , module UnliftIO
+    , parseYesNo
+    , parseChoiceWith
+    , parseChoice
+    , parseEnum
+    , prompt
+    , askYesNo
+    , askChoice
+    , askEnum
+    , errorExit
+    , ishow
+    , fromText
+    , fromListSafe
+    , readsPrecBoundedEnum
+    , readsPrecBoundedEnumOn
+    , prepend
+    , append
+    , cmd
+    , cmd_
+    , rawCmd
+    , rawCmd_
+    , cmd'
+    , quietCmd_
+    , isRoot
+    , asRoot
+    , singleQuoted
+    , doubleQuoted
+    , shell
+    , proc
+    , ensureDir
+    , inDir
+    , writeFile
+    , is
+    , verbosityAtLeast
+    , withTrace
+    , containsAnyOf
+    , containsNoneOf
+    )
+where
 
-import Control.Lens (Each (each), Getting, anyOf, noneOf, view, (^?))
-import Control.Monad (zipWithM_)
-import Control.Monad.Extra (ifM, whenM)
-import Control.Monad.Logger (LogLevel (LevelDebug, LevelInfo), logDebug, logError, logInfo)
-import Data.Bool (bool)
-import Data.Char qualified as Char
+import Control.Applicative
+import Control.Lens.Combinators
+import Control.Lens.Operators
+import Control.Monad
+import Control.Monad.Extra
+import Control.Monad.Logger (LogLevel (..), logDebug, logError, logInfo, logWarn)
+import Control.Monad.Reader (MonadReader)
+import Control.Monad.State (MonadState, evalStateT)
+import Control.Monad.Trans (MonadTrans)
+import Data.Bool
+import Data.Char (toLower)
+import Data.Default (Default (def))
 import Data.Generics.Labels ()
 import Data.List qualified as List
-import Data.List.NonEmpty (NonEmpty ((:|)), fromList, nonEmpty)
-import Data.Maybe (fromMaybe, isJust, maybeToList)
+import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
+import Data.Maybe
 import Data.Monoid (First)
-import Data.String (IsString, fromString)
+import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
-import Nix (prettyNix)
-import Nix.TH (ToExpr (toExpr))
+import GHC.Generics (Generic)
+import GHC.IsList
+import Nix.Expr.Types
+import Nix.Pretty (prettyNix)
+import Nix.TH (ToExpr (toExpr), nix)
 import Options.Applicative
-import System.Console.ANSI
+    ( Mod
+    , OptionFields
+    , Parser
+    , completeWith
+    , flag'
+    , help
+    , long
+    , maybeReader
+    , option
+    , showDefault
+    , showDefaultWith
+    )
 import System.Exit (ExitCode (..), exitFailure, exitWith)
-import System.IO (stderr, stdout)
+import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
-import Text.Read (readMaybe)
-import Trilby.App
-import Turtle (isAbsolute)
+import Text.Read qualified as Text
+import Trilby.App (App)
 import Turtle qualified
-import UnliftIO (MonadIO (liftIO), askRunInIO, hFlush)
-import Prelude hiding (error, log, writeFile)
+import UnliftIO
+import Prelude hiding (writeFile)
 
-printError :: Text -> IO ()
-printError t = do
-    hSetSGR stderr [SetColor Foreground Vivid Red]
-    Text.hPutStrLn stderr t
-    hSetSGR stderr [Reset]
+parseYesNo :: String -> String -> Parser Bool
+parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
+  where
+    noLong = "no-" <> yesLong
 
-printWarn :: Text -> IO ()
-printWarn t = do
-    hSetSGR stderr [SetColor Foreground Vivid Yellow]
-    Text.hPutStrLn stderr t
-    hSetSGR stderr [Reset]
+parseChoiceWith :: forall a. (a -> String) -> (String -> Maybe a) -> Mod OptionFields a -> [a] -> Parser a
+parseChoiceWith show' read' m xs = option (maybeReader read') $ m <> showDefaultWith show' <> completeWith options
+  where
+    options = show' <$> xs
 
-printInfo :: Text -> IO ()
-printInfo t = do
-    hSetSGR stderr [SetColor Foreground Dull Cyan]
-    Text.hPutStrLn stderr t
-    hSetSGR stderr [Reset]
+parseChoice :: forall a. (Show a, Read a) => Mod OptionFields a -> [a] -> Parser a
+parseChoice m xs = option (maybeReader Text.readMaybe) $ m <> showDefault <> completeWith options
+  where
+    options = show @a <$> xs
 
-printDebug :: Text -> IO ()
-printDebug t = do
-    hSetSGR stderr [SetColor Foreground Dull Magenta]
-    Text.hPutStrLn stderr t
-    hSetSGR stderr [Reset]
+parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
+parseEnum = flip parseChoice [minBound .. maxBound]
 
 prompt :: Text -> App Text
 prompt message = liftIO do
@@ -62,12 +139,14 @@ prompt message = liftIO do
 askYesNo :: Text -> Bool -> App Bool
 askYesNo question defaultValue = do
     answer <-
-        prompt $
-            question <> " " <> (if defaultValue then "[Y/n]" else "[y/N]")
+        prompt
+            $ question
+            <> " "
+            <> (if defaultValue then "[Y/n]" else "[y/N]")
     case Text.uncons answer of
         Nothing -> pure defaultValue
-        Just (Char.toLower -> 'y', _) -> pure True
-        Just (Char.toLower -> 'n', _) -> pure False
+        Just (toLower -> 'y', _) -> pure True
+        Just (toLower -> 'n', _) -> pure False
         _ -> do
             $(logError) "Invalid input"
             askYesNo question defaultValue
@@ -75,8 +154,8 @@ askYesNo question defaultValue = do
 askChoice :: (Show a) => Text -> [a] -> App a
 askChoice message values = do
     liftIO $ Text.putStrLn message
-    zipWithM_ (\i v -> liftIO $ Text.putStrLn $ tshow i <> ") " <> tshow v) [1 :: Int ..] values
-    selection <- readMaybe . Text.unpack <$> prompt ">"
+    zipWithM_ (\i v -> liftIO $ Text.putStrLn $ ishow i <> ") " <> ishow v) [1 :: Int ..] values
+    selection <- Text.readMaybe . Text.unpack <$> prompt ">"
     case selection of
         Just i | i > 0 && i <= length values -> pure $ values !! (i - 1)
         _ -> do
@@ -89,8 +168,8 @@ askEnum = flip askChoice [minBound .. maxBound]
 errorExit :: Text -> App a
 errorExit msg = $(logError) msg >> liftIO exitFailure
 
-tshow :: (Show a) => a -> Text
-tshow = Text.pack . show
+ishow :: (Show a, IsString s) => a -> s
+ishow = fromString . show
 
 readsPrecBoundedEnumOn :: forall a. (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
 readsPrecBoundedEnumOn m _ s = maybeToList $ asum $ map f [minBound .. maxBound]
@@ -100,7 +179,7 @@ readsPrecBoundedEnumOn m _ s = maybeToList $ asum $ map f [minBound .. maxBound]
 readsPrecBoundedEnum :: (Show a, Bounded a, Enum a) => Int -> String -> [(a, String)]
 readsPrecBoundedEnum = readsPrecBoundedEnumOn id
 
-fromText :: (IsString a) => Text -> a
+fromText :: (IsString s) => Text -> s
 fromText = fromString . Text.unpack
 
 fromListSafe :: a -> [a] -> NonEmpty a
@@ -132,7 +211,7 @@ cmd' (p :| args) = do
 cmd :: NonEmpty Text -> App Text
 cmd args = do
     (code, out) <- cmd' args
-    $(logDebug) $ "cmd return code: " <> tshow code
+    $(logDebug) $ "cmd return code: " <> ishow code
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code
@@ -180,31 +259,10 @@ shell t = Turtle.strict . Turtle.inshell t
 proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
 proc (p :| args) = Turtle.strict . Turtle.inproc p args
 
-parseYesNo :: String -> String -> Parser Bool
-parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
-  where
-    noLong = "no-" <> yesLong
-
-parseChoiceWith :: forall a. (a -> String) -> (String -> Maybe a) -> Mod OptionFields a -> [a] -> Parser a
-parseChoiceWith show' read' m xs = option (maybeReader read') $ m <> showDefaultWith show' <> completeWith options
-  where
-    options = show' <$> xs
-
-parseChoice :: forall a. (Show a, Read a) => Mod OptionFields a -> [a] -> Parser a
-parseChoice m xs = option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
-  where
-    options = show @a <$> xs
-
-parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
-parseEnum = flip parseChoice [minBound .. maxBound]
-
-showNix :: (ToExpr e, IsString s) => e -> s
-showNix = fromString . show . prettyNix . toExpr
-
 ensureDir :: FilePath -> App ()
 ensureDir "" = pure ()
 ensureDir "." = pure ()
-ensureDir d = bool id asRoot (isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
+ensureDir d = bool id asRoot (Turtle.isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
 
 inDir :: FilePath -> App a -> App a
 inDir d a = do
@@ -217,9 +275,6 @@ writeFile f t = do
     $(logDebug) $ "writeFile " <> fromString f
     Turtle.output f $ Turtle.toLines $ pure t
 
-writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
-writeNixFile f = writeFile f . showNix
-
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
@@ -229,7 +284,9 @@ verbosityAtLeast v = (v >=) <$> view #verbosity
 withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 withTrace f (x :| xs) =
     verbosityAtLeast LevelDebug
-        >>= f . (x :|) . bool xs ("--show-trace" : xs)
+        >>= f
+        . (x :|)
+        . bool xs ("--show-trace" : xs)
 
 containsAnyOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsAnyOf = anyOf each . flip elem

@@ -1,9 +1,8 @@
 module Trilby.Config where
 
-import GHC.Generics (Generic)
+import Internal.Prelude
 import Trilby.Config.Host (Host)
 import Trilby.Disko (Disko)
-import Prelude
 
 data InstallConfig = InstallConfig
     { host :: Host

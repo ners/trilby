@@ -1,11 +1,6 @@
 module Trilby.Config.Edition where
 
-import Data.Char (toLower)
-import Data.Default (Default (def))
-import GHC.Generics (Generic)
-import Nix.TH (ToExpr (toExpr))
-import Trilby.Util
-import Prelude
+import Internal.Prelude
 
 data Edition = Workstation | Server
     deriving stock (Generic, Show, Eq, Bounded, Enum)

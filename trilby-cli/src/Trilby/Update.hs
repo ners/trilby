@@ -2,12 +2,9 @@
 
 module Trilby.Update where
 
-import Control.Monad.Extra (whenM)
-import Trilby.App (App)
+import Internal.Prelude
 import Trilby.Update.Options
-import Trilby.Util
 import Turtle.Prelude hiding (shell)
-import Prelude
 
 update :: UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do

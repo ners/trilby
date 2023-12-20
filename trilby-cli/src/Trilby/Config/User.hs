@@ -1,12 +1,7 @@
 module Trilby.Config.User where
 
-import Control.Lens
-import Data.Text (Text)
-import GHC.Generics (Generic)
-import Nix.Expr.Types
-import Nix.TH (ToExpr (toExpr), nix)
+import Internal.Prelude
 import Trilby.HNix
-import Prelude
 
 type Username = Text
 
@@ -34,7 +29,13 @@ instance ToExpr User where
           initialHashedPassword = initialHashedPassword;
         }
         |]
-            & _Fix . _NAbs . _2 . _Fix . _NApp . _2 %~ canonicalSet
+            & _Fix
+            . _NAbs
+            . _2
+            . _Fix
+            . _NApp
+            . _2
+            %~ canonicalSet
       where
         (initialPassword, initialHashedPassword) =
             case password of

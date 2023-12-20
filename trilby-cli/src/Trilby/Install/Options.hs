@@ -2,23 +2,14 @@
 
 module Trilby.Install.Options where
 
-import Control.Lens ((&), (?~))
-import Control.Monad.Extra (fromMaybeM, ifM)
-import Control.Monad.Logger (logError)
 import Data.Generics.Labels ()
-import Data.Text (Text)
-import GHC.Generics (Generic)
+import Internal.Prelude hiding (error)
 import Options.Applicative
-import System.Exit (exitFailure)
 import System.Posix (getFileStatus, isBlockDevice, isSymbolicLink)
-import Trilby.App (App)
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Disko.Filesystem
-import Trilby.Util
-import Turtle (IsString (fromString), readlink)
-import UnliftIO (MonadIO (liftIO))
-import Prelude hiding (error)
+import Turtle qualified
 
 data LuksOpts m
     = NoLuks
@@ -31,12 +22,12 @@ deriving stock instance Show (LuksOpts Maybe)
 
 parseLuks :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m (LuksOpts m))
 parseLuks f = do
-    f $
-        flag' NoLuks (long "no-luks")
-            <|> do
-                flag' () (long "luks" <> help "encrypt the disk with LUKS2")
-                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
-                pure UseLuks{..}
+    f
+        $ flag' NoLuks (long "no-luks")
+        <|> do
+            flag' () (long "luks" <> help "encrypt the disk with LUKS2")
+            luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+            pure UseLuks{..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: Text, copyFlake :: m Bool}
     deriving stock (Generic)
@@ -99,7 +90,7 @@ validateDisk :: FilePath -> App (Maybe FilePath)
 validateDisk f =
     liftIO (getFileStatus f) >>= \case
         (isBlockDevice -> True) -> pure $ Just f
-        (isSymbolicLink -> True) -> readlink f >>= validateDisk
+        (isSymbolicLink -> True) -> Turtle.readlink f >>= validateDisk
         _ -> do
             $(logError) $ "Cannot find disk " <> fromString f
             pure Nothing
@@ -107,7 +98,8 @@ validateDisk f =
 askDisk :: App FilePath
 askDisk = do
     disks <-
-        lines . fromText
+        lines
+            . fromText
             <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     case disks of
         [] -> errorExit "No disks found"
