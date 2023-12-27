@@ -3,8 +3,8 @@
 
   nixConfig = {
     extra-experimental-features = "nix-command flakes";
-    extra-substituters = "https://trilby.cachix.org";
-    extra-trusted-public-keys = "trilby.cachix.org-1:47uj9Bdgk9jCfhnY7ZDJlRSNJ/y5RkU6wBaEmGn9uns=";
+    extra-substituters = "https://cache.ners.ch/trilby";
+    extra-trusted-public-keys = "trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU=";
   };
 
   inputs = {

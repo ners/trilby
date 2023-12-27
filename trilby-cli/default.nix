@@ -12,7 +12,6 @@ let
       haskell-debug-adapter
       haskell-language-server
     ];
-    withHoogle = true;
   };
 in
 hp.trilby-cli // { inherit shell; }

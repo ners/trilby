@@ -27,19 +27,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}-${{ matrix.format }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v20
-    - uses: cachix/cachix-action@v12
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v24
+    - uses: ryanccn/attic-action@v0
       with:
-        name: trilby
-        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+        endpoint: https://cache.ners.ch
+        cache: trilby
+        token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
       run: |
         nix build \
           --accept-flake-config \
           --print-build-logs \
           .#${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}-${{ matrix.format }}
-    - uses: actions/upload-artifact@v3
-      with:
-        name: ${{ matrix.name }}-${{ matrix.edition }}-${{ matrix.channel }}-${{ matrix.hostArch }}.iso
-        path: result/iso/*.iso
