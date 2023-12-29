@@ -25,8 +25,20 @@ final: prev: {
         hnix-store-readonly = hfinal.callCabal2nix "hnix-store-readonly" "${inputs.hnix-store}/hnix-store-readonly" { };
         hnix-store-remote = hfinal.callCabal2nix "hnix-store-remote" "${inputs.hnix-store}/hnix-store-remote" { };
         hnix-store-tests = hfinal.callCabal2nix "hnix-store-tests" "${inputs.hnix-store}/hnix-store-tests" { };
-        some = hfinal.some_1_0_6;
-        trilby-cli = hfinal.callCabal2nix "trilby-cli" src { };
+        trilby-cli =
+          (hfinal.callCabal2nix "trilby-cli" src { }).overrideAttrs
+            (attrs: {
+              outputs = (attrs.outputs or [ ]) ++ [ "bin" ];
+              meta = attrs.meta // {
+                outputsToInstall = [ "out" "bin" ];
+              };
+              postInstall = ''
+                ${attrs.postInstall or ""}
+                install -Dt $bin/bin $out/bin/*
+              '';
+            }) // {
+            shell = import ./shell.nix { haskellPackages = hfinal; };
+          };
       }
     );
   };
