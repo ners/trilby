@@ -5,7 +5,7 @@
     {
       plugin = pkgs.vimPlugins.nvim-autopairs;
       type = "lua";
-      config = ''
+      config = /*lua*/ ''
         require('nvim-autopairs').setup({})
       '';
     }

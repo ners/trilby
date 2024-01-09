@@ -5,7 +5,7 @@
     {
       plugin = nvim-scrollbar;
       type = "lua";
-      config = ''
+      config = /*lua*/ ''
         require("scrollbar").setup()
         require("scrollbar.handlers.search").setup()
       '';

@@ -5,7 +5,7 @@
     {
       plugin = nvim-hlslens;
       type = "lua";
-      config = ''
+      config = /*lua*/ ''
         require("hlslens").setup()
       '';
     }

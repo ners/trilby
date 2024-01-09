@@ -5,7 +5,7 @@
     {
       plugin = pkgs.vimPlugins.gitsigns-nvim;
       type = "lua";
-      config = ''
+      config = /*lua*/ ''
         require('gitsigns').setup({})
       '';
     }

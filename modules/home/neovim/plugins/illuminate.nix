@@ -5,7 +5,7 @@
     {
       plugin = vim-illuminate;
       type = "lua";
-      config = ''
+      config = /*lua*/ ''
         require('illuminate').configure({})
       '';
     }

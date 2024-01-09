@@ -5,7 +5,7 @@
     {
       plugin = pkgs.vimPlugins.nvim-base16;
       type = "viml";
-      config = ''
+      config = /*vim*/ ''
         colorscheme base16-default-dark
       '';
     }
