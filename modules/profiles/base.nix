@@ -1,4 +1,4 @@
-{ inputs, trilby, lib, ... }:
+{ config, inputs, trilby, lib, ... }:
 
 with builtins;
 let
@@ -33,6 +33,12 @@ in
       }
     )
   ];
+  system.systemBuilderArgs.name =
+    let
+      cn = trilby.configurationName;
+      sn = config.system.name;
+    in
+    if lib.hasInfix sn cn then cn else "${cn}-${sn}";
 
   nixpkgs = lib.mkMerge [
     {

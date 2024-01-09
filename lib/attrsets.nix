@@ -3,10 +3,6 @@
 with builtins;
 with lib;
 {
-  # Utility function that converts an attrset to a list of {name, value} pairs.
-  # Inverse of builtins.listToAttrs: listToAttrs (atrsToList attrs) == attrs
-  attrsToList = mapAttrsToList nameValuePair;
-
   # Convert a single {name, value} pair to a corresponding attrset
   nameValuePairToAttrs = pipef [ singleton listToAttrs ];
 

@@ -79,7 +79,11 @@
             };
           };
           legacyPackages.${buildPlatform} = pkgs;
-          packages.${buildPlatform}.default = pkgs.trilby-cli;
+          packages.${buildPlatform} = {
+            default = pkgs.trilby-cli;
+          } // import ./outputs/allConfigs.nix {
+            inherit configurations buildPlatform inputs lib pkgs;
+          };
         }
       ))
     ];
