@@ -75,8 +75,9 @@ instance Default Flake where
         Flake
             { nixConfig =
                 NixConfig
-                    ["https://cache.ners.ch/trilby"]
-                    ["trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU="]
+                    { extraSubstituters = ["https://cache.ners.ch/trilby"]
+                    , extraTrustedPublicKeys = ["trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU="]
+                    }
             , inputs =
                 [ Input
                     { name = "trilby"
