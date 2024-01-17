@@ -44,11 +44,11 @@ instance ToExpr NixConfig where
     toExpr NixConfig{..} =
         canonicalSet
             [nix|
-          {
-              extra-substituters = extraSubstituters;
-              extra-trusted-public-keys = extraTrustedPublicKeys;
-          }
-          |]
+            {
+                extra-substituters = extraSubstituters;
+                extra-trusted-public-keys = extraTrustedPublicKeys;
+            }
+            |]
 
 data Flake = Flake
     { nixConfig :: NixConfig
