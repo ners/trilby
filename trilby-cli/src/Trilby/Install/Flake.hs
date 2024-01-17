@@ -34,8 +34,25 @@ instance ToExpr Input where
         inputsSet = listToSet io inputs
         io (Follows s _) = fromText @(NAttrPath NExpr) $ if Text.elem '.' s then doubleQuoted s else s
 
+data NixConfig = NixConfig
+    { extraSubstituters :: [Text]
+    , extraTrustedPublicKeys :: [Text]
+    }
+    deriving stock (Generic, Show, Eq)
+
+instance ToExpr NixConfig where
+    toExpr NixConfig{..} =
+        canonicalSet
+            [nix|
+          {
+              extra-substituters = extraSubstituters;
+              extra-trusted-public-keys = extraTrustedPublicKeys;
+          }
+          |]
+
 data Flake = Flake
-    { inputs :: [Input]
+    { nixConfig :: NixConfig
+    , inputs :: [Input]
     , outputs :: NExpr
     }
     deriving stock (Generic, Show, Eq)
@@ -45,6 +62,7 @@ instance ToExpr Flake where
         canonicalSet
             [nix|
             {
+                nixConfig = nixConfig;
                 inputs = inputsSet;
                 outputs = outputs;
             }
@@ -55,7 +73,11 @@ instance ToExpr Flake where
 instance Default Flake where
     def =
         Flake
-            { inputs =
+            { nixConfig =
+                NixConfig
+                    ["https://cache.ners.ch/trilby"]
+                    ["trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU="]
+            , inputs =
                 [ Input
                     { name = "trilby"
                     , url = "github:ners/trilby"
