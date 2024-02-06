@@ -1,6 +1,8 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
+  imports = lib.findModulesList ./.;
+
   services = {
     xserver = {
       displayManager.gdm.enable = true;
@@ -36,14 +38,14 @@
   environment.systemPackages = with pkgs; with gnome; with gnomeExtensions; [
     adwaita-icon-theme
     appindicator
-    eog
-    evince
-    evolution
-    file-roller
-    geary
     gnome-connections
     gnome-tweaks
     gnome-usage
     nautilus
   ];
+
+  xdg.mime.inverted.defaultApplications = {
+    "org.gnome.Nautilus.desktop" = [ "inode/directory" ];
+    "org.gnome.gedit.desktop" = [ "text/plain" ];
+  };
 }

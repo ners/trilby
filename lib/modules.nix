@@ -23,4 +23,11 @@ with lib;
       "${module.name}" = module.value;
     }
   );
+
+  # Same as `findModules`, but returns all the modules found in a list.
+  findModulesList = pipef [
+    findModules
+    (flattenAttrs (const true))
+    (map ({ value, ... }: value))
+  ];
 }
