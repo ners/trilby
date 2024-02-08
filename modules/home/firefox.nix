@@ -1,8 +1,8 @@
-{ trilby, lib, pkgs, ... }:
+{ nixosConfig, ... }:
 
 {
-  programs.firefox = lib.mkIf (trilby.edition == "workstation") {
+  programs.firefox = {
     enable = true;
-    package = pkgs.firefox-devedition;
+    inherit (nixosConfig.programs.firefox) package;
   };
 }

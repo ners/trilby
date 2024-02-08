@@ -28,6 +28,6 @@ with lib;
   findModulesList = pipef [
     findModules
     (flattenAttrs (const true))
-    (map ({ value, ... }: value))
+    (map (x: x.value))
   ];
 }

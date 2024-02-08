@@ -3,7 +3,7 @@
 with builtins;
 with lib;
 {
-  imports = attrValues (findModules ./plugins);
+  imports = findModulesList ./plugins;
 
   programs.neovim = {
     enable = true;
