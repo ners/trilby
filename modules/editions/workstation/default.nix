@@ -4,6 +4,7 @@ lib.optionalAttrs (trilby.edition == "workstation")
 {
   imports = with inputs.self.nixosModules; [
     profiles.base
+    profiles.firefox
     profiles.fonts
     profiles.geoclue
     profiles.gnome
