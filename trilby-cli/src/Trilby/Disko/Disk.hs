@@ -5,7 +5,7 @@ import Trilby.Disko.Partition
 import Trilby.HNix
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr DiskContent where
     toExpr Gpt{..} =
@@ -23,7 +23,7 @@ data Disk = Disk
     , device :: !Text
     , content :: !DiskContent
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Disk where
     toExpr Disk{..} =

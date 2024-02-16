@@ -8,14 +8,14 @@ type Username = Text
 data Password
     = PlainPassword !Text
     | HashedPassword !Text
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 data User = User
     { uid :: !Int
     , username :: !Username
     , password :: !Password
     }
-    deriving stock (Generic, Show)
+    deriving stock (Generic)
 
 instance ToExpr User where
     toExpr User{..} =

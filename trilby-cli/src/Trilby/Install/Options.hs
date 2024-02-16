@@ -3,11 +3,13 @@
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
+import Data.Text qualified as Text
 import Internal.Prelude hiding (error)
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Config.Channel
 import Trilby.Config.Edition
+import Trilby.Config.Host (Keyboard (..))
 import Trilby.Disko.Filesystem
 import UnliftIO.Directory (canonicalizePath)
 
@@ -28,6 +30,11 @@ parseLuks f = do
             flag' () (long "luks" <> help "encrypt the disk with LUKS2")
             luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
             pure UseLuks{..}
+
+parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
+parseKeyboard f = f do
+    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "the keyboard layout to use on this system")
+    pure Keyboard{variant = Nothing, ..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: !Text, copyFlake :: m Bool}
     deriving stock (Generic)
@@ -52,15 +59,14 @@ data InstallOpts m = InstallOpts
     , edition :: m Edition
     , channel :: m Channel
     , hostname :: m Text
+    , keyboard :: m Keyboard
+    , locale :: m Text
+    , timezone :: m Text
     , username :: m Text
     , password :: m Text
     , reboot :: m Bool
     }
     deriving stock (Generic)
-
-deriving stock instance Eq (InstallOpts Maybe)
-
-deriving stock instance Show (InstallOpts Maybe)
 
 parseInstallOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseInstallOpts f = do
@@ -72,6 +78,9 @@ parseInstallOpts f = do
     edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
     channel <- f $ parseEnum (long "channel" <> metavar "CHANNEL" <> help "the nixpkgs channel to use")
     hostname <- f $ strOption (long "host" <> metavar "HOSTNAME" <> help "the hostname to install")
+    keyboard <- parseKeyboard f
+    locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "the locale of this system")
+    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "the time zone of this system")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
     password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "the password of the admin user")
     reboot <- f $ parseYesNo "reboot" "reboot when done installing"
@@ -98,12 +107,9 @@ validateDisk f = do
 
 askDisk :: App FilePath
 askDisk = do
-    disks <-
-        lines
-            . fromText
-            <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
+    disks <- fmap fromText . Text.lines <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     when (null disks) $ errorExit "No disks found"
-    askChoice "Choose installation disk:" disks >>= chooseDisk askDisk
+    askChoice "Choose installation disk:" disks 0 >>= chooseDisk askDisk
   where
     chooseDisk :: App FilePath -> FilePath -> App FilePath
     chooseDisk f = fromMaybeM f . validateDisk
@@ -112,7 +118,7 @@ askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
 askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
   where
     useLuks = maybe (askYesNo "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (askText "Choose LUKS password:") pure (opts >>= (.luksPassword))
+    luksPassword = maybe (askText "Choose LUKS password:" "") pure (opts >>= (.luksPassword))
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =
@@ -121,6 +127,23 @@ askFlake FlakeOpts{..} =
         , copyFlake = maybe (askYesNo "Copy flake to /etc/trilby?" True) pure copyFlake
         }
 
+askKeyboard :: App Keyboard
+askKeyboard = do
+    layout <- askText "Choose keyboard layout:" ""
+    pure Keyboard{variant = Nothing, ..}
+
+askLocale :: App Text
+askLocale = do
+    currentLocale <- firstLine <$> shell "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'" empty
+    askText "Choose locale:" currentLocale
+
+askTimezone :: App Text
+askTimezone = do
+    currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
+    tz <- askText "Choose time zone:" currentTz
+    allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
+    if tz `elem` allTimezones then pure tz else askTimezone
+
 askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts = do
     InstallOpts
@@ -128,11 +151,14 @@ askOpts opts = do
         , luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
         , format = maybe (askYesNo "Format the disk?" True) pure opts.format
-        , filesystem = maybe (askEnum "Choose root partition filesystem:") pure opts.filesystem
-        , edition = maybe (askEnum "Choose edition:") pure opts.edition
-        , channel = maybe (askEnum "Choose channel:") pure opts.channel
-        , hostname = maybe (askText "Choose hostname:") pure opts.hostname
-        , username = maybe (askText "Choose admin username:") pure opts.username
-        , password = maybe (askText "Choose admin password:") pure opts.password
+        , filesystem = maybe (askEnum "Choose root partition filesystem:" minBound) pure opts.filesystem
+        , edition = maybe (askEnum "Choose edition:" minBound) pure opts.edition
+        , channel = maybe (askEnum "Choose channel:" minBound) pure opts.channel
+        , hostname = maybe (askText "Choose hostname:" "") pure opts.hostname
+        , keyboard = maybe askKeyboard pure opts.keyboard
+        , locale = maybe askLocale pure opts.locale
+        , timezone = maybe askTimezone pure opts.timezone
+        , username = maybe (askText "Choose admin username:" "") pure opts.username
+        , password = maybe (askText "Choose admin password:" "") pure opts.password
         , reboot = maybe (askYesNo "Reboot system?" True) pure opts.reboot
         }

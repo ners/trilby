@@ -8,4 +8,4 @@ data InstallConfig = InstallConfig
     { host :: !Host
     , disko :: !Disko
     }
-    deriving stock (Generic, Show)
+    deriving stock (Generic)

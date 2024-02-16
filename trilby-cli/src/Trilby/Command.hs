@@ -10,10 +10,6 @@ data Command m
     | Install (InstallOpts m)
     deriving stock (Generic)
 
-deriving stock instance Eq (Command Maybe)
-
-deriving stock instance Show (Command Maybe)
-
 parseCommand :: Parser (Command Maybe)
 parseCommand = hsubparser (parseUpdate <> parseInstall)
 
