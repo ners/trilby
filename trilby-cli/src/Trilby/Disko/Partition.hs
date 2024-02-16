@@ -6,7 +6,7 @@ import Internal.Prelude
 import Trilby.Disko.Filesystem (Filesystem)
 import Trilby.HNix
 
-data Size = MiB Int | GiB Int | Whole
+data Size = MiB !Int | GiB !Int | Whole
     deriving stock (Generic, Eq, Show)
 
 instance ToExpr Size where
@@ -15,9 +15,9 @@ instance ToExpr Size where
     toExpr Whole = toExpr @String "100%"
 
 data Subvolume = Subvolume
-    { name :: Text
-    , mountpoint :: Text
-    , mountoptions :: [Text]
+    { name :: !Text
+    , mountpoint :: !Text
+    , mountoptions :: ![Text]
     }
     deriving stock (Generic, Show, Eq)
 
@@ -31,15 +31,19 @@ instance ToExpr Subvolume where
         |]
 
 data LuksKeyFile
-    = KeyFile FilePath
-    | PasswordFile FilePath
+    = KeyFile !FilePath
+    | PasswordFile !FilePath
     deriving stock (Generic, Show, Eq)
 
 data PartitionContent
-    = BtrfsPartition {subvolumes :: [Subvolume]}
-    | EfiPartition {filesystem :: Filesystem}
-    | FilesystemPartition {filesystem :: Filesystem}
-    | LuksPartition {name :: Text, keyFile :: Maybe LuksKeyFile, content :: PartitionContent}
+    = BtrfsPartition {subvolumes :: ![Subvolume]}
+    | EfiPartition {filesystem :: !Filesystem}
+    | FilesystemPartition {filesystem :: !Filesystem}
+    | LuksPartition
+        { name :: !Text
+        , keyFile :: !(Maybe LuksKeyFile)
+        , content :: !PartitionContent
+        }
     | MbrPartition
     deriving stock (Generic, Show, Eq)
 
@@ -65,6 +69,7 @@ instance ToExpr PartitionContent where
             passwordFile = passwordFile';
         }
         |]
+            & canonicalSet
       where
         (keyFile', passwordFile') =
             case keyFile of
@@ -74,10 +79,10 @@ instance ToExpr PartitionContent where
     toExpr MbrPartition{} = toExpr ()
 
 data Partition = Partition
-    { priority :: Maybe Int
-    , label :: Text
-    , size :: Size
-    , content :: PartitionContent
+    { priority :: !(Maybe Int)
+    , label :: !Text
+    , size :: !Size
+    , content :: !PartitionContent
     }
     deriving stock (Generic, Show, Eq)
 

@@ -1,4 +1,4 @@
-# Revision history for trilby-install
+# Revision history for trilby-cli
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

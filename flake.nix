@@ -25,14 +25,6 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
-    hnix = {
-      url = "github:haskell-nix/hnix";
-      flake = false;
-    };
-    hnix-store = {
-      url = "github:haskell-nix/hnix-store/core-0.6.1.0";
-      flake = false;
-    };
   };
 
   outputs = inputs:

@@ -19,13 +19,13 @@ luksPasswordFile :: FilePath
 luksPasswordFile = "/tmp/luksPassword"
 
 data FileOrFlake
-    = File FilePath
-    | Flake Text
+    = File !FilePath
+    | Flake !Text
     deriving stock (Generic)
 
 data DiskoAction
-    = Format FileOrFlake
-    | Mount FileOrFlake
+    = Format !FileOrFlake
+    | Mount !FileOrFlake
     deriving stock (Generic)
 
 runDisko :: DiskoAction -> App ()

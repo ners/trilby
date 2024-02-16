@@ -2,20 +2,14 @@ cabal-version:   3.4
 name:            trilby-cli
 version:         0.1.0.0
 synopsis:        Trilby command line tools
-
--- description:
 homepage:        https://github.com/ners/trilby
 license:         Apache-2.0
 license-file:    LICENCE.md
 author:          ners
 maintainer:      ners@gmx.ch
-
--- copyright:
 category:        System
 build-type:      Simple
-extra-doc-files: CHANGELOG.md
-
--- extra-source-files:
+extra-doc-files: CHANGELOG.md, README.md
 
 common common
     default-language:   GHC2021
@@ -23,7 +17,6 @@ common common
         -Weverything -Wno-unsafe -Wno-missing-safe-haskell-mode
         -Wno-missing-export-lists -Wno-missing-import-lists
         -Wno-missing-kind-signatures -Wno-all-missed-specialisations
-
     default-extensions:
         ApplicativeDo
         BlockArguments
@@ -73,7 +66,6 @@ library
         Trilby.Options
         Trilby.Update
         Trilby.Update.Options
-
     build-depends:
         , base
         , data-default
@@ -86,7 +78,10 @@ library
         , monad-logger
         , mtl
         , optparse-applicative
+        , terminal
+        , terminal-widgets
         , text
+        , text-rope-zipper
         , turtle
         , unix
         , unliftio

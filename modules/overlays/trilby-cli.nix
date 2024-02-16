@@ -1,8 +1,14 @@
 { inputs, lib, trilby, ... }:
 
-self: super:
-(import ../../trilby-cli/overlay.nix { inherit inputs lib; }) self super
-  //
+final: prev:
+let
+  flake = lib.loadFlake {
+    inherit (prev) system;
+    src = ../../trilby-cli;
+  };
+  overlay = flake.defaultNix.outputs.overlays.default;
+  pkgs = prev.extend overlay;
+in
 {
-  trilby-cli = self.haskellPackages.trilby-cli.bin;
+  trilby-cli = pkgs.haskellPackages.trilby-cli.bin;
 }
