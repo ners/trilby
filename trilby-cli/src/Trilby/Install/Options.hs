@@ -5,11 +5,11 @@ module Trilby.Install.Options where
 import Data.Generics.Labels ()
 import Internal.Prelude hiding (error)
 import Options.Applicative
-import System.Posix (getFileStatus, isBlockDevice, isSymbolicLink)
+import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Disko.Filesystem
-import Turtle qualified
+import UnliftIO.Directory (canonicalizePath)
 
 data LuksOpts m
     = NoLuks
@@ -29,7 +29,7 @@ parseLuks f = do
             luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
             pure UseLuks{..}
 
-data FlakeOpts m = FlakeOpts {flakeRef :: Text, copyFlake :: m Bool}
+data FlakeOpts m = FlakeOpts {flakeRef :: !Text, copyFlake :: m Bool}
     deriving stock (Generic)
 
 deriving stock instance Eq (FlakeOpts Maybe)
@@ -87,11 +87,12 @@ validateParsedInstallOpts opts =
                 Nothing -> liftIO exitFailure
 
 validateDisk :: FilePath -> App (Maybe FilePath)
-validateDisk f =
-    liftIO (getFileStatus f) >>= \case
-        (isBlockDevice -> True) -> pure $ Just f
-        (isSymbolicLink -> True) -> Turtle.readlink f >>= validateDisk
-        _ -> do
+validateDisk f = do
+    canonical <- canonicalizePath f
+    status <- liftIO $ getFileStatus canonical
+    if isBlockDevice status
+        then pure $ Just canonical
+        else do
             $(logError) $ "Cannot find disk " <> fromString f
             pure Nothing
 
@@ -101,19 +102,17 @@ askDisk = do
         lines
             . fromText
             <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
-    case disks of
-        [] -> errorExit "No disks found"
-        [d] -> chooseDisk (liftIO exitFailure) d
-        _ -> askChoice "Choose installation disk:" disks >>= chooseDisk askDisk
+    when (null disks) $ errorExit "No disks found"
+    askChoice "Choose installation disk:" disks >>= chooseDisk askDisk
   where
     chooseDisk :: App FilePath -> FilePath -> App FilePath
     chooseDisk f = fromMaybeM f . validateDisk
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
-askLuks opts = ifM useLuks (pure UseLuks{..}) (pure NoLuks)
+askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
   where
     useLuks = maybe (askYesNo "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (prompt "Choose LUKS password:") pure (opts >>= (.luksPassword))
+    luksPassword = maybe (askText "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =
@@ -132,8 +131,8 @@ askOpts opts = do
         , filesystem = maybe (askEnum "Choose root partition filesystem:") pure opts.filesystem
         , edition = maybe (askEnum "Choose edition:") pure opts.edition
         , channel = maybe (askEnum "Choose channel:") pure opts.channel
-        , hostname = maybe (prompt "Choose hostname:") pure opts.hostname
-        , username = maybe (prompt "Choose admin username:") pure opts.username
-        , password = maybe (prompt "Choose admin password:") pure opts.password
+        , hostname = maybe (askText "Choose hostname:") pure opts.hostname
+        , username = maybe (askText "Choose admin username:") pure opts.username
+        , password = maybe (askText "Choose admin password:") pure opts.password
         , reboot = maybe (askYesNo "Reboot system?" True) pure opts.reboot
         }

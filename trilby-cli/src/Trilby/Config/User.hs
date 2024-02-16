@@ -6,14 +6,14 @@ import Trilby.HNix
 type Username = Text
 
 data Password
-    = PlainPassword Text
-    | HashedPassword Text
+    = PlainPassword !Text
+    | HashedPassword !Text
     deriving stock (Generic, Show, Eq)
 
 data User = User
-    { uid :: Int
-    , username :: Username
-    , password :: Password
+    { uid :: !Int
+    , username :: !Username
+    , password :: !Password
     }
     deriving stock (Generic, Show)
 
@@ -22,21 +22,19 @@ instance ToExpr User where
         [nix|
         { lib, ... }:
 
-        lib.trilbyUser {
-          uid = uid;
-          name = username;
-          initialPassword = initialPassword;
-          initialHashedPassword = initialHashedPassword;
-        }
+        lib.trilbyUser userAttrs
         |]
-            & _Fix
-            . _NAbs
-            . _2
-            . _Fix
-            . _NApp
-            . _2
-            %~ canonicalSet
       where
+        userAttrs =
+            [nix|
+            {
+              uid = uid;
+              name = username;
+              initialPassword = initialPassword;
+              initialHashedPassword = initialHashedPassword;
+            }
+            |]
+                & canonicalSet
         (initialPassword, initialHashedPassword) =
             case password of
                 PlainPassword p -> (Just p, Nothing)

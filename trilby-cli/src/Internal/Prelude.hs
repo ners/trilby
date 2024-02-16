@@ -25,11 +25,12 @@ module Internal.Prelude
     , module System.IO
     , module Trilby.App
     , module UnliftIO
+    , (!?)
     , parseYesNo
     , parseChoiceWith
     , parseChoice
     , parseEnum
-    , prompt
+    , askText
     , askYesNo
     , askChoice
     , askEnum
@@ -71,8 +72,8 @@ import Control.Monad
 import Control.Monad.Extra
 import Control.Monad.Logger (LogLevel (..), logDebug, logError, logInfo, logWarn)
 import Control.Monad.Reader (MonadReader)
-import Control.Monad.State (MonadState, evalStateT)
-import Control.Monad.Trans (MonadTrans)
+import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
+import Control.Monad.Trans (MonadTrans, lift)
 import Data.Bool
 import Data.Char (toLower)
 import Data.Default (Default (def))
@@ -85,6 +86,7 @@ import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Data.Text.Rope.Zipper qualified as RopeZipper
 import GHC.Generics (Generic)
 import GHC.IsList
 import Nix.Expr.Types
@@ -106,11 +108,21 @@ import Options.Applicative
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
+import System.Terminal
+import System.Terminal.Widgets.Buttons
+import System.Terminal.Widgets.Common qualified as Terminal
+import System.Terminal.Widgets.Select
+import System.Terminal.Widgets.TextInput
 import Text.Read qualified as Text
 import Trilby.App (App)
 import Turtle qualified
 import UnliftIO
 import Prelude hiding (writeFile)
+
+infixr 9 !?
+
+(!?) :: [a] -> Int -> Maybe a
+(!?) xs i = listToMaybe $ drop i xs
 
 parseYesNo :: String -> String -> Parser Bool
 parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
@@ -130,37 +142,47 @@ parseChoice m xs = option (maybeReader Text.readMaybe) $ m <> showDefault <> com
 parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
 parseEnum = flip parseChoice [minBound .. maxBound]
 
-prompt :: Text -> App Text
-prompt message = liftIO do
-    Text.putStr $ message <> " "
-    hFlush stdout
-    Text.getLine
+runWidget :: (Terminal.Widget w) => w -> App w
+runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget
+
+askText :: Text -> App Text
+askText prompt = do
+    text <-
+        runWidget
+            TextInput
+                { prompt
+                , value = ""
+                , multiline = False
+                , required = True
+                }
+    pure $ RopeZipper.toText text.value
 
 askYesNo :: Text -> Bool -> App Bool
-askYesNo question defaultValue = do
-    answer <-
-        prompt
-            $ question
-            <> " "
-            <> (if defaultValue then "[Y/n]" else "[y/N]")
-    case Text.uncons answer of
-        Nothing -> pure defaultValue
-        Just (toLower -> 'y', _) -> pure True
-        Just (toLower -> 'n', _) -> pure False
-        _ -> do
-            $(logError) "Invalid input"
-            askYesNo question defaultValue
+askYesNo prompt defaultValue = do
+    buttons <-
+        runWidget
+            Buttons
+                { prompt
+                , buttons = [(s, fst <$> Text.uncons s) | s <- ["Yes", "No"]]
+                , selected = if defaultValue then 0 else 1
+                }
+    pure $ buttons.selected == 0
 
 askChoice :: (Show a) => Text -> [a] -> App a
-askChoice message values = do
-    liftIO $ Text.putStrLn message
-    zipWithM_ (\i v -> liftIO $ Text.putStrLn $ ishow i <> ") " <> ishow v) [1 :: Int ..] values
-    selection <- Text.readMaybe . Text.unpack <$> prompt ">"
-    case selection of
-        Just i | i > 0 && i <= length values -> pure $ values !! (i - 1)
-        _ -> do
-            $(logError) "Invalid input"
-            askChoice message values
+askChoice _ [] = errorExit "askChoice: zero choices"
+askChoice _ [x] = pure x
+askChoice prompt values = do
+    select <-
+        runWidget
+            Select
+                { prompt
+                , options = [(ishow v, False) | v <- values]
+                , multiselect = False
+                , cursorRow = 0
+                }
+    fromMaybeM (askChoice prompt values) $ pure do
+        i <- List.findIndex snd select.options
+        values !? i
 
 askEnum :: (Bounded a, Enum a, Show a) => Text -> App a
 askEnum = flip askChoice [minBound .. maxBound]
@@ -183,7 +205,7 @@ fromText :: (IsString s) => Text -> s
 fromText = fromString . Text.unpack
 
 fromListSafe :: a -> [a] -> NonEmpty a
-fromListSafe x xs = fromMaybe (fromList [x]) (nonEmpty xs)
+fromListSafe x = fromMaybe (x :| []) . nonEmpty
 
 prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 prepend x xs = pure x <> xs
@@ -285,8 +307,8 @@ withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 withTrace f (x :| xs) =
     verbosityAtLeast LevelDebug
         >>= f
-        . (x :|)
-        . bool xs ("--show-trace" : xs)
+            . (x :|)
+            . bool xs ("--show-trace" : xs)
 
 containsAnyOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsAnyOf = anyOf each . flip elem

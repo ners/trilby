@@ -16,9 +16,9 @@ instance ToExpr Format where
     toExpr fs = toExpr $ toLower <$> show fs
 
 data Filesystem = Filesystem
-    { format :: Format
-    , mountpoint :: Text
-    , mountoptions :: [Text]
+    { format :: !Format
+    , mountpoint :: !Text
+    , mountoptions :: ![Text]
     }
     deriving stock (Generic, Show, Eq)
 
