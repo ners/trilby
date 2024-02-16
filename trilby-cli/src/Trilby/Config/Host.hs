@@ -5,15 +5,31 @@ import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.User
 
+data Keyboard = Keyboard
+    { layout :: !Text
+    , variant :: !(Maybe Text)
+    }
+    deriving stock (Generic)
+
+instance ToExpr Keyboard where
+    toExpr Keyboard{..} =
+        [nix|
+        {
+            layout = layout;
+            variant = variant;
+        }
+        |]
+
 data Host = Host
     { hostname :: !Text
     , edition :: !Edition
     , channel :: !Channel
-    , keyboardLayout :: !Text
+    , keyboard :: !Keyboard
+    , locale :: !Text
     , timezone :: !Text
     , user :: !User
     }
-    deriving stock (Generic, Show)
+    deriving stock (Generic)
 
 instance ToExpr Host where
     toExpr Host{..} =
@@ -29,6 +45,11 @@ instance ToExpr Host where
             {
               networking.hostName = hostname;
               time.timeZone = timezone;
+              i18n = rec {
+                defaultLocale = locale;
+                extraLocaleSettings.LC_ALL = defaultLocale;
+              };
+              services.xserver.xkb = keyboard;
             }
             ./hardware-configuration.nix
             ./disko.nix

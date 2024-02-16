@@ -19,7 +19,7 @@ data Subvolume = Subvolume
     , mountpoint :: !Text
     , mountoptions :: ![Text]
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Subvolume where
     toExpr Subvolume{..} =
@@ -33,7 +33,7 @@ instance ToExpr Subvolume where
 data LuksKeyFile
     = KeyFile !FilePath
     | PasswordFile !FilePath
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 data PartitionContent
     = BtrfsPartition {subvolumes :: ![Subvolume]}
@@ -45,7 +45,7 @@ data PartitionContent
         , content :: !PartitionContent
         }
     | MbrPartition
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr PartitionContent where
     toExpr BtrfsPartition{..} =
@@ -84,7 +84,7 @@ data Partition = Partition
     , size :: !Size
     , content :: !PartitionContent
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Partition where
     toExpr Partition{..} =

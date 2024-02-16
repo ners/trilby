@@ -20,7 +20,7 @@ data Filesystem = Filesystem
     , mountpoint :: !Text
     , mountoptions :: ![Text]
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Filesystem where
     toExpr Filesystem{..} =

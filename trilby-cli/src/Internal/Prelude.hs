@@ -38,6 +38,7 @@ module Internal.Prelude
     , ishow
     , fromText
     , fromListSafe
+    , firstLine
     , readsPrecBoundedEnum
     , readsPrecBoundedEnumOn
     , prepend
@@ -145,13 +146,13 @@ parseEnum = flip parseChoice [minBound .. maxBound]
 runWidget :: (Terminal.Widget w) => w -> App w
 runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget
 
-askText :: Text -> App Text
-askText prompt = do
+askText :: Text -> Text -> App Text
+askText prompt (RopeZipper.fromText -> value) = do
     text <-
         runWidget
             TextInput
                 { prompt
-                , value = ""
+                , value
                 , multiline = False
                 , required = True
                 }
@@ -168,24 +169,24 @@ askYesNo prompt defaultValue = do
                 }
     pure $ buttons.selected == 0
 
-askChoice :: (Show a) => Text -> [a] -> App a
-askChoice _ [] = errorExit "askChoice: zero choices"
-askChoice _ [x] = pure x
-askChoice prompt values = do
+askChoice :: (Eq a, Show a) => Text -> [a] -> Int -> App a
+askChoice _ [] _ = errorExit "askChoice: zero choices"
+askChoice _ [x] _ = pure x
+askChoice prompt values defaultValue = do
     select <-
         runWidget
             Select
                 { prompt
                 , options = [(ishow v, False) | v <- values]
                 , multiselect = False
-                , cursorRow = 0
+                , cursorRow = defaultValue
                 }
-    fromMaybeM (askChoice prompt values) $ pure do
+    fromMaybeM (askChoice prompt values defaultValue) $ pure do
         i <- List.findIndex snd select.options
         values !? i
 
-askEnum :: (Bounded a, Enum a, Show a) => Text -> App a
-askEnum = flip askChoice [minBound .. maxBound]
+askEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> a -> App a
+askEnum prompt = askChoice prompt [minBound .. maxBound] . fromEnum
 
 errorExit :: Text -> App a
 errorExit msg = $(logError) msg >> liftIO exitFailure
@@ -206,6 +207,9 @@ fromText = fromString . Text.unpack
 
 fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x = fromMaybe (x :| []) . nonEmpty
+
+firstLine :: Text -> Text
+firstLine = fromMaybe "" . listToMaybe . Text.lines
 
 prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 prepend x xs = pure x <> xs

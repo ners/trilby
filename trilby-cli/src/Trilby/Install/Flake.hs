@@ -7,18 +7,18 @@ import Internal.Prelude
 import Trilby.HNix
 
 data InputOverride = Follows Text Text
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr InputOverride where
     toExpr (Follows _ t) = [nix| { follows = t; } |]
 
 data Input = Input
-    { name :: Text
-    , url :: Text
-    , flake :: Bool
-    , inputs :: [InputOverride]
+    { name :: !Text
+    , url :: !Text
+    , flake :: !Bool
+    , inputs :: ![InputOverride]
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Input where
     toExpr Input{..} =
@@ -35,10 +35,10 @@ instance ToExpr Input where
         io (Follows s _) = fromText @(NAttrPath NExpr) $ if Text.elem '.' s then doubleQuoted s else s
 
 data NixConfig = NixConfig
-    { extraSubstituters :: [Text]
-    , extraTrustedPublicKeys :: [Text]
+    { extraSubstituters :: ![Text]
+    , extraTrustedPublicKeys :: ![Text]
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr NixConfig where
     toExpr NixConfig{..} =
@@ -55,7 +55,7 @@ data Flake = Flake
     , inputs :: [Input]
     , outputs :: NExpr
     }
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Flake where
     toExpr Flake{..} =

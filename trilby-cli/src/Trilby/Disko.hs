@@ -6,7 +6,7 @@ import Trilby.Disko.Disk
 import Trilby.HNix
 
 newtype Disko = Disko {disks :: [Disk]}
-    deriving stock (Generic, Show, Eq)
+    deriving stock (Generic)
 
 instance ToExpr Disko where
     toExpr Disko{..} =

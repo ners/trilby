@@ -110,12 +110,10 @@ install (askOpts -> opts) = do
         hostname <- opts.hostname
         edition <- opts.edition
         channel <- opts.channel
-        let host =
-                Host
-                    { keyboardLayout = "us"
-                    , timezone = "Europe/Zurich"
-                    , ..
-                    }
+        keyboard <- opts.keyboard
+        locale <- opts.locale
+        timezone <- opts.timezone
+        let host = Host{..}
         let hostDir = "hosts/" <> fromText hostname
         inDir hostDir do
             writeNixFile "default.nix" host
