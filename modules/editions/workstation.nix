@@ -9,12 +9,12 @@ lib.optionalAttrs (trilby.edition == "workstation")
     profiles.geoclue
     profiles.gnome
     profiles.libreoffice
+    profiles.mimetypes
     profiles.pipewire
     profiles.plymouth
     profiles.sway
     profiles.virtualisation
-  ]
-  ++ lib.findModulesList ./.;
+  ];
 
   services = {
     blueman.enable = true;
