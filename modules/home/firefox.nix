@@ -2,7 +2,6 @@
 
 {
   programs.firefox = {
-    enable = true;
-    inherit (nixosConfig.programs.firefox) package;
+    inherit (nixosConfig.programs.firefox) enable package;
   };
 }

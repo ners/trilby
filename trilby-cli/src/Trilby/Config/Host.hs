@@ -4,6 +4,7 @@ import Internal.Prelude
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.User
+import Trilby.HNix (canonicalSet)
 
 data Keyboard = Keyboard
     { layout :: !Text
@@ -19,6 +20,7 @@ instance ToExpr Keyboard where
             variant = variant;
         }
         |]
+            & canonicalSet
 
 data Host = Host
     { hostname :: !Text

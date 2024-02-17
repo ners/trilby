@@ -1,5 +1,6 @@
 module Internal.Prelude
     ( module Control.Applicative
+    , module Control.Arrow
     , module Control.Lens.Combinators
     , module Control.Lens.Operators
     , module Control.Monad
@@ -31,6 +32,7 @@ module Internal.Prelude
     , parseChoice
     , parseEnum
     , askText
+    , askPassword
     , askYesNo
     , askChoice
     , askEnum
@@ -67,6 +69,7 @@ module Internal.Prelude
 where
 
 import Control.Applicative
+import Control.Arrow hiding (loop)
 import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad
@@ -147,7 +150,8 @@ runWidget :: (Terminal.Widget w) => w -> App w
 runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget
 
 askText :: Text -> Text -> App Text
-askText prompt (RopeZipper.fromText -> value) = do
+askText ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
+    $(logDebug) prompt
     text <-
         runWidget
             TextInput
@@ -155,11 +159,34 @@ askText prompt (RopeZipper.fromText -> value) = do
                 , value
                 , multiline = False
                 , required = True
+                , valueTransform = id
                 }
     pure $ RopeZipper.toText text.value
 
+askPassword :: Text -> App Text
+askPassword ((<> " ") -> prompt) = do
+    $(logDebug) prompt
+    let getPw :: TextInput -> App Text
+        getPw = fmap (RopeZipper.toText . (.value)) . runWidget
+    let input =
+            TextInput
+                { prompt
+                , value = ""
+                , multiline = False
+                , required = True
+                , valueTransform = each .~ '*'
+                }
+    pw1 <- getPw input
+    pw2 <- getPw $ input & #prompt .~ "Repeat password: "
+    if pw1 == pw2
+        then pure pw1
+        else do
+            $(logError) "Passwords do not match"
+            askPassword prompt
+
 askYesNo :: Text -> Bool -> App Bool
 askYesNo prompt defaultValue = do
+    $(logDebug) prompt
     buttons <-
         runWidget
             Buttons
@@ -179,7 +206,7 @@ askChoice prompt values defaultValue = do
                 { prompt
                 , options = [(ishow v, False) | v <- values]
                 , multiselect = False
-                , cursorRow = defaultValue
+                , cursorRow = defaultValue + 1
                 }
     fromMaybeM (askChoice prompt values defaultValue) $ pure do
         i <- List.findIndex snd select.options
