@@ -26,7 +26,6 @@
     with builtins;
     let
       inherit (inputs.nixpkgs) lib;
-      pipef = fs: x: lib.pipe x fs;
       foreach = xs: f: with lib; foldr recursiveUpdate { } (
         if isList xs then map f xs
         else if isAttrs xs then mapAttrsToList f xs
@@ -44,7 +43,7 @@
       pname = "trilby-cli";
       src = hsSrc ./.;
       ghcs = [ "ghc94" "ghc96" ];
-      overlay = final: pipef [
+      overlay = final: prev: lib.pipe prev [
         (inputs.terminal-widgets.overlays.default final)
         (prev: {
           haskell = prev.haskell // {

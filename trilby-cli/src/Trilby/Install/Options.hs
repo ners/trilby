@@ -109,16 +109,13 @@ askDisk :: App FilePath
 askDisk = do
     disks <- fmap fromText . Text.lines <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     when (null disks) $ errorExit "No disks found"
-    askChoice "Choose installation disk:" disks 0 >>= chooseDisk askDisk
-  where
-    chooseDisk :: App FilePath -> FilePath -> App FilePath
-    chooseDisk f = fromMaybeM f . validateDisk
+    askChoice "Choose installation disk:" disks 0 >>= fromMaybeM askDisk . validateDisk
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
 askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
   where
     useLuks = maybe (askYesNo "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (askText "Choose LUKS password:" "") pure (opts >>= (.luksPassword))
+    luksPassword = maybe (askPassword "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =
@@ -142,7 +139,11 @@ askTimezone = do
     currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
     tz <- askText "Choose time zone:" currentTz
     allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
-    if tz `elem` allTimezones then pure tz else askTimezone
+    if tz `elem` allTimezones
+        then pure tz
+        else do
+            $(logError) "Unknown timezone"
+            askTimezone
 
 askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts = do
@@ -159,6 +160,6 @@ askOpts opts = do
         , locale = maybe askLocale pure opts.locale
         , timezone = maybe askTimezone pure opts.timezone
         , username = maybe (askText "Choose admin username:" "") pure opts.username
-        , password = maybe (askText "Choose admin password:" "") pure opts.password
+        , password = maybe (askPassword "Choose admin password:") pure opts.password
         , reboot = maybe (askYesNo "Reboot system?" True) pure opts.reboot
         }

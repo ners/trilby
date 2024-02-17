@@ -68,8 +68,8 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True)
-            $ errorExit "Cannot install without mounted partitions"
+        unlessM (askYesNo "Attempt to mount the partitions?" True) $
+            errorExit "Cannot install without mounted partitions"
         runDisko $ Mount $ Disko.Flake flakeRef
     (withTrace . asRoot)
         cmd_
@@ -89,13 +89,13 @@ install (askOpts -> opts) = do
     disko <- getDisko opts
     inDir (diskoFile ^. directory) $ writeNixFile diskoFile disko
     whenM opts.format $ do
-        $(logWarn) "Formatting disk"
+        $(logWarn) "Formatting disk ... "
         runDisko $ Format $ Disko.File diskoFile
     let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True)
-            $ errorExit "Cannot install without mounted partitions"
+        unlessM (askYesNo "Attempt to mount the partitions?" True) $
+            errorExit "Cannot install without mounted partitions"
         runDisko $ Mount $ Disko.File diskoFile
     inDir trilbyDir do
         asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
@@ -116,7 +116,8 @@ install (askOpts -> opts) = do
         let host = Host{..}
         let hostDir = "hosts/" <> fromText hostname
         inDir hostDir do
-            writeNixFile "default.nix"
+            writeNixFile
+                "default.nix"
                 [nix|
                 { lib, ... }:
 
@@ -139,7 +140,7 @@ install (askOpts -> opts) = do
                     , fromString rootMount
                     ]
             writeNixFile "disko.nix" $ clearLuksFiles disko
-        $(logWarn) "Performing installation"
+        $(logWarn) "Performing installation ... "
         cmd_ ["nix", "flake", "lock", "--override-input", "trilby", "trilby"]
         (withTrace . asRoot)
             rawCmd_
