@@ -10,6 +10,7 @@ in
     profiles.btrfs
     profiles.console
     profiles.documentation
+    profiles.fhs
     profiles.getty
     profiles.kernel
     profiles.network
