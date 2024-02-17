@@ -6,7 +6,7 @@ in
 {
   packages.${trilby.buildPlatform}."${name}-qemu" = (pkgs.writeShellApplication {
     name = "${name}-qemu";
-    runtimeInputs = [ pkgs.qemu_full ];
+    runtimeInputs = [ pkgs.qemu ];
     text = ''
       BIOS_FILE=''${BIOS_FILE:-${pkgs.OVMFFull.fd}/FV/OVMF.fd}
       ISO_FILE=''${ISO_FILE:-${iso}/iso/${iso.isoName}}
