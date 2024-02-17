@@ -36,6 +36,7 @@ in
               };
             };
             shell.favorite-apps = [
+              "firefox-devedition.desktop"
               "firefox.desktop"
               "org.gnome.Console.desktop"
               "org.gnome.Nautilus.desktop"
