@@ -36,25 +36,17 @@ instance ToExpr Host where
         [nix|
         { lib, ... }:
 
-        lib.trilbySystem {
-          trilby = {
-            edition = edition;
-            channel = channel;
-          };
-          modules = [
-            {
-              networking.hostName = hostname;
-              time.timeZone = timezone;
-              i18n = rec {
-                defaultLocale = locale;
-                extraLocaleSettings.LC_ALL = defaultLocale;
-              };
-              services.xserver.xkb = keyboard;
-            }
-            ./hardware-configuration.nix
-            ./disko.nix
+        {
+          imports = [
             (import userModule { inherit lib; })
           ];
+          networking.hostName = hostname;
+          time.timeZone = timezone;
+          i18n = rec {
+            defaultLocale = locale;
+            extraLocaleSettings.LC_ALL = defaultLocale;
+          };
+          services.xserver.xkb = keyboard;
         }
         |]
       where
