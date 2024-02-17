@@ -51,9 +51,9 @@ instance ToExpr NixConfig where
             |]
 
 data Flake = Flake
-    { nixConfig :: NixConfig
-    , inputs :: [Input]
-    , outputs :: NExpr
+    { nixConfig :: !NixConfig
+    , inputs :: ![Input]
+    , outputs :: !NExpr
     }
     deriving stock (Generic)
 

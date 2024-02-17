@@ -116,7 +116,19 @@ install (askOpts -> opts) = do
         let host = Host{..}
         let hostDir = "hosts/" <> fromText hostname
         inDir hostDir do
-            writeNixFile "default.nix" host
+            writeNixFile "default.nix"
+                [nix|
+                { lib, ... }:
+
+                lib.trilbySystem {
+                  trilby = {
+                    edition = edition;
+                    channel = channel;
+                  };
+                  modules = lib.findModulesList ./.;
+                }
+                |]
+            writeNixFile "configuration.nix" host
             writeFile "hardware-configuration.nix"
                 =<< asRoot
                     cmd
