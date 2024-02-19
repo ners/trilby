@@ -3,11 +3,11 @@
     "hnix": {
       "flake": false,
       "locked": {
-        "lastModified": 1705391217,
-        "narHash": "sha256-9Xx2KhmyIDgthnOb6MkXySBmhyrIW7yzxnNc887G9+s=",
+        "lastModified": 1708246316,
+        "narHash": "sha256-KM1HgaF85+OCAw6r8JK7CfSpjQivPq+iVFnyAmRnI+s=",
         "owner": "haskell-nix",
         "repo": "hnix",
-        "rev": "d19d5615af7031ea01e144f68383ff19deeac8c1",
+        "rev": "3f334d9b5a8b1044df850167b1b459e5649868f3",
         "type": "github"
       },
       "original": {
@@ -50,11 +50,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1707956935,
-        "narHash": "sha256-ZL2TrjVsiFNKOYwYQozpbvQSwvtV/3Me7Zwhmdsfyu4=",
+        "lastModified": 1708296515,
+        "narHash": "sha256-FyF489fYNAUy7b6dkYV6rGPyzp+4tThhr80KNAaF/yY=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "a4d4fe8c5002202493e87ec8dbc91335ff55552c",
+        "rev": "b98a4e1746acceb92c509bc496ef3d0e5ad8d4aa",
         "type": "github"
       },
       "original": {
@@ -84,11 +84,11 @@
         "text-rope-zipper": "text-rope-zipper"
       },
       "locked": {
-        "lastModified": 1708168025,
-        "narHash": "sha256-sQldU9H9ZzsbbCm9/GWUN/1nSwTPkgx2OLlydcAcWXM=",
+        "lastModified": 1708365514,
+        "narHash": "sha256-tZ4Ae74n+p3eYY2uSHW+y6b734Jg918FpmwG+rZEMy4=",
         "owner": "ners",
         "repo": "terminal-widgets",
-        "rev": "b5c245cc558947b59de4da95a22b04ebe6e226e0",
+        "rev": "d7c5044feec4c753e9d9ed0675570ee67040ca3e",
         "type": "github"
       },
       "original": {

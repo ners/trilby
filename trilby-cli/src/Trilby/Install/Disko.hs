@@ -3,7 +3,6 @@ module Trilby.Install.Disko where
 import Control.Lens
 import Data.Generics.Labels ()
 import Data.List (sortOn)
-import Data.List.Extra (headDef)
 import Internal.Prelude
 import System.FilePath.Lens
 import Trilby.Disko
@@ -44,10 +43,9 @@ getDisko opts = do
             . sortOn length
             . lines
             . fromText
-            <$> shell
-                ("find -L /dev/disk/by-id -samefile " <> fromString diskName)
-                empty
-    $(logInfo) $ "Using disk " <> fromString diskName <> " with id " <> fromString diskDevice
+            <$> cmd
+                ["find", "-L", "/dev/disk/by-id", "-samefile", fromString diskName]
+    $(logWarn) $ "Using disk " <> fromString diskName <> " with id " <> fromString diskDevice
     luks <- opts.luks
     let useLuks = luks `is` #_UseLuks
     when useLuks $ writeFile luksPasswordFile =<< luks.luksPassword

@@ -12,6 +12,7 @@ module Internal.Prelude
     , module Data.Bool
     , module Data.Char
     , module Data.Default
+    , module Data.List.Extra
     , module Data.List.NonEmpty
     , module Data.Maybe
     , module Data.String
@@ -26,7 +27,6 @@ module Internal.Prelude
     , module System.IO
     , module Trilby.App
     , module UnliftIO
-    , (!?)
     , parseYesNo
     , parseChoiceWith
     , parseChoice
@@ -83,6 +83,7 @@ import Data.Char (toLower)
 import Data.Default (Default (def))
 import Data.Generics.Labels ()
 import Data.List qualified as List
+import Data.List.Extra (headDef, (!?))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Maybe
 import Data.Monoid (First)
@@ -111,7 +112,7 @@ import Options.Applicative
     )
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
-import System.Posix (getEffectiveUserID)
+import System.Posix (fileExist, getEffectiveUserID)
 import System.Terminal
 import System.Terminal.Widgets.Buttons
 import System.Terminal.Widgets.Common qualified as Terminal
@@ -122,11 +123,6 @@ import Trilby.App (App)
 import Turtle qualified
 import UnliftIO
 import Prelude hiding (writeFile)
-
-infixr 9 !?
-
-(!?) :: [a] -> Int -> Maybe a
-(!?) xs i = listToMaybe $ drop i xs
 
 parseYesNo :: String -> String -> Parser Bool
 parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
@@ -236,7 +232,7 @@ fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x = fromMaybe (x :| []) . nonEmpty
 
 firstLine :: Text -> Text
-firstLine = fromMaybe "" . listToMaybe . Text.lines
+firstLine = headDef "" . Text.lines
 
 prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 prepend x xs = pure x <> xs
@@ -313,9 +309,7 @@ proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
 proc (p :| args) = Turtle.strict . Turtle.inproc p args
 
 ensureDir :: FilePath -> App ()
-ensureDir "" = pure ()
-ensureDir "." = pure ()
-ensureDir d = bool id asRoot (Turtle.isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
+ensureDir d = unlessM (liftIO $ fileExist d) $ bool id asRoot (Turtle.isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
 
 inDir :: FilePath -> App a -> App a
 inDir d a = do

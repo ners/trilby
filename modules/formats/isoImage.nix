@@ -9,6 +9,8 @@
     inputs.self.nixosModules.profiles.installer
   ];
 
+  system.installer.channel.enable = false;
+
   isoImage = lib.mkMerge [
     {
       volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";

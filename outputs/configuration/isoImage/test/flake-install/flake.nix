@@ -12,7 +12,11 @@
           channel = "unstable";
         };
         modules = [
-          {
+          ({ trilby, ... }: {
+            imports = [
+              trilby.nixpkgs.nixosModules.testing.test-instrumentation
+            ];
+
             disko.devices.disk.vdb = {
               type = "disk";
               device = "/dev/vdb";
@@ -45,7 +49,7 @@
                 };
               };
             };
-          }
+          })
         ];
       };
     };

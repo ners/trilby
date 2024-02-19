@@ -102,6 +102,7 @@ rec {
           imports = with inputs.self.nixosModules; [
             editions.${trilby.edition}
             hostPlatforms.${trilby.hostPlatform}
+            trilby.nixpkgs.nixosModules.testing.test-instrumentation
           ]
           ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
           ++ attrs.modules or [ ];

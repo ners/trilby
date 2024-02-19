@@ -77,7 +77,7 @@ parseInstallOpts f = do
     filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem")
     edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
     channel <- f $ parseEnum (long "channel" <> metavar "CHANNEL" <> help "the nixpkgs channel to use")
-    hostname <- f $ strOption (long "host" <> metavar "HOSTNAME" <> help "the hostname to install")
+    hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "the hostname to install")
     keyboard <- parseKeyboard f
     locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "the locale of this system")
     timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "the time zone of this system")

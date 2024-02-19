@@ -2,6 +2,7 @@
 
 module Trilby.Install where
 
+import Data.Semigroup (Semigroup (sconcat))
 import Data.Text qualified as Text
 import Internal.Prelude
 import System.FilePath.Lens (directory)
@@ -71,14 +72,7 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
         unlessM (askYesNo "Attempt to mount the partitions?" True) $
             errorExit "Cannot install without mounted partitions"
         runDisko $ Mount $ Disko.Flake flakeRef
-    (withTrace . asRoot)
-        cmd_
-        [ "nixos-install"
-        , "--flake"
-        , flakeRef
-        , "--no-root-password"
-        , "--impure"
-        ]
+    nixosInstall flakeRef
     whenM copyFlake do
         let flakeUri = Text.takeWhile (/= '#') flakeRef
         storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeUri <> " | jq --raw-output .path") empty
@@ -140,14 +134,33 @@ install (askOpts -> opts) = do
                     , fromString rootMount
                     ]
             writeNixFile "disko.nix" $ clearLuksFiles disko
-        $(logWarn) "Performing installation ... "
-        cmd_ ["nix", "flake", "lock", "--override-input", "trilby", "trilby"]
-        (withTrace . asRoot)
-            rawCmd_
-            [ "nixos-install"
-            , "--flake"
-            , ".#" <> hostname
-            , "--no-root-password"
-            , "--impure"
-            ]
+        cmd_ $
+            sconcat
+                [ ["nix", "flake", "lock"]
+                , ["--accept-flake-config"]
+                , ["--override-input", "trilby", "trilby"]
+                ]
+        nixosInstall $ ".#" <> hostname
         whenM opts.reboot $ asRoot cmd_ ["reboot"]
+
+nixosInstall :: Text -> App ()
+nixosInstall flakeRef = do
+    $(logWarn) "Performing installation ... "
+    -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
+    (withTrace . asRoot) rawCmd_ $
+        sconcat
+            [ ["nix", "build"]
+            , ["--store", "/mnt"]
+            , ["--impure"]
+            , ["--accept-flake-config"]
+            , ["trilby#nix-monitored"]
+            ]
+    (withTrace . asRoot)
+        rawCmd_
+        $ sconcat
+            [ ["nixos-install"]
+            , ["--flake", flakeRef]
+            , ["--option", "accept-flake-config", "true"]
+            , ["--no-root-password"]
+            , ["--impure"]
+            ]
