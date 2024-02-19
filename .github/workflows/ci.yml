@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/local/* /usr/share/* /opt/*
+        docker rmi $(docker image ls -aq)
     - uses: cachix/install-nix-action@v25
     - uses: ryanccn/attic-action@v0
       with:
@@ -20,7 +24,4 @@ jobs:
         cache: trilby
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
-      run: |
-        nix build .#allConfigs \
-          --accept-flake-config \
-          --print-build-logs
+      run: nix build .#allConfigs --accept-flake-config --print-build-logs
