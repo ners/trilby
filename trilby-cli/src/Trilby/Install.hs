@@ -5,6 +5,7 @@ module Trilby.Install where
 import Data.Semigroup (Semigroup (sconcat))
 import Data.Text qualified as Text
 import Internal.Prelude
+import Internal.Widgets
 import System.FilePath.Lens (directory)
 import Trilby.Config.Host
 import Trilby.Config.User
@@ -69,8 +70,8 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True) $
-            errorExit "Cannot install without mounted partitions"
+        unlessM (yesNoButtons "Attempt to mount the partitions?" True)
+            $ errorExit "Cannot install without mounted partitions"
         runDisko $ Mount $ Disko.Flake flakeRef
     nixosInstall flakeRef
     whenM copyFlake do
@@ -88,8 +89,8 @@ install (askOpts -> opts) = do
     let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
     unlessM rootIsMounted do
         $(logWarn) "Partitions are not mounted"
-        unlessM (askYesNo "Attempt to mount the partitions?" True) $
-            errorExit "Cannot install without mounted partitions"
+        unlessM (yesNoButtons "Attempt to mount the partitions?" True)
+            $ errorExit "Cannot install without mounted partitions"
         runDisko $ Mount $ Disko.File diskoFile
     inDir trilbyDir do
         asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
@@ -134,8 +135,8 @@ install (askOpts -> opts) = do
                     , fromString rootMount
                     ]
             writeNixFile "disko.nix" $ clearLuksFiles disko
-        cmd_ $
-            sconcat
+        cmd_
+            $ sconcat
                 [ ["nix", "flake", "lock"]
                 , ["--accept-flake-config"]
                 , ["--override-input", "trilby", "trilby"]
@@ -147,8 +148,8 @@ nixosInstall :: Text -> App ()
 nixosInstall flakeRef = do
     $(logWarn) "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
-    (withTrace . asRoot) rawCmd_ $
-        sconcat
+    (withTrace . asRoot) rawCmd_
+        $ sconcat
             [ ["nix", "build"]
             , ["--store", "/mnt"]
             , ["--impure"]

@@ -4,6 +4,7 @@
 module Trilby.Update.Options where
 
 import Internal.Prelude
+import Internal.Widgets
 import Options.Applicative
 
 data UpdateAction m
@@ -34,22 +35,19 @@ parseUpdateOpts f = do
     pure UpdateOpts{..}
 
 askAction :: Maybe (UpdateAction Maybe) -> App (UpdateAction App)
-askAction ma =
-    ifM
-        askSwitch
-        (pure Switch)
-        (ifM askBoot (pure Boot{..}) (pure NoAction))
-  where
-    askSwitch = maybe (askYesNo "Switch to the new configuration? (sudo)" True) (pure . (== Switch)) ma
-    askBoot = maybe (askYesNo "Apply the new configuration at boot? (sudo)" False) pure isBoot
-    reboot = maybe (askYesNo "Reboot to new configuration now? (sudo)" False) pure isReboot
-    isBoot = case ma of
-        Nothing -> Nothing
-        Just Boot{} -> Just True
-        _ -> Just False
-    isReboot = case ma of
-        Just Boot{reboot} -> reboot
-        _ -> Nothing
+askAction (Just Switch) = pure Switch
+askAction (Just NoAction) = pure NoAction
+askAction (Just Boot{reboot = askReboot -> reboot}) = pure Boot{..}
+askAction Nothing = do
+    let values = [("Switch", 'S'), ("Boot", 'B'), ("Nothing", 'N')] :: [(Text, Char)]
+    selected <- buttons "What now?" values 0 id
+    case selected of
+        "Switch" -> pure Switch
+        "Boot" -> pure Boot{reboot = askReboot Nothing}
+        _ -> pure NoAction
+
+askReboot :: Maybe Bool -> App Bool
+askReboot = maybe (yesNoButtons "Reboot to new configuration now? (sudo)" False) pure
 
 askOpts :: UpdateOpts Maybe -> UpdateOpts App
 askOpts opts =

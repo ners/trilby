@@ -31,11 +31,6 @@ module Internal.Prelude
     , parseChoiceWith
     , parseChoice
     , parseEnum
-    , askText
-    , askPassword
-    , askYesNo
-    , askChoice
-    , askEnum
     , errorExit
     , ishow
     , fromText
@@ -91,7 +86,6 @@ import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
-import Data.Text.Rope.Zipper qualified as RopeZipper
 import GHC.Generics (Generic)
 import GHC.IsList
 import Nix.Expr.Types
@@ -113,11 +107,6 @@ import Options.Applicative
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (fileExist, getEffectiveUserID)
-import System.Terminal
-import System.Terminal.Widgets.Buttons
-import System.Terminal.Widgets.Common qualified as Terminal
-import System.Terminal.Widgets.Select
-import System.Terminal.Widgets.TextInput
 import Text.Read qualified as Text
 import Trilby.App (App)
 import Turtle qualified
@@ -142,77 +131,9 @@ parseChoice m xs = option (maybeReader Text.readMaybe) $ m <> showDefault <> com
 parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
 parseEnum = flip parseChoice [minBound .. maxBound]
 
-runWidget :: (Terminal.Widget w) => w -> App w
-runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget
-
-askText :: Text -> Text -> App Text
-askText ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
-    $(logDebug) prompt
-    text <-
-        runWidget
-            TextInput
-                { prompt
-                , value
-                , multiline = False
-                , required = True
-                , valueTransform = id
-                }
-    pure $ RopeZipper.toText text.value
-
-askPassword :: Text -> App Text
-askPassword ((<> " ") -> prompt) = do
-    $(logDebug) prompt
-    let getPw :: TextInput -> App Text
-        getPw = fmap (RopeZipper.toText . (.value)) . runWidget
-    let input =
-            TextInput
-                { prompt
-                , value = ""
-                , multiline = False
-                , required = True
-                , valueTransform = each .~ '*'
-                }
-    pw1 <- getPw input
-    pw2 <- getPw $ input & #prompt .~ "Repeat password: "
-    if pw1 == pw2
-        then pure pw1
-        else do
-            $(logError) "Passwords do not match"
-            askPassword prompt
-
-askYesNo :: Text -> Bool -> App Bool
-askYesNo prompt defaultValue = do
-    $(logDebug) prompt
-    buttons <-
-        runWidget
-            Buttons
-                { prompt
-                , buttons = [(s, fst <$> Text.uncons s) | s <- ["Yes", "No"]]
-                , selected = if defaultValue then 0 else 1
-                }
-    pure $ buttons.selected == 0
-
-askChoice :: (Eq a, Show a) => Text -> [a] -> Int -> App a
-askChoice _ [] _ = errorExit "askChoice: zero choices"
-askChoice _ [x] _ = pure x
-askChoice prompt values defaultValue = do
-    select <-
-        runWidget
-            Select
-                { prompt
-                , options = [(ishow v, False) | v <- values]
-                , multiselect = False
-                , cursorRow = defaultValue + 1
-                }
-    fromMaybeM (askChoice prompt values defaultValue) $ pure do
-        i <- List.findIndex snd select.options
-        values !? i
-
-askEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> a -> App a
-askEnum prompt = askChoice prompt [minBound .. maxBound] . fromEnum
-
 errorExit :: Text -> App a
 errorExit msg = $(logError) msg >> liftIO exitFailure
+{-# INLINE errorExit #-}
 
 ishow :: (Show a, IsString s) => a -> s
 ishow = fromString . show

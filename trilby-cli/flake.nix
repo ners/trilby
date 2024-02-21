@@ -59,7 +59,7 @@
                   hnix-store-readonly = hfinal.callCabal2nix "hnix-store-readonly" "${inputs.hnix-store}/hnix-store-readonly" { };
                   hnix-store-remote = hfinal.callCabal2nix "hnix-store-remote" "${inputs.hnix-store}/hnix-store-remote" { };
                   hnix-store-tests = hfinal.callCabal2nix "hnix-store-tests" "${inputs.hnix-store}/hnix-store-tests" { };
-                  "${pname}" = (hfinal.callCabal2nix pname src { }).overrideAttrs
+                  "${pname}" = (hfinal.callCabal2nix "trilby-cli" src { }).overrideAttrs
                     (attrs: {
                       outputs = (attrs.outputs or [ ]) ++ [ "bin" ];
                       meta = attrs.meta // {

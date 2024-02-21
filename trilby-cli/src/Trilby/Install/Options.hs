@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Trilby.Install.Options where
@@ -5,6 +6,7 @@ module Trilby.Install.Options where
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Internal.Prelude hiding (error)
+import Internal.Widgets
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Config.Channel
@@ -109,41 +111,36 @@ askDisk :: App FilePath
 askDisk = do
     disks <- fmap fromText . Text.lines <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     when (null disks) $ errorExit "No disks found"
-    askChoice "Choose installation disk:" disks 0 >>= fromMaybeM askDisk . validateDisk
+    fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing id >>= validateDisk . fromText
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
 askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
   where
-    useLuks = maybe (askYesNo "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (askPassword "Choose LUKS password:") pure (opts >>= (.luksPassword))
+    useLuks = maybe (yesNoButtons "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
+    luksPassword = maybe (passwordInput "Choose LUKS password:") pure (opts >>= (.luksPassword))
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =
     FlakeOpts
         { flakeRef
-        , copyFlake = maybe (askYesNo "Copy flake to /etc/trilby?" True) pure copyFlake
+        , copyFlake = maybe (yesNoButtons "Copy flake to /etc/trilby?" True) pure copyFlake
         }
 
 askKeyboard :: App Keyboard
 askKeyboard = do
-    layout <- askText "Choose keyboard layout:" ""
+    layout <- textInput "Choose keyboard layout:" ""
     pure Keyboard{variant = Nothing, ..}
 
 askLocale :: App Text
 askLocale = do
     currentLocale <- firstLine <$> shell "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'" empty
-    askText "Choose locale:" currentLocale
+    textInput "Choose locale:" currentLocale
 
 askTimezone :: App Text
 askTimezone = do
     currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
-    tz <- askText "Choose time zone:" currentTz
     allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
-    if tz `elem` allTimezones
-        then pure tz
-        else do
-            $(logError) "Unknown timezone"
-            askTimezone
+    fromMaybeM askTimezone $ searchSelect "Choose time zone:" allTimezones [currentTz] id <&> listToMaybe
 
 askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts = do
@@ -151,15 +148,15 @@ askOpts opts = do
         { flake = askFlake <$> opts.flake
         , luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
-        , format = maybe (askYesNo "Format the disk?" True) pure opts.format
-        , filesystem = maybe (askEnum "Choose root partition filesystem:" minBound) pure opts.filesystem
-        , edition = maybe (askEnum "Choose edition:" minBound) pure opts.edition
-        , channel = maybe (askEnum "Choose channel:" minBound) pure opts.channel
-        , hostname = maybe (askText "Choose hostname:" "") pure opts.hostname
+        , format = maybe (yesNoButtons "Format the disk?" True) pure opts.format
+        , filesystem = maybe (selectEnum "Choose root partition filesystem:" Nothing) pure opts.filesystem
+        , edition = maybe (selectEnum "Choose edition:" Nothing) pure opts.edition
+        , channel = maybe (selectEnum "Choose channel:" Nothing) pure opts.channel
+        , hostname = maybe (textInput "Choose hostname:" "") pure opts.hostname
         , keyboard = maybe askKeyboard pure opts.keyboard
         , locale = maybe askLocale pure opts.locale
         , timezone = maybe askTimezone pure opts.timezone
-        , username = maybe (askText "Choose admin username:" "") pure opts.username
-        , password = maybe (askPassword "Choose admin password:") pure opts.password
-        , reboot = maybe (askYesNo "Reboot system?" True) pure opts.reboot
+        , username = maybe (textInput "Choose admin username:" "") pure opts.username
+        , password = maybe (passwordInput "Choose admin password:") pure opts.password
+        , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
         }
