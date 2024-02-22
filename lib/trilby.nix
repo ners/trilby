@@ -146,6 +146,10 @@ rec {
         };
         imports = [
           inputs.self.nixosModules.home
+          inputs.nix-colors.homeManagerModule
+          ({ pkgs, ... }: {
+            colorScheme = inputs.nix-colors.colorSchemes.catppuccin-mocha;
+          })
         ] ++ (u.imports or [ ]);
       };
     in

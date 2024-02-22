@@ -73,7 +73,7 @@
                 }
               );
           };
-         })
+        })
       ];
     in
     foreach inputs.nixpkgs.legacyPackages
