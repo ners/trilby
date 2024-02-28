@@ -22,7 +22,6 @@ lib.optionalAttrs (trilby.edition == "workstation")
     fwupd.enable = true;
     localtimed.enable = true;
     printing.enable = true;
-    redshift.enable = true;
     usbmuxd.enable = true;
     xserver = {
       enable = true;
