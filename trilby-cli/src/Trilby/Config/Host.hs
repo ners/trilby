@@ -1,14 +1,14 @@
 module Trilby.Config.Host where
 
-import Internal.Prelude
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.User
 import Trilby.HNix (canonicalSet)
+import Prelude
 
 data Keyboard = Keyboard
-    { layout :: !Text
-    , variant :: !(Maybe Text)
+    { layout :: Text
+    , variant :: Maybe Text
     }
     deriving stock (Generic)
 
@@ -23,13 +23,13 @@ instance ToExpr Keyboard where
             & canonicalSet
 
 data Host = Host
-    { hostname :: !Text
-    , edition :: !Edition
-    , channel :: !Channel
-    , keyboard :: !Keyboard
-    , locale :: !Text
-    , timezone :: !Text
-    , user :: !User
+    { hostname :: Text
+    , edition :: Edition
+    , channel :: Channel
+    , keyboard :: Keyboard
+    , locale :: Text
+    , timezone :: Text
+    , user :: User
     }
     deriving stock (Generic)
 

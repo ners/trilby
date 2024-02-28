@@ -1,18 +1,22 @@
-module Trilby.Install.Disko where
+module Trilby.Install.Disko
+    ( FileOrFlake (..)
+    , DiskoAction (..)
+    , disko
+    , getDisko
+    , sanitise
+    )
+where
 
 import Control.Lens
 import Data.Generics.Labels ()
 import Data.List (sortOn)
-import Internal.Prelude
 import System.FilePath.Lens
 import Trilby.Disko
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
 import Trilby.Install.Options
-
-diskoFile :: FilePath
-diskoFile = "/tmp/disko.nix"
+import Prelude
 
 luksPasswordFile :: FilePath
 luksPasswordFile = "/tmp/luksPassword"
@@ -27,8 +31,8 @@ data DiskoAction
     | Mount !FileOrFlake
     deriving stock (Generic)
 
-runDisko :: DiskoAction -> App ()
-runDisko action =
+disko :: DiskoAction -> App ()
+disko action =
     (withTrace . asRoot) quietCmd_ $ case action of
         Format (File f) -> ["disko", "-m", "disko", fromString f]
         Format (Flake f) -> ["disko", "-m", "disko", "--flake", f]
@@ -128,8 +132,8 @@ getDisko opts = do
                 ]
             }
 
-clearLuksFiles :: Disko -> Disko
-clearLuksFiles = #disks . traverse . #content . #partitions . traverse . #content %~ clear
+sanitise :: Disko -> Disko
+sanitise = #disks . traverse . #content . #partitions . traverse . #content %~ clearLuks
   where
-    clear LuksPartition{..} = LuksPartition{keyFile = Nothing, ..}
-    clear x = x
+    clearLuks LuksPartition{..} = LuksPartition{keyFile = Nothing, ..}
+    clearLuks x = x

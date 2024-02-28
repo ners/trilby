@@ -1,13 +1,13 @@
-module Internal.Widgets where
+module Trilby.Widgets where
 
 import Data.Text.Rope.Zipper qualified as RopeZipper
-import Internal.Prelude
 import System.Terminal
 import System.Terminal.Widgets.Buttons
 import System.Terminal.Widgets.Common qualified as Terminal
 import System.Terminal.Widgets.SearchSelect
 import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
+import Prelude
 
 runWidget :: (Terminal.Widget w) => w -> App w
 runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget

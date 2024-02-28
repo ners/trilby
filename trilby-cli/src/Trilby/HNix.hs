@@ -9,10 +9,10 @@ module Trilby.HNix where
 
 import Data.Fix
 import Data.List.Extra qualified as List
-import Internal.Prelude
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Prelude
 
 instance IsString (NAttrPath NExpr) where
     fromString = fromListSafe "" . fmap (StaticKey . fromString) . List.splitOn "."

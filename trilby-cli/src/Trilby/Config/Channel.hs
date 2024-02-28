@@ -1,6 +1,6 @@
 module Trilby.Config.Channel where
 
-import Internal.Prelude
+import Prelude
 
 data Channel
     = Unstable

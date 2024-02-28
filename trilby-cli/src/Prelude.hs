@@ -1,4 +1,4 @@
-module Internal.Prelude
+module Prelude
     ( module Control.Applicative
     , module Control.Arrow
     , module Control.Lens.Combinators
@@ -27,39 +27,6 @@ module Internal.Prelude
     , module System.IO
     , module Trilby.App
     , module UnliftIO
-    , parseYesNo
-    , parseChoiceWith
-    , parseChoice
-    , parseEnum
-    , errorExit
-    , ishow
-    , fromText
-    , fromListSafe
-    , firstLine
-    , readsPrecBoundedEnum
-    , readsPrecBoundedEnumOn
-    , prepend
-    , append
-    , cmd
-    , cmd_
-    , rawCmd
-    , rawCmd_
-    , cmd'
-    , quietCmd_
-    , isRoot
-    , asRoot
-    , singleQuoted
-    , doubleQuoted
-    , shell
-    , proc
-    , ensureDir
-    , inDir
-    , writeFile
-    , is
-    , verbosityAtLeast
-    , withTrace
-    , containsAnyOf
-    , containsNoneOf
     )
 where
 
@@ -111,7 +78,7 @@ import Text.Read qualified as Text
 import Trilby.App (App)
 import Turtle qualified
 import UnliftIO
-import Prelude hiding (writeFile)
+import "base" Prelude hiding (writeFile)
 
 parseYesNo :: String -> String -> Parser Bool
 parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)

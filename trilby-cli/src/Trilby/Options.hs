@@ -1,8 +1,8 @@
 module Trilby.Options where
 
-import Internal.Prelude
 import Options.Applicative hiding (command)
 import Trilby.Command (Command, parseCommand)
+import Prelude
 
 data Options m = Options
     { verbosity :: m LogLevel
@@ -26,8 +26,8 @@ showLogLevel LevelOther{} = "Other"
 parseOptions :: Parser (Options Maybe)
 parseOptions = do
     verbosity <-
-        optional
-            $ parseChoiceWith
+        optional $
+            parseChoiceWith
                 showLogLevel
                 readLogLevel
                 (long "verbosity" <> metavar "LOGLEVEL" <> help "output verbosity")

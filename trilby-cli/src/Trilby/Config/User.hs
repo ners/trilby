@@ -1,7 +1,7 @@
 module Trilby.Config.User where
 
-import Internal.Prelude
 import Trilby.HNix
+import Prelude
 
 type Username = Text
 
@@ -11,9 +11,9 @@ data Password
     deriving stock (Generic)
 
 data User = User
-    { uid :: !Int
-    , username :: !Username
-    , password :: !Password
+    { uid :: Int
+    , username :: Username
+    , password :: Password
     }
     deriving stock (Generic)
 

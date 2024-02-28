@@ -2,9 +2,9 @@
 
 module Trilby.Disko.Partition where
 
-import Internal.Prelude
 import Trilby.Disko.Filesystem (Filesystem)
 import Trilby.HNix
+import Prelude
 
 data Size = MiB !Int | GiB !Int | Whole
     deriving stock (Generic, Eq, Show)
@@ -15,9 +15,9 @@ instance ToExpr Size where
     toExpr Whole = toExpr @String "100%"
 
 data Subvolume = Subvolume
-    { name :: !Text
-    , mountpoint :: !Text
-    , mountoptions :: ![Text]
+    { name :: Text
+    , mountpoint :: Text
+    , mountoptions :: [Text]
     }
     deriving stock (Generic)
 
@@ -36,13 +36,13 @@ data LuksKeyFile
     deriving stock (Generic)
 
 data PartitionContent
-    = BtrfsPartition {subvolumes :: ![Subvolume]}
-    | EfiPartition {filesystem :: !Filesystem}
-    | FilesystemPartition {filesystem :: !Filesystem}
+    = BtrfsPartition {subvolumes :: [Subvolume]}
+    | EfiPartition {filesystem :: Filesystem}
+    | FilesystemPartition {filesystem :: Filesystem}
     | LuksPartition
-        { name :: !Text
-        , keyFile :: !(Maybe LuksKeyFile)
-        , content :: !PartitionContent
+        { name :: Text
+        , keyFile :: Maybe LuksKeyFile
+        , content :: PartitionContent
         }
     | MbrPartition
     deriving stock (Generic)
@@ -79,10 +79,10 @@ instance ToExpr PartitionContent where
     toExpr MbrPartition{} = toExpr ()
 
 data Partition = Partition
-    { priority :: !(Maybe Int)
-    , label :: !Text
-    , size :: !Size
-    , content :: !PartitionContent
+    { priority :: Maybe Int
+    , label :: Text
+    , size :: Size
+    , content :: PartitionContent
     }
     deriving stock (Generic)
 

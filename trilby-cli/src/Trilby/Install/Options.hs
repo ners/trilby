@@ -5,15 +5,15 @@ module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
-import Internal.Prelude hiding (error)
-import Internal.Widgets
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.Host (Keyboard (..))
 import Trilby.Disko.Filesystem
+import Trilby.Widgets
 import UnliftIO.Directory (canonicalizePath)
+import Prelude hiding (error)
 
 data LuksOpts m
     = NoLuks
@@ -26,19 +26,19 @@ deriving stock instance Show (LuksOpts Maybe)
 
 parseLuks :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m (LuksOpts m))
 parseLuks f = do
-    f
-        $ flag' NoLuks (long "no-luks")
-        <|> do
-            flag' () (long "luks" <> help "encrypt the disk with LUKS2")
-            luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
-            pure UseLuks{..}
+    f $
+        flag' NoLuks (long "no-luks")
+            <|> do
+                flag' () (long "luks" <> help "encrypt the disk with LUKS2")
+                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+                pure UseLuks{..}
 
 parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
 parseKeyboard f = f do
     layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "the keyboard layout to use on this system")
     pure Keyboard{variant = Nothing, ..}
 
-data FlakeOpts m = FlakeOpts {flakeRef :: !Text, copyFlake :: m Bool}
+data FlakeOpts m = FlakeOpts {flakeRef :: Text, copyFlake :: m Bool}
     deriving stock (Generic)
 
 deriving stock instance Eq (FlakeOpts Maybe)
@@ -92,10 +92,9 @@ validateParsedInstallOpts :: InstallOpts Maybe -> App (InstallOpts Maybe)
 validateParsedInstallOpts opts =
     case opts.disk of
         Nothing -> pure opts
-        Just d ->
-            validateDisk d >>= \case
-                Just vd -> pure $ opts & #disk ?~ fromString vd
-                Nothing -> liftIO exitFailure
+        Just d -> do
+            vd <- fromMaybeM (liftIO exitFailure) $ validateDisk d
+            pure $ opts & #disk ?~ fromString vd
 
 validateDisk :: FilePath -> App (Maybe FilePath)
 validateDisk f = do
@@ -143,7 +142,7 @@ askTimezone = do
     fromMaybeM askTimezone $ searchSelect "Choose time zone:" allTimezones [currentTz] id <&> listToMaybe
 
 askOpts :: InstallOpts Maybe -> InstallOpts App
-askOpts opts = do
+askOpts opts =
     InstallOpts
         { flake = askFlake <$> opts.flake
         , luks = askLuks opts.luks

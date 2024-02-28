@@ -1,9 +1,9 @@
 module Trilby.Disko where
 
-import Internal.Prelude
 import Nix.Prelude (One (one))
 import Trilby.Disko.Disk
 import Trilby.HNix
+import Prelude
 
 newtype Disko = Disko {disks :: [Disk]}
     deriving stock (Generic)

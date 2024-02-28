@@ -36,8 +36,10 @@ common common
         OverloadedRecordDot
         OverloadedStrings
         QuasiQuotes
+        PackageImports
         RecordWildCards
         RecursiveDo
+        StrictData
         TemplateHaskell
         TypeFamilies
         ViewPatterns
@@ -46,8 +48,9 @@ library
     import:          common
     hs-source-dirs:  src
     other-modules:
-        Internal.Prelude,
-        Internal.Widgets,
+        Prelude
+        Trilby.HNix
+        Trilby.Widgets
     exposed-modules:
         Trilby.App
         Trilby.Command
@@ -60,7 +63,6 @@ library
         Trilby.Disko.Disk
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
-        Trilby.HNix
         Trilby.Install
         Trilby.Install.Disko
         Trilby.Install.Flake

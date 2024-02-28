@@ -1,8 +1,8 @@
 module Trilby.Disko.Disk where
 
-import Internal.Prelude
 import Trilby.Disko.Partition
 import Trilby.HNix
+import Prelude
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
     deriving stock (Generic)
@@ -19,9 +19,9 @@ instance ToExpr DiskContent where
         partitionsSet = listToSet (fromText . (.label)) partitions
 
 data Disk = Disk
-    { name :: !Text
-    , device :: !Text
-    , content :: !DiskContent
+    { name :: Text
+    , device :: Text
+    , content :: DiskContent
     }
     deriving stock (Generic)
 

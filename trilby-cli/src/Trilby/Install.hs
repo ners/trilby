@@ -1,18 +1,19 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 
-module Trilby.Install where
+module Trilby.Install (install) where
 
 import Data.Semigroup (Semigroup (sconcat))
 import Data.Text qualified as Text
-import Internal.Prelude
-import Internal.Widgets
 import System.FilePath.Lens (directory)
 import Trilby.Config.Host
 import Trilby.Config.User
+import Trilby.Disko (Disko)
 import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
+import Trilby.Widgets
+import Prelude
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
@@ -20,78 +21,54 @@ showNix = fromString . show . prettyNix . toExpr
 writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-efiLabel :: (IsString s) => s
-efiLabel = "EFI"
-
-luksLabel :: (IsString s) => s
-luksLabel = "LUKS"
-
-trilbyLabel :: (IsString s) => s
-trilbyLabel = "Trilby"
-
-luksDevice :: FilePath
-luksDevice = "/dev/disk/by-partlabel/" <> luksLabel
-
-luksName :: (IsString s) => s
-luksName = "cryptroot"
-
-luksOpenDevice :: FilePath
-luksOpenDevice = "/dev/mapper/" <> luksName
-
-trilbyDevice :: FilePath
-trilbyDevice = "/dev/disk/by-partlabel/" <> trilbyLabel
-
-efiDevice :: FilePath
-efiDevice = "/dev/disk/by-partlabel/" <> efiLabel
-
 rootMount :: FilePath
 rootMount = "/mnt"
-
-rootVol :: FilePath
-rootVol = rootMount <> "/root"
-
-bootVol :: FilePath
-bootVol = rootMount <> "/boot"
-
-homeVol :: FilePath
-homeVol = rootMount <> "/home"
-
-nixVol :: FilePath
-nixVol = rootMount <> "/nix"
 
 trilbyDir :: FilePath
 trilbyDir = rootMount <> "/etc/trilby"
 
+diskoFile :: FilePath
+diskoFile = "/tmp/disko.nix"
+
 install :: InstallOpts Maybe -> App ()
 install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
-    whenM opts.format do
-        $(logWarn) "Formatting disk"
-        runDisko $ Format $ Disko.Flake flakeRef
-    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
-    unlessM rootIsMounted do
-        $(logWarn) "Partitions are not mounted"
-        unlessM (yesNoButtons "Attempt to mount the partitions?" True)
-            $ errorExit "Cannot install without mounted partitions"
-        runDisko $ Mount $ Disko.Flake flakeRef
+    let diskoRef = Disko.Flake flakeRef
+    formatDisk opts.format diskoRef
+    mountRoot diskoRef
     nixosInstall flakeRef
     whenM copyFlake do
         let flakeUri = Text.takeWhile (/= '#') flakeRef
         storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeUri <> " | jq --raw-output .path") empty
         asRoot cmd_ ["cp", "-r", storePath, fromString trilbyDir]
         asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
-    whenM opts.reboot $ asRoot cmd_ ["reboot"]
+    reboot opts.reboot
 install (askOpts -> opts) = do
     disko <- getDisko opts
     inDir (diskoFile ^. directory) $ writeNixFile diskoFile disko
-    whenM opts.format $ do
-        $(logWarn) "Formatting disk ... "
-        runDisko $ Format $ Disko.File diskoFile
-    let rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
-    unlessM rootIsMounted do
-        $(logWarn) "Partitions are not mounted"
-        unlessM (yesNoButtons "Attempt to mount the partitions?" True)
-            $ errorExit "Cannot install without mounted partitions"
-        runDisko $ Mount $ Disko.File diskoFile
+    let diskoRef = Disko.File diskoFile
+    formatDisk opts.format diskoRef
+    mountRoot diskoRef
+    flakeRef <- setupHost disko opts
+    nixosInstall flakeRef
+    reboot opts.reboot
+
+formatDisk :: App Bool -> FileOrFlake -> App ()
+formatDisk f d = whenM f do
+    $(logWarn) "Formatting disk ... "
+    disko $ Format d
+
+mountRoot :: FileOrFlake -> App ()
+mountRoot d = unlessM rootIsMounted do
+    $(logWarn) "Partitions are not mounted"
+    unlessM (yesNoButtons "Attempt to mount the partitions?" True) $
+        errorExit "Cannot install without mounted partitions"
+    disko $ Mount d
+  where
+    rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
+
+setupHost :: Disko -> InstallOpts App -> App Text
+setupHost disko opts = do
+    hostname <- opts.hostname
     inDir trilbyDir do
         asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
         username <- opts.username
@@ -102,7 +79,6 @@ install (askOpts -> opts) = do
         let user = User{uid = 1000, ..}
         let userDir = "users/" <> fromText username
         inDir userDir $ writeNixFile "default.nix" user
-        hostname <- opts.hostname
         edition <- opts.edition
         channel <- opts.channel
         keyboard <- opts.keyboard
@@ -134,22 +110,21 @@ install (askOpts -> opts) = do
                     , "--root"
                     , fromString rootMount
                     ]
-            writeNixFile "disko.nix" $ clearLuksFiles disko
-        cmd_
-            $ sconcat
+            writeNixFile "disko.nix" $ sanitise disko
+        cmd_ $
+            sconcat
                 [ ["nix", "flake", "lock"]
                 , ["--accept-flake-config"]
                 , ["--override-input", "trilby", "trilby"]
                 ]
-        nixosInstall $ ".#" <> hostname
-        whenM opts.reboot $ asRoot cmd_ ["reboot"]
+    pure $ fromString trilbyDir <> "#" <> hostname
 
 nixosInstall :: Text -> App ()
 nixosInstall flakeRef = do
     $(logWarn) "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
-    (withTrace . asRoot) rawCmd_
-        $ sconcat
+    (withTrace . asRoot) rawCmd_ $
+        sconcat
             [ ["nix", "build"]
             , ["--store", "/mnt"]
             , ["--impure"]
@@ -165,3 +140,6 @@ nixosInstall flakeRef = do
             , ["--no-root-password"]
             , ["--impure"]
             ]
+
+reboot :: App Bool -> App ()
+reboot r = whenM r $ cmd_ ["systemctl", "reboot"]
