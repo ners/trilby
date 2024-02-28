@@ -1,0 +1,45 @@
+commit 51ed63e346cc85b94c07eb83dafe77d26de4e420
+Author: ners <ners@gmx.ch>
+Date:   Wed Feb 21 21:06:01 2024 +0100
+
+    display diff between old and new profiles
+
+diff --git a/direnvrc b/direnvrc
+index 1592a3d..f423a49 100644
+--- a/direnvrc
++++ b/direnvrc
+@@ -298,6 +298,7 @@ use_flake() {
+       local tmp_profile_rc
+       local tmp_profile="${layout_dir}/flake-tmp-profile.$$"
+       if tmp_profile_rc=$(_nix print-dev-env --profile "$tmp_profile" "$@"); then
++        local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
+         _nix_clean_old_gcroots "$layout_dir"
+ 
+         # We need to update our cache
+@@ -318,6 +319,9 @@ use_flake() {
+           flake_input_paths="${flake_input_paths/${store_path}/}"
+         done
+ 
++        if [[ -n "${old_store_path}" ]]; then
++          nvd diff "${old_store_path}" "$(readlink $profile)"
++        fi
+         _nix_direnv_info "renewed cache"
+       fi
+     fi
+@@ -464,11 +468,16 @@ use_nix() {
+         --profile "$tmp_profile" \
+         --impure \
+         "${extra_args[@]}"); then
++        local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
+         _nix_clean_old_gcroots "$layout_dir"
+ 
+         echo "$tmp_profile_rc" >"$profile_rc"
+         _nix_add_gcroot "$tmp_profile" "$profile"
+         rm -f "$tmp_profile" "$tmp_profile"*
++
++        if [[ -n "${old_store_path}" ]]; then
++          nvd diff "${old_store_path}" "$(readlink $profile)"
++        fi
+         _nix_direnv_info "renewed cache"
+       fi
+     fi
