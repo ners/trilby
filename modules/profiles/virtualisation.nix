@@ -25,12 +25,7 @@
             enable = true;
           }
           (lib.optionalAttrs (trilby.hostSystem.cpu.name == "x86_64") {
-            packages = [
-              (pkgs.OVMFFull.override {
-                # https://github.com/NixOS/nixpkgs/pull/291963
-                csmSupport = false; 
-              }).fd
-            ];
+            packages = [ pkgs.OVMFFull.fd ];
           })
         ];
         runAsRoot = false;
