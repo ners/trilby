@@ -162,15 +162,14 @@ cmd_ args = do
 
 -- | Suppresses a command's stderr if verbosity is not at least LevelInfo
 quietCmd_ :: NonEmpty Text -> App ()
-quietCmd_ (p :| args) = do
-    ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
-        $(logInfo) $ Text.unwords $ p : args
-        (code, _, err) <- Turtle.procStrictWithErr p args Turtle.stdin
-        case code of
-            ExitSuccess -> pure ()
-            ExitFailure{} -> liftIO do
-                Text.hPutStrLn stderr err
-                exitWith code
+quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
+    $(logInfo) $ Text.unwords $ p : args
+    (code, _, err) <- Turtle.procStrictWithErr p args Turtle.stdin
+    case code of
+        ExitSuccess -> pure ()
+        ExitFailure{} -> liftIO do
+            Text.hPutStrLn stderr err
+            exitWith code
 
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID

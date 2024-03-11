@@ -23,10 +23,7 @@ lib.optionalAttrs (trilby.edition == "workstation")
     localtimed.enable = true;
     printing.enable = true;
     usbmuxd.enable = true;
-    xserver = {
-      enable = true;
-      exportConfiguration = true;
-    };
+    xserver.enable = true;
   };
   powerManagement.enable = true;
   security.rtkit.enable = true;

@@ -8,7 +8,6 @@ in
     name = "${name}-qemu";
     runtimeInputs = [ pkgs.qemu ];
     text = ''
-      BIOS_FILE=''${BIOS_FILE:-${pkgs.OVMFFull.fd}/FV/OVMF.fd}
       ISO_FILE=''${ISO_FILE:-${iso}/iso/${iso.isoName}}
       DISK_FILE=''${DISK_FILE:-disk.qcow2}
       if ! [ -f "$DISK_FILE" ]; then
@@ -17,7 +16,6 @@ in
       args=(
           -name "''${NAME:-${name}}"
           ''${GRAPHIC--nographic}
-          ''${BIOS--bios "$BIOS_FILE"}
           ''${ISO--drive file="$ISO_FILE",format=raw,media=cdrom}
           ''${DISK--drive file="$DISK_FILE",media=disk,if=virtio}
           ''${SERIAL--serial mon:stdio}
