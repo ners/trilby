@@ -3,7 +3,7 @@
 module Trilby.Install.Flake where
 
 import Data.Text qualified as Text
-import Trilby.HNix
+import Trilby.HNix hiding (Flake)
 import Prelude
 
 data InputOverride = Follows Text Text

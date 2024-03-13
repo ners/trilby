@@ -15,16 +15,12 @@ import Trilby.Disko
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
+import Trilby.HNix (FileOrFlake (..))
 import Trilby.Install.Options
 import Prelude
 
 luksPasswordFile :: FilePath
 luksPasswordFile = "/tmp/luksPassword"
-
-data FileOrFlake
-    = File !FilePath
-    | Flake !Text
-    deriving stock (Generic)
 
 data DiskoAction
     = Format !FileOrFlake
@@ -35,9 +31,9 @@ disko :: DiskoAction -> App ()
 disko action =
     (withTrace . asRoot) quietCmd_ $ case action of
         Format (File f) -> ["disko", "-m", "disko", fromString f]
-        Format (Flake f) -> ["disko", "-m", "disko", "--flake", f]
+        Format (Flake f) -> ["disko", "-m", "disko", "--flake", ishow f]
         Mount (File f) -> ["disko", "-m", "mount", fromString f]
-        Mount (Flake f) -> ["disko", "-m", "mount", "--flake", f]
+        Mount (Flake f) -> ["disko", "-m", "mount", "--flake", ishow f]
 
 getDisko :: InstallOpts App -> App Disko
 getDisko opts = do

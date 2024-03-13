@@ -82,6 +82,7 @@ library
         , monad-logger
         , mtl
         , optparse-applicative
+        , process
         , terminal
         , terminal-widgets
         , text
