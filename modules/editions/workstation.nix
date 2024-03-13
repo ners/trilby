@@ -1,6 +1,5 @@
-{ inputs, trilby, lib, ... }:
+{ inputs, trilby, lib, pkgs, ... }:
 
-lib.optionalAttrs (trilby.edition == "workstation")
 {
   imports = with inputs.self.nixosModules; [
     profiles.base
@@ -25,6 +24,12 @@ lib.optionalAttrs (trilby.edition == "workstation")
     usbmuxd.enable = true;
     xserver.enable = true;
   };
+
   powerManagement.enable = true;
+
   security.rtkit.enable = true;
+} //
+lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
+  # Both Gnome and Sway declare this as default, so let's resolve the ambiguity.
+  programs.gnupg.agent.pinentryPackage = pkgs.unstable.pinentry-gnome3;
 }
