@@ -1,6 +1,5 @@
-{ inputs, trilby, lib, ... }:
+{ inputs, ... }:
 
-lib.optionalAttrs (trilby.edition == "server")
 {
   imports = with inputs.self.nixosModules; [
     profiles.base
