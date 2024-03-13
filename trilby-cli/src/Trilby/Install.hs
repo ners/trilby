@@ -2,24 +2,18 @@
 
 module Trilby.Install (install) where
 
-import Data.Semigroup (Semigroup (sconcat))
 import Data.Text qualified as Text
 import System.FilePath.Lens (directory)
 import Trilby.Config.Host
 import Trilby.Config.User
 import Trilby.Disko (Disko)
+import Trilby.HNix (FlakeRef (..), writeNixFile)
 import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Widgets
 import Prelude
-
-showNix :: (ToExpr e, IsString s) => e -> s
-showNix = fromString . show . prettyNix . toExpr
-
-writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
-writeNixFile f = writeFile f . showNix
 
 rootMount :: FilePath
 rootMount = "/mnt"
@@ -37,8 +31,7 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     mountRoot diskoRef
     nixosInstall flakeRef
     whenM copyFlake do
-        let flakeUri = Text.takeWhile (/= '#') flakeRef
-        storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeUri <> " | jq --raw-output .path") empty
+        storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path") empty
         asRoot cmd_ ["cp", "-r", storePath, fromString trilbyDir]
         asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
     reboot opts.reboot
@@ -66,7 +59,7 @@ mountRoot d = unlessM rootIsMounted do
   where
     rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
 
-setupHost :: Disko -> InstallOpts App -> App Text
+setupHost :: Disko -> InstallOpts App -> App FlakeRef
 setupHost disko opts = do
     hostname <- opts.hostname
     inDir trilbyDir do
@@ -117,9 +110,9 @@ setupHost disko opts = do
                 , ["--accept-flake-config"]
                 , ["--override-input", "trilby", "trilby"]
                 ]
-    pure $ fromString trilbyDir <> "#" <> hostname
+    pure FlakeRef{url = fromString trilbyDir, output = pure hostname}
 
-nixosInstall :: Text -> App ()
+nixosInstall :: FlakeRef -> App ()
 nixosInstall flakeRef = do
     $(logWarn) "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
@@ -135,7 +128,7 @@ nixosInstall flakeRef = do
         rawCmd_
         $ sconcat
             [ ["nixos-install"]
-            , ["--flake", flakeRef]
+            , ["--flake", ishow flakeRef]
             , ["--option", "accept-flake-config", "true"]
             , ["--no-root-password"]
             , ["--impure"]

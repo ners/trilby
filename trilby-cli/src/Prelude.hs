@@ -12,9 +12,11 @@ module Prelude
     , module Data.Bool
     , module Data.Char
     , module Data.Default
+    , module Data.Foldable
     , module Data.List.Extra
     , module Data.List.NonEmpty
     , module Data.Maybe
+    , module Data.Semigroup
     , module Data.String
     , module Data.Text
     , module GHC.Generics
@@ -43,18 +45,20 @@ import Control.Monad.Trans (MonadTrans, lift)
 import Data.Bool
 import Data.Char (toLower)
 import Data.Default (Default (def))
+import Data.Foldable
 import Data.Generics.Labels ()
 import Data.List qualified as List
 import Data.List.Extra (headDef, (!?))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Maybe
 import Data.Monoid (First)
+import Data.Semigroup (sconcat)
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import GHC.Generics (Generic)
-import GHC.IsList
+import GHC.IsList hiding (toList)
 import Nix.Expr.Types
 import Nix.Pretty (prettyNix)
 import Nix.TH (ToExpr (toExpr), nix)
@@ -74,8 +78,10 @@ import Options.Applicative
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (fileExist, getEffectiveUserID)
+import System.Process qualified as Process
 import Text.Read qualified as Text
 import Trilby.App (App)
+import Turtle (system)
 import Turtle qualified
 import UnliftIO
 import "base" Prelude hiding (writeFile)
@@ -128,17 +134,26 @@ prepend x xs = pure x <> xs
 append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
--- | Does not suppress a command's stdout or stderr
+-- | Does not suppress a command's stdin, stdout, or stderr
 rawCmd :: NonEmpty Text -> App ExitCode
 rawCmd (p :| args) = do
     $(logInfo) $ Text.unwords $ p : args
-    Turtle.proc p args Turtle.stdin
+    system
+        ( (Process.proc (Text.unpack p) (Text.unpack <$> args))
+            { Process.std_in = Process.Inherit
+            , Process.std_out = Process.Inherit
+            , Process.std_err = Process.Inherit
+            }
+        )
+        empty
 
 -- | Does not suppress a command's stdout or stderr
 rawCmd_ :: NonEmpty Text -> App ()
-rawCmd_ (p :| args) = do
-    $(logInfo) $ Text.unwords $ p : args
-    Turtle.procs p args Turtle.stdin
+rawCmd_ args = do
+    code <- rawCmd args
+    case code of
+        ExitSuccess -> pure ()
+        ExitFailure{} -> liftIO $ exitWith code
 
 cmd' :: NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
@@ -173,6 +188,9 @@ quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
 
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
+
+asUser :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asUser = id
 
 asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRoot c t = ifM isRoot (c t) (c $ prepend "sudo" t)
@@ -227,3 +245,8 @@ containsAnyOf = anyOf each . flip elem
 
 containsNoneOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsNoneOf = noneOf each . flip elem
+
+infixl 4 <$$>
+
+(<$$>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
+(<$$>) = fmap . fmap

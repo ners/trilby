@@ -24,4 +24,6 @@ jobs:
         cache: trilby
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
-      run: nix build .#allConfigs --accept-flake-config --print-build-logs
+      run: nix build --accept-flake-config --print-build-logs .#allConfigs
+    - name: Closure size
+      run: nix path-info -sSh ./result/*

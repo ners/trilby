@@ -63,6 +63,7 @@ in
   system.stateVersion = trilby.release;
 
   environment.systemPackages = with pkgs; [
+    expect
     file
     git
     jq

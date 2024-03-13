@@ -11,6 +11,7 @@ import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.Host (Keyboard (..))
 import Trilby.Disko.Filesystem
+import Trilby.HNix (FlakeRef (..))
 import Trilby.Widgets
 import UnliftIO.Directory (canonicalizePath)
 import Prelude hiding (error)
@@ -38,10 +39,8 @@ parseKeyboard f = f do
     layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "the keyboard layout to use on this system")
     pure Keyboard{variant = Nothing, ..}
 
-data FlakeOpts m = FlakeOpts {flakeRef :: Text, copyFlake :: m Bool}
+data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
     deriving stock (Generic)
-
-deriving stock instance Eq (FlakeOpts Maybe)
 
 deriving stock instance Show (FlakeOpts Maybe)
 

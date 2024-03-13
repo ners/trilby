@@ -9,6 +9,7 @@ module Trilby.HNix where
 
 import Data.Fix
 import Data.List.Extra qualified as List
+import Data.Text qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
@@ -52,3 +53,47 @@ canonicalSet s = error $ "canonicalSet bottom: " <> show s
 
 listToSet :: (ToExpr a) => (a -> NAttrPath NExpr) -> [a] -> NExpr
 listToSet f xs = Fix $ NSet NonRecursive $ (\x -> f x ~: toExpr x) <$> xs
+
+data FlakeRef = FlakeRef
+    { url :: Text
+    , output :: [Text]
+    }
+    deriving stock (Generic)
+
+instance IsString FlakeRef where
+    fromString (fromString -> Text.break (== '#') -> (url, Text.split (== '.') -> output)) =
+        FlakeRef{..}
+
+instance Show FlakeRef where
+    show FlakeRef{output = [], ..} = Text.unpack url
+    show FlakeRef{..} = Text.unpack $ url <> "#" <> Text.intercalate "." output
+
+data FileOrFlake
+    = File FilePath
+    | Flake FlakeRef
+    deriving stock (Generic)
+
+instance Show FileOrFlake where
+    show (File f) = f
+    show (Flake f) = show f
+
+showNix :: (ToExpr e, IsString s) => e -> s
+showNix = fromString . show . prettyNix . toExpr
+
+writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
+writeNixFile f = writeFile f . showNix
+
+nixBuild :: FileOrFlake -> App FilePath
+nixBuild f =
+    fromText
+        <$> withTrace
+            cmd
+            ( sconcat
+                [ ["nix", "build"]
+                , ["--no-link", "--print-out-paths"]
+                , case f of
+                    File{} -> ["--file"]
+                    Flake{} -> ["--accept-flake-config"]
+                , [ishow f]
+                ]
+            )
