@@ -1,7 +1,7 @@
 module Trilby.Config.Host where
 
-import Trilby.Config.Channel
 import Trilby.Config.Edition
+import Trilby.Config.Release
 import Trilby.Config.User
 import Trilby.HNix (canonicalSet)
 import Prelude
@@ -25,7 +25,7 @@ instance ToExpr Keyboard where
 data Host = Host
     { hostname :: Text
     , edition :: Edition
-    , channel :: Channel
+    , release :: Release
     , keyboard :: Keyboard
     , locale :: Text
     , timezone :: Text

@@ -1,14 +1,15 @@
-{ inputs, lib, trilby, ... }:
+{ lib
+, trilby
+, unstable ? false
+, ...
+}:
 
-final: prev:
-let
-  flake = lib.loadFlake {
-    inherit (prev) system;
+if (lib.versionAtLeast trilby.release "24.05" || unstable) then
+  (lib.loadFlake {
+    system = trilby.hostPlatform;
     src = ../../trilby-cli;
-  };
-  overlay = flake.defaultNix.outputs.overlays.default;
-  pkgs = prev.extend overlay;
-in
-{
-  trilby-cli = pkgs.haskellPackages.trilby-cli.bin;
-}
+  }).defaultNix.outputs.overlays.default
+else
+  final: _: {
+    inherit (final.unstable) trilby-cli;
+  }

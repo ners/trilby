@@ -7,9 +7,9 @@ import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
-import Trilby.Config.Channel
 import Trilby.Config.Edition
 import Trilby.Config.Host (Keyboard (..))
+import Trilby.Config.Release
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
 import Trilby.Widgets
@@ -58,7 +58,7 @@ data InstallOpts m = InstallOpts
     , format :: m Bool
     , filesystem :: m Format
     , edition :: m Edition
-    , channel :: m Channel
+    , release :: m Release
     , hostname :: m Text
     , keyboard :: m Keyboard
     , locale :: m Text
@@ -77,7 +77,7 @@ parseInstallOpts f = do
     format <- f $ parseYesNo "format" "format the installation disk"
     filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem")
     edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
-    channel <- f $ parseEnum (long "channel" <> metavar "CHANNEL" <> help "the nixpkgs channel to use")
+    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "the nixpkgs release to use")
     hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "the hostname to install")
     keyboard <- parseKeyboard f
     locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "the locale of this system")
@@ -149,7 +149,7 @@ askOpts opts =
         , format = maybe (yesNoButtons "Format the disk?" True) pure opts.format
         , filesystem = maybe (selectEnum "Choose root partition filesystem:" Nothing) pure opts.filesystem
         , edition = maybe (selectEnum "Choose edition:" Nothing) pure opts.edition
-        , channel = maybe (selectEnum "Choose channel:" Nothing) pure opts.channel
+        , release = maybe (selectEnum "Choose release:" Nothing) pure opts.release
         , hostname = maybe (textInput "Choose hostname:" "") pure opts.hostname
         , keyboard = maybe askKeyboard pure opts.keyboard
         , locale = maybe askLocale pure opts.locale

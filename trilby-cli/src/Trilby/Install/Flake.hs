@@ -3,6 +3,7 @@
 module Trilby.Install.Flake where
 
 import Data.Text qualified as Text
+import Trilby.Config.Release (Release (..))
 import Trilby.HNix hiding (Flake)
 import Prelude
 
@@ -12,25 +13,22 @@ data InputOverride = Follows Text Text
 instance ToExpr InputOverride where
     toExpr (Follows _ t) = [nix| { follows = t; } |]
 
-data Input = Input
+data Input = InputFlake
     { name :: Text
     , url :: Text
-    , flake :: Bool
     , inputs :: [InputOverride]
     }
     deriving stock (Generic)
 
 instance ToExpr Input where
-    toExpr Input{..} =
+    toExpr InputFlake{..} =
         [nix|
         {
             url = url;
-            flake = flakeBinding;
             inputs = inputsSet;
         }
         |]
       where
-        flakeBinding = if flake then Nothing else Just False
         inputsSet = listToSet io inputs
         io (Follows s _) = fromText @(NAttrPath NExpr) $ if Text.elem '.' s then doubleQuoted s else s
 
@@ -70,24 +68,38 @@ instance ToExpr Flake where
       where
         inputsSet = listToSet (fromText . (.name)) inputs
 
-instance Default Flake where
-    def =
-        Flake
-            { nixConfig =
-                NixConfig
-                    { extraSubstituters = ["https://cache.ners.ch/trilby"]
-                    , extraTrustedPublicKeys = ["trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU="]
-                    }
-            , inputs =
-                [ Input
-                    { name = "trilby"
-                    , url = "github:ners/trilby"
-                    , flake = True
+flake :: Release -> Flake
+flake c =
+    Flake
+        { nixConfig =
+            NixConfig
+                { extraSubstituters = ["https://cache.ners.ch/trilby"]
+                , extraTrustedPublicKeys = ["trilby:AKUGezHi4YbPHCaCf2+XnwWibugjHOwGjH78WqRUnzU="]
+                }
+        , inputs =
+            mconcat
+                [ [ InputFlake
+                    { name = "nixpkgs-unstable"
+                    , url = "github:nixos/nixpkgs/nixos-unstable"
                     , inputs = []
                     }
+                  | c /= Unstable
+                  ]
+                ,
+                    [ InputFlake
+                        { name = "nixpkgs"
+                        , url = "github:nixos/nixpkgs/nixos-" <> ishow c
+                        , inputs = []
+                        }
+                    , InputFlake
+                        { name = "trilby"
+                        , url = "github:ners/trilby"
+                        , inputs = ["nixpkgs" `Follows` "nixpkgs", "nixpkgs-unstable" `Follows` "nixpkgs-unstable"]
+                        }
+                    ]
                 ]
-            , outputs =
-                [nix|
+        , outputs =
+            [nix|
                 inputs:
                 with builtins;
                 let lib = inputs.trilby.lib; in
@@ -98,4 +110,4 @@ instance Default Flake where
                   ];
                 }
                 |]
-            }
+        }
