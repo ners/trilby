@@ -23,7 +23,6 @@ rec {
     (t: {
       name = "trilby";
       edition = "workstation";
-      channel = "unstable";
       hostPlatform = "x86_64-linux";
       buildPlatform = "x86_64-linux";
       variant = null;
@@ -32,16 +31,15 @@ rec {
     (t: t // rec {
       name = toLower t.name;
       edition = toLower t.edition;
-      channel = toLower t.channel;
       hostSystem = systems.parse.mkSystemFromString t.hostPlatform;
-      nixpkgs = inputs."nixpkgs-${channel}" // {
-        nixosModules = findModules "${inputs."nixpkgs-${t.channel}"}/nixos/modules";
+      nixpkgs = inputs.nixpkgs // {
+        nixosModules = findModules "${inputs.nixpkgs}/nixos/modules";
       };
       release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         name
         edition
-        (concatStringsSep "_" (splitString "." t.channel))
+        (concatStringsSep "_" (splitString "." release))
         hostSystem.cpu.name
         t.variant
         t.format
@@ -136,9 +134,7 @@ rec {
         else
           error "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
       );
-      group = {
-        gid = u.gid or user.uid;
-      };
+      group.gid = u.gid or user.uid;
       home = {
         home = {
           username = user.name;

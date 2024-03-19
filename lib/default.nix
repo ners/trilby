@@ -1,5 +1,5 @@
 { inputs
-, lib ? inputs.nixpkgs-unstable.lib
+, lib
 , ...
 }:
 

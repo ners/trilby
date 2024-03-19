@@ -55,9 +55,9 @@ library
         Trilby.App
         Trilby.Command
         Trilby.Config
-        Trilby.Config.Channel
         Trilby.Config.Edition
         Trilby.Config.Host
+        Trilby.Config.Release
         Trilby.Config.User
         Trilby.Disko
         Trilby.Disko.Disk

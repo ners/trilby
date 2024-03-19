@@ -48,7 +48,7 @@ buildConfiguration c = (c,) <$> nixBuild f
     output = ["nixosConfigurations", c.name, "config", "system", "build", "toplevel"]
     f = Flake FlakeRef{url = "/etc/trilby", output}
 
-{- | We wish to build multiple configurations, bsignalBodyut avoid evaluating Trilby and Nixpkgs multiple times.
+{- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
 To this end we write a single derivation that depends on each of the configurations we wish to build.
 The resulting output path contains symlinks for each configuration by name.
 -}
@@ -62,7 +62,7 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
         [nix|
          { local ? builtins.getFlake "/etc/trilby"
          , trilby ? local.inputs.trilby
-         , pkgs ? trilby.inputs.nixpkgs-unstable.outputs.legacyPackages.${builtins.currentSystem}
+         , pkgs ? trilby.inputs.nixpkgs.outputs.legacyPackages.${builtins.currentSystem}
          }:
          pkgs.linkFarm "trilby-update"
              (builtins.map
@@ -80,16 +80,15 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
 ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
 ssh Localhost c t = c t
 ssh host c t = withSystemTempDirectory "trilby-update" $ \tmpDir ->
-    c $
-        sconcat
-            [ ["ssh"]
-            , ["-o", "ControlMaster=auto"]
-            , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
-            , ["-o", "ControlPersist=60"]
-            , ["-t"]
-            , [ishow host]
-            , t
-            ]
+    c . sconcat $
+        [ ["ssh"]
+        , ["-o", "ControlMaster=auto"]
+        , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
+        , ["-o", "ControlPersist=60"]
+        , ["-t"]
+        , [ishow host]
+        , t
+        ]
 
 copyClosure :: Host -> FilePath -> App ()
 copyClosure Localhost _ = pure ()
@@ -108,21 +107,20 @@ instance Show ConfigAction where
 
 switchToConfiguration :: Host -> FilePath -> ConfigAction -> App ()
 switchToConfiguration host path action =
-    ssh host rawCmd_ $
-        sconcat
-            [ ["sudo"]
-            , ["systemd-run"]
-            , ["-E", "LOCALE_ARCHIVE"]
-            , ["-E", "NIXOS_INSTALL_BOOTLOADER=1"]
-            , ["--collect"]
-            , ["--no-ask-password"]
-            , ["--pty"]
-            , ["--quiet"]
-            , ["--same-dir"]
-            , ["--service-type=exec"]
-            , ["--unit=trilby-switch-to-configuration"]
-            , ["--wait"]
-            , [fromString activationScript, ishow action]
-            ]
+    ssh host rawCmd_ . sconcat $
+        [ ["sudo"]
+        , ["systemd-run"]
+        , ["-E", "LOCALE_ARCHIVE"]
+        , ["-E", "NIXOS_INSTALL_BOOTLOADER=1"]
+        , ["--collect"]
+        , ["--no-ask-password"]
+        , ["--pty"]
+        , ["--quiet"]
+        , ["--same-dir"]
+        , ["--service-type=exec"]
+        , ["--unit=trilby-switch-to-configuration"]
+        , ["--wait"]
+        , [fromString activationScript, ishow action]
+        ]
   where
     activationScript = path <> "/bin/switch-to-configuration"

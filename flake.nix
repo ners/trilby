@@ -8,30 +8,30 @@
   };
 
   inputs = {
-    "nixpkgs-23.11".url = "github:nixos/nixpkgs/nixos-23.11";
-    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-unstable.follows = "nixpkgs";
     nix-filter.url = "github:numtide/nix-filter";
     flake-compat.url = "github:ners/flake-compat";
     nix-monitored = {
       url = "github:ners/nix-monitored";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
       inputs.nix-filter.follows = "nix-filter";
     };
     home-manager = {
       url = "github:nix-community/home-manager";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     disko = {
       url = "github:nix-community/disko";
-      inputs.nixpkgs.follows = "nixpkgs-unstable";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs = inputs:
     with builtins;
     let
-      lib = import ./lib { inherit inputs; };
-      buildPlatforms = attrNames inputs.nixpkgs-unstable.legacyPackages;
+      lib = import ./lib { inherit inputs; inherit (inputs.nixpkgs) lib; };
+      buildPlatforms = attrNames inputs.nixpkgs.legacyPackages;
       nixosModules = lib.findModules ./modules;
       configurations = map lib.trilbyConfig (lib.cartesianProductOfSets {
         name = [ "trilby" ];
@@ -40,11 +40,6 @@
         hostPlatform = attrNames nixosModules.hostPlatforms;
         buildPlatform = filter (lib.hasSuffix "-linux") buildPlatforms;
         variant = [ null "musl" ];
-        channel = with lib; pipe inputs [
-          attrNames
-          (filter (hasPrefix "nixpkgs-"))
-          (map (removePrefix "nixpkgs-"))
-        ];
       });
     in
     lib.recursiveConcat [

@@ -85,15 +85,20 @@ writeNixFile f = writeFile f . showNix
 
 nixBuild :: FileOrFlake -> App FilePath
 nixBuild f =
-    fromText . firstLine
-        <$> withTrace
-            cmd
-            ( sconcat
-                [ ["nix", "build"]
-                , ["--no-link", "--print-out-paths"]
-                , case f of
-                    File{} -> ["--file"]
-                    Flake{} -> ["--accept-flake-config"]
-                , [ishow f]
-                ]
-            )
+    fmap (fromText . firstLine) . withTrace cmd . sconcat $
+        [ ["nix", "build"]
+        , ["--no-link", "--print-out-paths"]
+        , case f of
+            File{} -> ["--file"]
+            Flake{} -> ["--accept-flake-config"]
+        , [ishow f]
+        ]
+
+currentSystem :: App Text
+currentSystem =
+    fmap firstLine . cmd . sconcat $
+        [ ["nix", "eval"]
+        , ["--impure"]
+        , ["--raw"]
+        , ["--expr", "builtins.currentSystem"]
+        ]
