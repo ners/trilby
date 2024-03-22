@@ -2,7 +2,6 @@
 
 final: prev: {
   nix-direnv = prev.nix-direnv.overrideAttrs (attrs: {
-    patchFlags = [ "--verbose" ];
     prePatch = ''
       echo PATCHING
       pwd
