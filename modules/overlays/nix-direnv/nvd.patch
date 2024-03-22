@@ -1,46 +1,45 @@
-commit c5610414240b428e27ac3e56eb442b83115aa1b9
+commit 51ed63e346cc85b94c07eb83dafe77d26de4e420
 Author: ners <ners@gmx.ch>
 Date:   Wed Feb 21 21:06:01 2024 +0100
 
     display diff between old and new profiles
 
 diff --git a/direnvrc b/direnvrc
-index 723f29c..7220b11 100644
---- a/direnvrc
-+++ b/direnvrc
-@@ -244,6 +244,7 @@ use_flake() {
-       _nix_clean_old_gcroots "$layout_dir"
- 
-       # We need to update our cache
-+      local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
-       local tmp_profile="${layout_dir}/flake-profile.$$"
+index 1592a3d..f423a49 100644
+--- a/share/nix-direnv/direnvrc
++++ b/share/nix-direnv/direnvrc
+@@ -298,6 +298,7 @@ use_flake() {
        local tmp_profile_rc
-       tmp_profile_rc=$("${NIX_BIN_PREFIX}nix" print-dev-env \
-@@ -269,6 +270,9 @@ use_flake() {
-         _nix_add_gcroot "$path" "${flake_inputs}/${path##*/}"
-       done
+       local tmp_profile="${layout_dir}/flake-tmp-profile.$$"
+       if tmp_profile_rc=$(_nix print-dev-env --profile "$tmp_profile" "$@"); then
++        local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
+         _nix_clean_old_gcroots "$layout_dir"
  
-+      if [[ -n "${old_store_path}" ]]; then
-+        nvd diff "${old_store_path}" "$(readlink $profile)"
-+      fi
-       log_status "nix-direnv: renewed cache"
+         # We need to update our cache
+@@ -318,6 +319,9 @@ use_flake() {
+           flake_input_paths="${flake_input_paths/${store_path}/}"
+         done
+ 
++        if [[ -n "${old_store_path}" ]]; then
++          nvd diff "${old_store_path}" "$(readlink $profile)"
++        fi
+         _nix_direnv_info "renewed cache"
+       fi
      fi
-   else
-@@ -397,6 +401,7 @@ use_nix() {
-      else
-       _nix_clean_old_gcroots "$layout_dir"
+@@ -464,11 +468,16 @@ use_nix() {
+         --profile "$tmp_profile" \
+         --impure \
+         "${extra_args[@]}"); then
++        local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
+         _nix_clean_old_gcroots "$layout_dir"
  
-+      local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
-       local tmp_profile="${layout_dir}/flake-profile.$$"
-       local tmp_profile_rc
- 
-@@ -423,6 +428,9 @@ use_nix() {
-       echo "$tmp_profile_rc" > "$profile_rc"
-       rm -f "$tmp_profile" "$tmp_profile"*
-       _nix_add_gcroot "$drv" "$profile"
-+      if [[ -n "${old_store_path}" ]]; then
-+        nvd diff "${old_store_path}" "$(readlink $profile)"
-+      fi
-       log_status "nix-direnv: renewed cache"
- 
+         echo "$tmp_profile_rc" >"$profile_rc"
+         _nix_add_gcroot "$tmp_profile" "$profile"
+         rm -f "$tmp_profile" "$tmp_profile"*
++
++        if [[ -n "${old_store_path}" ]]; then
++          nvd diff "${old_store_path}" "$(readlink $profile)"
++        fi
+         _nix_direnv_info "renewed cache"
+       fi
      fi
