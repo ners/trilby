@@ -141,6 +141,7 @@ rec {
           homeDirectory = user.home;
         };
         imports = [
+          inputs.nix-colors.homeManagerModule
           inputs.self.nixosModules.home
         ] ++ (u.imports or [ ]);
       };

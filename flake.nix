@@ -12,6 +12,7 @@
     nixpkgs-unstable.follows = "nixpkgs";
     nix-filter.url = "github:numtide/nix-filter";
     flake-compat.url = "github:ners/flake-compat";
+    nixos-hardware.url = "github:nixos/nixos-hardware";
     nix-monitored = {
       url = "github:ners/nix-monitored";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -24,6 +25,10 @@
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nix-colors = {
+      url = "github:misterio77/nix-colors";
+      inputs.nixpkgs-lib.follows = "nixpkgs-unstable";
     };
   };
 
