@@ -1,6 +1,8 @@
 { lib, ... }:
 
 {
+  system.activationScripts.binsh = lib.mkForce ""; # obsolete
+
   system.activationScripts.usrbinenv = lib.mkForce /*bash*/ ''
     function copyLinks() {
       src=$1
@@ -14,7 +16,8 @@
         fi
       done
     }
-    copyLinks /run/current-system/sw/bin /bin /usr/bin /usr/local/bin
-    copyLinks /run/current-system/sw/lib /lib /lib64
+    sw=/nix/var/nix/gcroots/current-system/sw
+    copyLinks $sw/bin /bin /usr/bin /usr/local/bin
+    copyLinks $sw/lib /lib /lib64
   '';
 }
