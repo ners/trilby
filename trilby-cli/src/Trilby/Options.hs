@@ -2,6 +2,7 @@ module Trilby.Options where
 
 import Options.Applicative hiding (command)
 import Trilby.Command (Command, parseCommand)
+import Trilby.Version qualified as Trilby
 import Prelude
 
 data Options m = Options
@@ -33,6 +34,7 @@ parseOptions = do
                 (long "verbosity" <> metavar "LOGLEVEL" <> help "output verbosity")
                 [LevelDebug, LevelInfo, LevelWarn, LevelError]
     command <- parseCommand
+    simpleVersioner $ unwords [Trilby.name, Trilby.version]
     pure Options{..}
 
 parseOptionsInfo :: ParserInfo (Options Maybe)
