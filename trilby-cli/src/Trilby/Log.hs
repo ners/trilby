@@ -1,14 +1,11 @@
-module Log where
+module Trilby.Log where
 
 import Control.Monad.Logger
 import Data.List qualified as List
-import Data.String (IsString (fromString))
-import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as Text
 import System.Console.ANSI
-import System.IO (stderr)
 import Prelude
 
 locStr :: (IsString a) => Loc -> a
