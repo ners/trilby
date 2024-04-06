@@ -98,7 +98,7 @@ data ConfigAction
     = ConfigBoot
     | ConfigSwitch
     | ConfigTest
-    deriving stock (Generic)
+    deriving stock (Generic, Eq)
 
 instance Show ConfigAction where
     show ConfigBoot = "boot"
@@ -106,7 +106,11 @@ instance Show ConfigAction where
     show ConfigTest = "test"
 
 switchToConfiguration :: Host -> FilePath -> ConfigAction -> App ()
-switchToConfiguration host path action =
+switchToConfiguration host path action = do
+    case action of
+        ConfigBoot -> setProfile host path
+        ConfigSwitch -> setProfile host path
+        _ -> pure ()
     ssh host rawCmd_ . sconcat $
         [ ["sudo"]
         , ["systemd-run"]
@@ -124,3 +128,12 @@ switchToConfiguration host path action =
         ]
   where
     activationScript = path <> "/bin/switch-to-configuration"
+
+setProfile :: Host -> FilePath -> App ()
+setProfile host path =
+    ssh host rawCmd_ . sconcat $
+        [ ["sudo"]
+        , ["nix-env"]
+        , ["--profile", "/nix/var/nix/profiles/system"]
+        , ["--set", fromString path]
+        ]
