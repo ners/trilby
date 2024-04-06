@@ -3,6 +3,7 @@ module Trilby.Options where
 import Options.Applicative hiding (command)
 import Trilby.Command (Command, parseCommand)
 import Trilby.Version qualified as Trilby
+import UnliftIO.Environment (lookupEnv)
 import Prelude
 
 data Options m = Options
@@ -26,13 +27,10 @@ showLogLevel LevelOther{} = "Other"
 
 parseOptions :: Parser (Options Maybe)
 parseOptions = do
-    verbosity <-
-        optional $
-            parseChoiceWith
-                showLogLevel
-                readLogLevel
-                (long "verbosity" <> metavar "LOGLEVEL" <> help "output verbosity")
-                [LevelDebug, LevelInfo, LevelWarn, LevelError]
+    let verbosityError = flag' LevelError $ short 'q' <> long "quiet" <> help "Decrease the logging verbosity level"
+    let verbosityInfo = flag' LevelInfo $ short 'v' <> long "verbose" <> help "Increase the logging verbosity level"
+    let verbosityDebug = flag' LevelDebug $ long "debug" <> help "Set the logging verbosity level to 'debug'"
+    verbosity <- optional $ verbosityError <|> verbosityInfo <|> verbosityDebug
     command <- parseCommand
     simpleVersioner $ unwords [Trilby.name, Trilby.version]
     pure Options{..}
@@ -42,3 +40,10 @@ parseOptionsInfo =
     info
         (helper <*> parseOptions)
         (fullDesc <> progDesc "Trilby command-line tool")
+
+getVerbosity :: (MonadIO m) => Options Maybe -> m LogLevel
+getVerbosity opts = do
+    envVerbosity <- (readLogLevel =<<) <$> lookupEnv "TRILBY_VERBOSITY"
+    pure $ fromMaybe defaultVerbosity $ opts.verbosity <|> envVerbosity
+  where
+    defaultVerbosity = LevelWarn

@@ -67,11 +67,13 @@ library
         Trilby.Install.Disko
         Trilby.Install.Flake
         Trilby.Install.Options
+        Trilby.Log
         Trilby.Options
         Trilby.Update
         Trilby.Update.Options
         Trilby.Version
     build-depends:
+        , ansi-terminal
         , base
         , data-default
         , data-fix
@@ -97,12 +99,7 @@ executable trilby
     import:         common
     main-is:        Main.hs
     hs-source-dirs: app
-    other-modules:
-        Log,
     build-depends:
-        , ansi-terminal
         , base
-        , monad-logger
         , optparse-applicative
-        , text
         , trilby-cli
