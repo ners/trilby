@@ -87,7 +87,6 @@ library
         , mtl
         , optparse-applicative
         , process
-        , terminal
         , terminal-widgets
         , text
         , text-rope-zipper

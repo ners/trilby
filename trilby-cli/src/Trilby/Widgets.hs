@@ -1,22 +1,18 @@
 module Trilby.Widgets where
 
 import Data.Text.Rope.Zipper qualified as RopeZipper
-import System.Terminal
 import System.Terminal.Widgets.Buttons
-import System.Terminal.Widgets.Common qualified as Terminal
+import System.Terminal.Widgets.Common (runWidgetIO)
 import System.Terminal.Widgets.SearchSelect
 import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
 import Prelude
 
-runWidget :: (Terminal.Widget w) => w -> App w
-runWidget = liftIO . withTerminal . runTerminalT . Terminal.runWidget
-
 textInput :: Text -> Text -> App Text
 textInput ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
     $(logDebug) prompt
     text <-
-        runWidget
+        runWidgetIO
             TextInput
                 { prompt
                 , value
@@ -30,7 +26,7 @@ passwordInput :: Text -> App Text
 passwordInput ((<> " ") -> prompt) = do
     $(logDebug) prompt
     let getPw :: TextInput -> App Text
-        getPw = fmap (RopeZipper.toText . (.value)) . runWidget
+        getPw = fmap (RopeZipper.toText . (.value)) . runWidgetIO
     let input =
             TextInput
                 { prompt
@@ -51,7 +47,7 @@ buttons :: (Eq a, Show a) => Text -> [(a, Char)] -> Int -> (a -> Text) -> App a
 buttons prompt values selected buttonText = do
     $(logDebug) prompt
     b <-
-        runWidget
+        runWidgetIO
             Buttons
                 { prompt
                 , buttons = [(buttonText s, Just c) | (s, c) <- values]
@@ -77,7 +73,7 @@ select prompt values defaultValue optionText
     | null values = errorExit "select: called with no options and no default value"
     | otherwise = do
         selectedValues <-
-            runWidget
+            runWidgetIO
                 Select
                     { prompt
                     , options =
@@ -106,7 +102,7 @@ searchSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> App [a]
 searchSelect ((<> " ") -> prompt) values defaultValues optionText
     | length values < 2 = pure defaultValues
     | otherwise =
-        runWidget
+        runWidgetIO
             SearchSelect
                 { prompt
                 , searchValue = ""

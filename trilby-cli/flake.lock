@@ -17,11 +17,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1711163522,
-        "narHash": "sha256-YN/Ciidm+A0fmJPWlHBGvVkcarYWSC+s3NTPk/P+q3c=",
+        "lastModified": 1712163089,
+        "narHash": "sha256-Um+8kTIrC19vD4/lUCN9/cU9kcOsD1O1m+axJqQPyMM=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "44d0940ea560dee511026a53f0e2e2cde489b4d4",
+        "rev": "fd281bd6b7d3e32ddfa399853946f782553163b5",
         "type": "github"
       },
       "original": {
@@ -49,11 +49,11 @@
         "text-rope-zipper": "text-rope-zipper"
       },
       "locked": {
-        "lastModified": 1708535983,
-        "narHash": "sha256-8CMmFbVZKpqWlri6jEMNy+3yVcApvv2FBVgPHCPl/dw=",
+        "lastModified": 1712401643,
+        "narHash": "sha256-mOW8LmyA5J77K6ODHVsZ+gYJhqAS6ZeCijOHYivJEig=",
         "owner": "ners",
         "repo": "terminal-widgets",
-        "rev": "5a60a216137ccb5237d50d60c656e618acdd3218",
+        "rev": "de1a35d9b56b4677e2b003e45ef9fcfba2827de4",
         "type": "github"
       },
       "original": {
