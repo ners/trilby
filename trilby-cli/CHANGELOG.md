@@ -2,6 +2,7 @@
 
 ## 24.4.0 -- 2024-04-04
 
+* Set profile on update
 * Introduce [CalVer](https://calver.org/) versioning (YY.MM.MICRO)
 * Add `--version` flag
 * Replace `--verbosity` with `--quiet`, `--verbose`, and `--debug`
