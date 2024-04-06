@@ -35,9 +35,9 @@
       pname = "trilby-cli";
       src = hsSrc ./.;
       ghcs = [ "ghc94" "ghc96" ];
-      overlay = final: prev: lib.pipe prev [
-        (inputs.terminal-widgets.overlays.default final)
-        (prev: {
+      overlay = lib.composeManyExtensions [
+        inputs.terminal-widgets.overlays.default
+        (final: prev: {
           haskell = prev.haskell // {
             packageOverrides = lib.composeExtensions
               prev.haskell.packageOverrides
