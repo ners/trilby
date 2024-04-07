@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Disko.Partition where
 
 import Trilby.Disko.Filesystem (Filesystem)

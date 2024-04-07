@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Host where
 
 import Data.List.Extra (split)

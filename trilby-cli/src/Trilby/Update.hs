@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
 
 module Trilby.Update (update) where
 

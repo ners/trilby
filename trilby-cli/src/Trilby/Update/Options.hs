@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Update.Options where
 
 import Options.Applicative

@@ -1,6 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()

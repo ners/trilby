@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Trilby.Install.Flake where
 
 import Data.Text qualified as Text

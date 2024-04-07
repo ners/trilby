@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wno-missing-exported-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Trilby.HNix where

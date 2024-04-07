@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module Trilby.Install (install) where
 
 import Data.Text qualified as Text
