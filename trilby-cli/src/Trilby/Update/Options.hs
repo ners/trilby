@@ -3,11 +3,10 @@
 
 module Trilby.Update.Options where
 
-import Data.List.Extra (split)
-import Data.Text qualified as Text
 import Options.Applicative
 import Trilby.Widgets
 import Prelude
+import Trilby.Host
 
 data UpdateAction m
     = Switch
@@ -17,22 +16,6 @@ data UpdateAction m
     deriving stock (Generic)
 
 deriving stock instance Eq (UpdateAction Maybe)
-
-data Host
-    = Localhost
-    | Host {username :: Maybe Text, hostname :: Text}
-    deriving stock (Generic, Eq, Ord)
-
-instance IsString Host where
-    fromString s =
-        case split (== '@') s of
-            ((fromString -> Just -> username) : (fromString -> hostname) : _) -> Host{..}
-            _ -> Host{username = Nothing, hostname = fromString s}
-
-instance Show Host where
-    show Localhost = "localhost"
-    show Host{username = Nothing, ..} = Text.unpack hostname
-    show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
 
 data UpdateOpts m = UpdateOpts
     { flakeUpdate :: m Bool

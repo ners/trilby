@@ -63,6 +63,7 @@ library
         Trilby.Disko.Disk
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
+        Trilby.Host
         Trilby.Install
         Trilby.Install.Disko
         Trilby.Install.Flake

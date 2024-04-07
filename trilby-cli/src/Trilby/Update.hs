@@ -8,6 +8,7 @@ import Data.Text qualified as Text
 import Trilby.HNix (FileOrFlake (..), FlakeRef (..), nixBuild, writeNixFile)
 import Trilby.Update.Options
 import Turtle (readlink, (</>))
+import Trilby.Host
 import Prelude
 
 update :: UpdateOpts Maybe -> App ()
@@ -75,20 +76,6 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
          |]
     resultPath <- nixBuild $ File tmpFile
     forM configurations $ \c -> (c,) <$> readlink (resultPath </> fromText c.name)
-
--- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
-ssh Localhost c t = c t
-ssh host c t = withSystemTempDirectory "trilby-update" $ \tmpDir ->
-    c . sconcat $
-        [ ["ssh"]
-        , ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
-        , ["-o", "ControlPersist=60"]
-        , ["-t"]
-        , [ishow host]
-        , t
-        ]
 
 copyClosure :: Host -> FilePath -> App ()
 copyClosure Localhost _ = pure ()
