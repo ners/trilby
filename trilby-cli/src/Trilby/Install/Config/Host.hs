@@ -1,8 +1,8 @@
-module Trilby.Config.Host where
+module Trilby.Install.Config.Host where
 
-import Trilby.Config.Edition
-import Trilby.Config.Release
-import Trilby.Config.User
+import Trilby.Install.Config.Edition
+import Trilby.Install.Config.Release
+import Trilby.Install.Config.User
 import Trilby.HNix (canonicalSet)
 import Prelude
 

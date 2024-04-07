@@ -2,10 +2,10 @@ module Trilby.Install (install) where
 
 import Data.Text qualified as Text
 import System.FilePath.Lens (directory)
-import Trilby.Config.Host
-import Trilby.Config.User
 import Trilby.Disko (Disko)
 import Trilby.HNix (FlakeRef (..), currentSystem, writeNixFile)
+import Trilby.Install.Config.Host
+import Trilby.Install.Config.User
 import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake

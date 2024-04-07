@@ -1,4 +1,4 @@
-module Trilby.Config.Release where
+module Trilby.Install.Config.Release where
 
 import Prelude
 

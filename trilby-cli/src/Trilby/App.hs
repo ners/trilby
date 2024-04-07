@@ -5,12 +5,14 @@ import Control.Monad (Monad)
 import Control.Monad.Logger (LogLevel, LoggingT, MonadLogger, MonadLoggerIO)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
 import Data.Functor (Functor)
+import Data.Text (Text)
 import GHC.Generics (Generic)
 import System.IO (IO)
 import UnliftIO (MonadIO, MonadUnliftIO)
 
-newtype AppState = AppState
+data AppState = AppState
     { verbosity :: LogLevel
+    , hostname :: Text
     }
     deriving stock (Generic)
 

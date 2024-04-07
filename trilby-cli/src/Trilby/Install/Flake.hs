@@ -1,7 +1,7 @@
 module Trilby.Install.Flake where
 
 import Data.Text qualified as Text
-import Trilby.Config.Release (Release (..))
+import Trilby.Install.Config.Release (Release (..))
 import Trilby.HNix hiding (Flake)
 import Prelude
 

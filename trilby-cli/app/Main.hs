@@ -1,5 +1,6 @@
 module Main where
 
+import Data.String (IsString (fromString))
 import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Command
@@ -14,6 +15,7 @@ main :: IO ()
 main = do
     opts <- execParser parseOptionsInfo
     verbosity <- getVerbosity opts
+    hostname <- fromString . head . lines <$> readFile "/etc/hostname"
     let state = AppState{..}
     withLog state.verbosity do
         runApp state do

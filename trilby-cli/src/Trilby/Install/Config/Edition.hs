@@ -1,4 +1,4 @@
-module Trilby.Config.Edition where
+module Trilby.Install.Config.Edition where
 
 import Prelude
 

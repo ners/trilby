@@ -65,17 +65,17 @@ library
     exposed-modules:
         Trilby.App
         Trilby.Command
-        Trilby.Config
-        Trilby.Config.Edition
-        Trilby.Config.Host
-        Trilby.Config.Release
-        Trilby.Config.User
+        Trilby.Configuration
         Trilby.Disko
         Trilby.Disko.Disk
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
         Trilby.Host
         Trilby.Install
+        Trilby.Install.Config.Edition
+        Trilby.Install.Config.Host
+        Trilby.Install.Config.Release
+        Trilby.Install.Config.User
         Trilby.Install.Disko
         Trilby.Install.Flake
         Trilby.Install.Options

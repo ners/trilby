@@ -4,9 +4,9 @@ import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
-import Trilby.Config.Edition
-import Trilby.Config.Host (Keyboard (..))
-import Trilby.Config.Release
+import Trilby.Install.Config.Edition
+import Trilby.Install.Config.Host (Keyboard (..))
+import Trilby.Install.Config.Release
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
 import Trilby.Widgets
