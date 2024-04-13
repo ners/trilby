@@ -12,10 +12,6 @@ with lib;
     vimdiffAlias = true;
     withNodeJs = true;
     withPython3 = true;
-    extraConfig = mkBefore /*vim*/ ''
-      syntax on
-      command W w
-    '';
     extraLuaConfig = mkBefore /*lua*/ ''
       -- bytecompile lua modules
       vim.loader.enable()
