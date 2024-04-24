@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 24.5.0 -- 2024-05-01
+
+* Print version when running verbosely
+* Use correct PATH when running in Nix sandbox
 ## 24.4.0 -- 2024-04-04
 
 * Set profile on update

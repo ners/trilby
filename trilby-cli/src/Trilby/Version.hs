@@ -1,9 +1,11 @@
 module Trilby.Version where
 
+import "base" Prelude
 import Data.FileEmbed
 import Data.List qualified as List
+import Data.String (IsString (fromString))
+import Data.Text (Text)
 import Data.Text qualified as Text
-import Prelude
 
 cabalFile :: (IsString s) => s
 cabalFile = $(embedStringFile "trilby-cli.cabal")
@@ -23,3 +25,6 @@ name = cabalField "name"
 
 version :: (IsString s) => s
 version = cabalField "version"
+
+fullVersionString :: (IsString s) => s
+fullVersionString = fromString $ unwords [name, version]

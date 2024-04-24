@@ -19,6 +19,7 @@ module Prelude
     , module Data.Semigroup
     , module Data.String
     , module Data.Text
+    , module Data.Traversable
     , module GHC.Generics
     , module GHC.IsList
     , module Nix.Expr.Types
@@ -57,6 +58,7 @@ import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Data.Traversable
 import GHC.Generics (Generic)
 import GHC.IsList hiding (toList)
 import Nix.Expr.Types
