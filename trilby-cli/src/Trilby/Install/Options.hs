@@ -4,11 +4,11 @@ import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
+import Trilby.Disko.Filesystem
+import Trilby.HNix (FlakeRef (..))
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Host (Keyboard (..))
 import Trilby.Install.Config.Release
-import Trilby.Disko.Filesystem
-import Trilby.HNix (FlakeRef (..))
 import Trilby.Widgets
 import UnliftIO.Directory (canonicalizePath)
 import Prelude hiding (error)
@@ -27,13 +27,13 @@ parseLuks f = do
     f $
         flag' NoLuks (long "no-luks")
             <|> do
-                flag' () (long "luks" <> help "encrypt the disk with LUKS2")
-                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+                flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
+                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
                 pure UseLuks{..}
 
 parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
 parseKeyboard f = f do
-    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "the keyboard layout to use on this system")
+    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
     pure Keyboard{variant = Nothing, ..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
@@ -44,8 +44,8 @@ deriving stock instance Show (FlakeOpts Maybe)
 parseFlake :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (Maybe (FlakeOpts m))
 parseFlake f = do
     optional do
-        flakeRef <- strOption (long "flake" <> metavar "FLAKE" <> help "build the Trilby system from the specified flake")
-        copyFlake <- f $ parseYesNo "copy-flake" "copy the installation flake to /etc/trilby"
+        flakeRef <- strOption (long "flake" <> metavar "FLAKE" <> help "Build the Trilby system from the specified flake")
+        copyFlake <- f $ parseYesNo "copy-flake" "Copy the installation flake to /etc/trilby"
         pure FlakeOpts{..}
 
 data InstallOpts m = InstallOpts
@@ -66,22 +66,22 @@ data InstallOpts m = InstallOpts
     }
     deriving stock (Generic)
 
-parseInstallOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
-parseInstallOpts f = do
+parseOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
+parseOpts f = do
     flake <- parseFlake f
     luks <- parseLuks f
-    disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
-    format <- f $ parseYesNo "format" "format the installation disk"
-    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem")
-    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
-    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "the nixpkgs release to use")
-    hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "the hostname to install")
+    disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "The disk to install to")
+    format <- f $ parseYesNo "format" "Format the installation disk"
+    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
+    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The edition of Trilby to install")
+    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "The nixpkgs release to use")
+    hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "The hostname to install")
     keyboard <- parseKeyboard f
-    locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "the locale of this system")
-    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "the time zone of this system")
-    username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
-    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "the password of the admin user")
-    reboot <- f $ parseYesNo "reboot" "reboot when done installing"
+    locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "The locale of this system")
+    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
+    username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
+    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
+    reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
 
 validateParsedInstallOpts :: InstallOpts Maybe -> App (InstallOpts Maybe)

@@ -4,6 +4,7 @@
 
 * Print version when running verbosely
 * Use correct PATH when running in Nix sandbox
+* Update flakes recursively
 ## 24.4.0 -- 2024-04-04
 
 * Set profile on update

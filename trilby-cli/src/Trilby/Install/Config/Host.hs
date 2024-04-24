@@ -1,9 +1,9 @@
 module Trilby.Install.Config.Host where
 
+import Trilby.HNix (canonicalSet)
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Release
 import Trilby.Install.Config.User
-import Trilby.HNix (canonicalSet)
 import Prelude
 
 data Keyboard = Keyboard
