@@ -73,7 +73,7 @@ parseOpts f = do
     disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "The disk to install to")
     format <- f $ parseYesNo "format" "Format the installation disk"
     filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
-    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The edition of Trilby to install")
+    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
     release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "The nixpkgs release to use")
     hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "The hostname to install")
     keyboard <- parseKeyboard f

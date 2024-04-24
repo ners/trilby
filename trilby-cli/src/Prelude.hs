@@ -44,6 +44,7 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
 import Data.Bool
+import Data.ByteString (ByteString)
 import Data.Char (toLower)
 import Data.Default (Default (def))
 import Data.Foldable
@@ -85,6 +86,7 @@ import Text.Read qualified as Text
 import Trilby.App (App)
 import Turtle (system)
 import Turtle qualified
+import Turtle.Bytes qualified
 import UnliftIO
 import "base" Prelude hiding (writeFile)
 
@@ -188,6 +190,17 @@ quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
             Text.hPutStrLn stderr err
             exitWith code
 
+quietCmd' :: NonEmpty Text -> App (ExitCode, Text)
+quietCmd' (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd' $ p :| args) do
+    $(logInfo) $ Text.unwords $ p : args
+    (code, out, _) <- Turtle.procStrictWithErr p args Turtle.stdin
+    pure (code, out)
+
+byteShells :: Text -> Turtle.Shell ByteString -> App ()
+byteShells cmd s = do
+    $(logInfo) cmd
+    Turtle.Bytes.shells cmd s
+
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
@@ -226,7 +239,7 @@ inDir d a = do
 
 writeFile :: FilePath -> Text -> App ()
 writeFile f t = do
-    $(logDebug) $ "writeFile " <> fromString f
+    $(logDebug) $ "writeFile " <> fromString f <> "\n" <> t
     Turtle.output f $ Turtle.toLines $ pure t
 
 is :: a -> Getting (First c) a c -> Bool

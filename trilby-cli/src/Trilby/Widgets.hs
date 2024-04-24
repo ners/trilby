@@ -24,7 +24,6 @@ textInput ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
 
 passwordInput :: Text -> App Text
 passwordInput ((<> " ") -> prompt) = do
-    $(logDebug) prompt
     let getPw :: TextInput -> App Text
         getPw = fmap (RopeZipper.toText . (.value)) . runWidgetIO
     let input =
@@ -61,7 +60,6 @@ buttons prompt values selected buttonText = do
 
 yesNoButtons :: Text -> Bool -> App Bool
 yesNoButtons prompt defaultValue = do
-    $(logDebug) prompt
     let values = [("Yes", 'Y'), ("No", 'N')] :: [(Text, Char)]
     let selected = if defaultValue then 0 else 1
     ("Yes" ==) <$> buttons prompt values selected id

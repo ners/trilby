@@ -1,16 +1,16 @@
 module Trilby.App where
 
-import "base" Prelude
+import Control.Monad (unless)
 import Control.Monad.Logger (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
-import Data.Text (Text)
 import Data.List (intercalate)
 import Data.List.Extra (split)
+import Data.Text (Text)
 import GHC.Generics (Generic)
-import UnliftIO (MonadIO(liftIO), MonadUnliftIO)
+import System.Environment (getEnv, setEnv)
 import Trilby.Version qualified as Trilby
-import System.Environment (setEnv, getEnv)
-import Control.Monad (unless)
+import UnliftIO (MonadIO (liftIO), MonadUnliftIO)
+import "base" Prelude
 
 data AppState = AppState
     { verbosity :: LogLevel
@@ -34,7 +34,7 @@ newtype AppT m a = App
 
 type App = AppT IO
 
-runApp :: MonadIO m => AppState -> AppT m a -> LoggingT m a
+runApp :: (MonadIO m) => AppState -> AppT m a -> LoggingT m a
 runApp state App{..} = flip runReaderT state do
     liftIO do
         let nixBinPath = "/run/current-system/sw/bin" :: FilePath

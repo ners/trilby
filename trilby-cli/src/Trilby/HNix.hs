@@ -109,5 +109,5 @@ currentSystem =
 
 trilbyFlake :: App Text
 trilbyFlake = do
-    hasTrilby <- (ExitSuccess ==) . fst <$> cmd' ["nix", "flake", "metadata", "trilby"]
+    hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
     pure $ if hasTrilby then "trilby" else "github:ners/trilby"

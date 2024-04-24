@@ -71,6 +71,8 @@ library
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
         Trilby.Host
+        Trilby.Infect
+        Trilby.Infect.Options
         Trilby.Install
         Trilby.Install.Config.Edition
         Trilby.Install.Config.Host
@@ -88,6 +90,7 @@ library
     build-depends:
         ansi-terminal,
         base,
+        bytestring,
         data-default,
         data-fix,
         extra,

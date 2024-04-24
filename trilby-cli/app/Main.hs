@@ -4,6 +4,7 @@ import Data.String (fromString)
 import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Command
+import Trilby.Infect (infect)
 import Trilby.Install (install)
 import Trilby.Install.Options (validateParsedInstallOpts)
 import Trilby.Log (withLog)
@@ -22,3 +23,4 @@ main = do
             case opts.command of
                 Update o -> update o
                 Install o -> install =<< validateParsedInstallOpts o
+                Infect o -> infect o

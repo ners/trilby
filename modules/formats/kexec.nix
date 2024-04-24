@@ -22,7 +22,7 @@ in
       nuke-refs $out/kernel
     '';
     kexec_script = pkgs.writeShellApplication {
-      name = "kexec-nixos";
+      name = "kexec-trilby";
       runtimeInputs = with pkgs; [ cpio kexectools ];
       text = ''
         cd "$(mktemp -d)"
@@ -42,11 +42,11 @@ in
         kexec -e
       '';
     };
-    kexec = pkgs.callPackage "${pkgs.path}/nixos/lib/make-system-tarball.nix" {
+    kexec_tarball = pkgs.callPackage "${modulesPath}/../lib/make-system-tarball.nix" {
       storeContents = [
         {
           object = config.system.build.kexec_script;
-          symlink = "/kexec_nixos";
+          symlink = "/kexec_trilby";
         }
       ];
       contents = [ ];
