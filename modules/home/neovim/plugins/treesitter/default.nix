@@ -10,12 +10,5 @@
     rainbow-delimiters-nvim
     nvim-treesitter-textobjects
     nvim-treesitter-refactor
-    {
-      plugin = nvim-treesitter-context;
-      type = "lua";
-      config = /*lua*/ ''
-        require('treesitter-context').setup({})
-      '';
-    }
   ];
 }
