@@ -6,11 +6,9 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nix-filter.url = "github:numtide/nix-filter";
     terminal-widgets = {
       url = "github:ners/terminal-widgets";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.nix-filter.follows = "nix-filter";
     };
   };
 
@@ -23,14 +21,9 @@
         else if isAttrs xs then mapAttrsToList f xs
         else throw "foreach: expected list or attrset but got ${typeOf xs}"
       );
-      hsSrc = root: inputs.nix-filter {
+      hsSrc = root: with lib.fileset; toSource {
         inherit root;
-        include = with inputs.nix-filter.lib; [
-          (matchExt "cabal")
-          (matchExt "hs")
-          (matchExt "md")
-          isDirectory
-        ];
+        fileset = fileFilter (file: any file.hasExt ["cabal" "hs" "md"] || file.type == "directory") ./.;
       };
       pname = "trilby-cli";
       src = hsSrc ./.;
