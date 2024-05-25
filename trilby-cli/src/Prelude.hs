@@ -166,8 +166,14 @@ errorExit msg = logError msg >> liftIO exitFailure
 ishow :: (Show a, IsString s) => a -> s
 ishow = fromString . show
 
-readsPrecBoundedEnumOn :: forall a. (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
-readsPrecBoundedEnumOn m _ s = maybeToList $ asum $ map f [minBound .. maxBound]
+readsPrecBoundedEnumOn
+    :: forall a
+     . (Show a, Bounded a, Enum a)
+    => (String -> String)
+    -> Int
+    -> String
+    -> [(a, String)]
+readsPrecBoundedEnumOn m _ s = maybeToList . asum . map f $ [minBound .. maxBound]
   where
     f e = (e,) <$> List.stripPrefix (m $ show e) (m s)
 

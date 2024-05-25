@@ -145,15 +145,6 @@ copyClosure host@Host{} path = do
                     ]
                 ]
 
-currentSystem :: (HasCallStack) => App Text
-currentSystem =
-    fmap firstLine . cmd . sconcat $
-        [ ["nix", "eval"]
-        , ["--impure"]
-        , ["--raw"]
-        , ["--expr", "builtins.currentSystem"]
-        ]
-
 trilbyFlake :: (HasCallStack) => App Text
 trilbyFlake = do
     hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]

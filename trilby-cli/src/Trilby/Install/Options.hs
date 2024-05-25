@@ -3,7 +3,7 @@ module Trilby.Install.Options where
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
-import System.Posix (getFileStatus, isBlockDevice, userPassword)
+import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
 import Trilby.Install.Config.Edition

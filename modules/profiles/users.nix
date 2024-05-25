@@ -1,9 +1,13 @@
 { trilby, inputs, config, lib, ... }:
 
 {
-  imports = [
-    inputs.home-manager.nixosModules.home-manager
-  ];
+  imports =
+    (lib.optional
+      (trilby.hostSystem.kernel.name == "linux")
+      inputs.home-manager.nixosModules.home-manager)
+    ++ (lib.optional
+      (trilby.hostSystem.kernel.name == "darwin")
+      inputs.home-manager.darwinModules.home-manager);
 
   config.home-manager = {
     useGlobalPkgs = true;
