@@ -54,16 +54,19 @@ rec {
         inherit inputs;
         inherit (trilby.nixpkgs) lib;
       };
+      kernelName = trilby.hostSystem.kernel.name;
+      systemAttrs = {
+        modules = with inputs.self.nixosModules; [
+          hostPlatforms.${trilby.hostPlatform}
+        ]
+        ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
+        ++ attrs.modules or [ ];
+        specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
+      };
     in
-    lib.nixosSystem {
-      modules = with inputs.self.nixosModules; [
-        editions.${trilby.edition}
-        hostPlatforms.${trilby.hostPlatform}
-      ]
-      ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
-      ++ attrs.modules or [ ];
-      specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
-    };
+    if kernelName == "linux" then lib.nixosSystem systemAttrs
+    else if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
+    else throw "trilbySystem: unsupported kernel name: ${kernelName}";
 
   trilbyTest = attrs:
     let
