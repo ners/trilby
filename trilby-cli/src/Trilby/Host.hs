@@ -4,6 +4,7 @@ import Data.List.Extra (split)
 import Data.Text qualified as Text
 import Trilby.App ()
 import Prelude
+import Trilby.System (System)
 
 data Host
     = Localhost
@@ -50,3 +51,13 @@ ssh host c t = do
 
 reboot :: App Bool -> Host -> App ()
 reboot r host = whenM r $ ssh host rawCmd_ ["sudo", "systemctl", "reboot"]
+
+hostSystem :: (HasCallStack) => Host -> App System
+hostSystem host = do
+    systemText <- fmap firstLine . ssh host cmd . sconcat $
+        [ ["nix", "eval"]
+        , ["--impure"]
+        , ["--raw"]
+        , ["--expr", "builtins.currentSystem"]
+        ]
+    pure . read . Text.unpack $ systemText

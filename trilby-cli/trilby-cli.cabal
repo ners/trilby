@@ -107,6 +107,7 @@ executable trilby
         Trilby.Install.Options
         Trilby.Log
         Trilby.Options
+        Trilby.System
         Trilby.Update
         Trilby.Update.Options
         Trilby.Version

@@ -13,11 +13,19 @@ import Prelude
 infect :: InfectOpts Maybe -> App ()
 infect (askOpts -> opts) = do
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
+    for_ configurations \c -> do
+        infectLinux opts c
+
+infectLinux :: InfectOpts App -> Configuration -> App ()
+infectLinux opts Configuration{..} = do
     kexec <- buildKexec opts
-    for_ configurations $ \Configuration{..} -> do
-        copyClosure host kexec
-        let bin = kexec </> $(mkRelFile "kexec-boot")
-        whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
+    copyClosure host kexec
+    let bin = kexec </> $(mkRelFile "kexec-boot")
+    whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
+
+infectDarwin :: InfectOpts App -> Configuration -> App ()
+infectDarwin opts Configuration{..} = do
+    logError "Not yet implemented"
 
 buildKexec :: (HasCallStack) => InfectOpts App -> App (Path Abs Dir)
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do

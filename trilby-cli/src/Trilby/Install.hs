@@ -2,8 +2,8 @@ module Trilby.Install (install) where
 
 import Data.Text qualified as Text
 import Trilby.Disko (Disko)
-import Trilby.HNix (FlakeRef (..), currentSystem, writeNixFile)
-import Trilby.Host (Host (Localhost), reboot)
+import Trilby.HNix (FlakeRef (..), writeNixFile)
+import Trilby.Host (Host (Localhost), hostSystem, reboot)
 import Trilby.Install.Config.Host
 import Trilby.Install.Config.User
 import Trilby.Install.Disko
@@ -82,7 +82,7 @@ setupHost disko opts = do
         let host = Host{..}
         hostDir <- parseRelDir . fromText $ "hosts/" <> hostname
         inDir hostDir do
-            platform <- currentSystem
+            platform <- show <$> hostSystem Localhost
             writeNixFile
                 defaultNix
                 [nix|
