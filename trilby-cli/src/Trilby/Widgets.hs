@@ -77,7 +77,7 @@ multiSelect prompt options selections optionText minSelect maxSelect
                         }
                     | value <- options
                     ]
-                , cursorRow = 0
+                , cursorOption = 0
                 , ..
                 }
             <&> (fmap (.value) . filter (.checked) . (.options))
