@@ -1,33 +1,26 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Update (update) where
 
 import Data.List.NonEmpty.Extra qualified as NonEmpty
-import Data.Text qualified as Text
-import Trilby.HNix (FileOrFlake (..), FlakeRef (..), nixBuild, writeNixFile)
+import Trilby.Configuration (Configuration (..))
+import Trilby.Configuration qualified as Configuration
+import Trilby.HNix (FileOrFlake (..), FlakeRef (..), copyClosure, nixBuild, writeNixFile)
+import Trilby.Host
 import Trilby.Update.Options
-import Turtle (readlink, (</>))
+import Turtle (parent, readlink, (</>))
+import Turtle qualified
+import UnliftIO.Directory (canonicalizePath)
 import Prelude
 
 update :: UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
-    whenM opts.flakeUpdate . inDir "/etc/trilby" $ rawCmd_ ["nix", "flake", "update", "--accept-flake-config"]
-    hostname <- Text.strip <$> cmd ["hostnamectl", "hostname"]
-    let canonicalHost :: Host -> Host
-        canonicalHost Localhost = Localhost
-        canonicalHost host@Host{hostname = h}
-            | h `elem` hostname :| ["localhost", "127.0.0.1", "::1"] = Localhost
-            | otherwise = host
-    let configuration :: Host -> Configuration
-        configuration =
-            canonicalHost >>> \case
-                Localhost -> Configuration{name = hostname, host = Localhost}
-                host@Host{hostname} -> Configuration{name = hostname, host}
-    configurations <- configuration <$$> opts.hosts <&> NonEmpty.nubOrd
+    whenM opts.flakeUpdate do
+        trilbyHome <- canonicalizePath "/etc/trilby"
+        flakes <- Turtle.sort $ parent <$> Turtle.find (Turtle.suffix "/flake.lock") trilbyHome
+        mapM_ updateFlake flakes
+    configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     configurationResults <- buildConfigurations configurations
     for_ configurationResults $ \(Configuration{..}, resultPath) -> do
-        unless (host == Localhost) $ copyClosure host resultPath
+        copyClosure host resultPath
         ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromString resultPath]
         unless (host == Localhost && length configurationResults == 1) $ $(logWarn) $ "Choosing action for host " <> ishow host
         let perform = switchToConfiguration host resultPath
@@ -39,8 +32,8 @@ update (askOpts -> opts) = do
             Test -> perform ConfigTest
             NoAction -> pure ()
 
-data Configuration = Configuration {name :: Text, host :: Host}
-    deriving stock (Generic, Eq, Ord)
+updateFlake :: FilePath -> App ()
+updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromString path]
 
 buildConfiguration :: Configuration -> App (Configuration, FilePath)
 buildConfiguration c = (c,) <$> nixBuild f
@@ -75,24 +68,6 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
          |]
     resultPath <- nixBuild $ File tmpFile
     forM configurations $ \c -> (c,) <$> readlink (resultPath </> fromText c.name)
-
--- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
-ssh Localhost c t = c t
-ssh host c t = withSystemTempDirectory "trilby-update" $ \tmpDir ->
-    c . sconcat $
-        [ ["ssh"]
-        , ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
-        , ["-o", "ControlPersist=60"]
-        , ["-t"]
-        , [ishow host]
-        , t
-        ]
-
-copyClosure :: Host -> FilePath -> App ()
-copyClosure Localhost _ = pure ()
-copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromString path]
 
 data ConfigAction
     = ConfigBoot

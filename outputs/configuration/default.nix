@@ -1,10 +1,7 @@
 { trilby, lib, ... }@attrs:
 
 let
-  pkgs = lib.pkgsFor {
-    inherit (trilby) nixpkgs;
-    system = trilby.hostPlatform;
-  };
+  pkgs = lib.pkgsFor trilby;
 in
 lib.recursiveConcat [
   (import ./system.nix {

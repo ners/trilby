@@ -24,7 +24,6 @@ textInput ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
 
 passwordInput :: Text -> App Text
 passwordInput ((<> " ") -> prompt) = do
-    $(logDebug) prompt
     let getPw :: TextInput -> App Text
         getPw = fmap (RopeZipper.toText . (.value)) . runWidgetIO
     let input =
@@ -61,54 +60,51 @@ buttons prompt values selected buttonText = do
 
 yesNoButtons :: Text -> Bool -> App Bool
 yesNoButtons prompt defaultValue = do
-    $(logDebug) prompt
     let values = [("Yes", 'Y'), ("No", 'N')] :: [(Text, Char)]
     let selected = if defaultValue then 0 else 1
     ("Yes" ==) <$> buttons prompt values selected id
 
+multiSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
+multiSelect prompt options selections optionText minSelect maxSelect
+    | length options < minSelect = error "multiSelect: called with fewer options than minSelect"
+    | otherwise =
+        runWidgetIO
+            Select
+                { options =
+                    [ SelectOption
+                        { value
+                        , checked = value `elem` selections
+                        }
+                    | value <- options
+                    ]
+                , cursorOption = 0
+                , ..
+                }
+            <&> (fmap (.value) . filter (.checked) . (.options))
+
 select :: (Eq a, Show a) => Text -> [a] -> Maybe a -> (a -> Text) -> App a
-select prompt values defaultValue optionText
-    | [value] <- values = pure value
-    | null values, Just value <- defaultValue = pure value
-    | null values = errorExit "select: called with no options and no default value"
-    | otherwise = do
-        selectedValues <-
-            runWidgetIO
-                Select
-                    { prompt
-                    , options =
-                        [ SelectOption
-                            { value
-                            , checked = Just value == defaultValue
-                            }
-                        | value <- values
-                        ]
-                    , optionText
-                    , minSelect = 1
-                    , maxSelect = 1
-                    , cursorRow = 0
-                    }
-                <&> (fmap (.value) . filter (.checked) . (.options))
-        case selectedValues of
-            [value] -> pure value
-            _ -> do
-                $(logError) "Invalid selection"
-                select prompt values defaultValue optionText
+select prompt options selection optionText
+    | [o] <- options = pure o
+    | null options, Just o <- selection = pure o
+    | null options = errorExit "select: called with no options and no default value"
+    | otherwise = head <$> multiSelect prompt options (maybeToList selection) optionText 1 1
 
 selectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> Maybe a -> App a
 selectEnum prompt defaultValues = select prompt [minBound .. maxBound] defaultValues ishow
 
 searchSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> App [a]
-searchSelect ((<> " ") -> prompt) values defaultValues optionText
-    | length values < 2 = pure defaultValues
+searchSelect ((<> " ") -> prompt) options selections optionText
+    | length options < 2 = pure selections
     | otherwise =
         runWidgetIO
             SearchSelect
                 { prompt
                 , searchValue = ""
-                , options = [SearchSelectOption{value, visible = False} | value <- values]
-                , selections = defaultValues
+                , options
+                , visibleOptions = []
+                , selections
                 , optionText
+                , newOption = const Nothing
                 , minSelect = 1
                 , maxSelect = 1
                 , maxVisible = 5

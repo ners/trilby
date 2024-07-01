@@ -1,4 +1,4 @@
-module Trilby.Config.User where
+module Trilby.Install.Config.User where
 
 import Trilby.HNix
 import Prelude

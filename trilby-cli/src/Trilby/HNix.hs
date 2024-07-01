@@ -2,7 +2,6 @@
 {-# OPTIONS_GHC -Wno-missing-exported-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Trilby.HNix where
@@ -13,6 +12,7 @@ import Data.Text qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Trilby.Host
 import Prelude
 
 instance IsString (NAttrPath NExpr) where
@@ -94,6 +94,10 @@ nixBuild f =
         , [ishow f]
         ]
 
+copyClosure :: Host -> FilePath -> App ()
+copyClosure Localhost _ = pure ()
+copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromString path]
+
 currentSystem :: App Text
 currentSystem =
     fmap firstLine . cmd . sconcat $
@@ -102,3 +106,8 @@ currentSystem =
         , ["--raw"]
         , ["--expr", "builtins.currentSystem"]
         ]
+
+trilbyFlake :: App Text
+trilbyFlake = do
+    hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
+    pure $ if hasTrilby then "trilby" else "github:ners/trilby"

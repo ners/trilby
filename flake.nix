@@ -10,12 +10,10 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs-unstable.follows = "nixpkgs";
-    nix-filter.url = "github:numtide/nix-filter";
     flake-compat.url = "github:ners/flake-compat";
     nix-monitored = {
       url = "github:ners/nix-monitored";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.nix-filter.follows = "nix-filter";
     };
     home-manager = {
       url = "github:nix-community/home-manager";

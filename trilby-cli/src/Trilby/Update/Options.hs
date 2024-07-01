@@ -1,11 +1,7 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Update.Options where
 
-import Data.List.Extra (split)
-import Data.Text qualified as Text
 import Options.Applicative
+import Trilby.Host
 import Trilby.Widgets
 import Prelude
 
@@ -18,22 +14,6 @@ data UpdateAction m
 
 deriving stock instance Eq (UpdateAction Maybe)
 
-data Host
-    = Localhost
-    | Host {username :: Maybe Text, hostname :: Text}
-    deriving stock (Generic, Eq, Ord)
-
-instance IsString Host where
-    fromString s =
-        case split (== '@') s of
-            ((fromString -> Just -> username) : (fromString -> hostname) : _) -> Host{..}
-            _ -> Host{username = Nothing, hostname = fromString s}
-
-instance Show Host where
-    show Localhost = "localhost"
-    show Host{username = Nothing, ..} = Text.unpack hostname
-    show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
-
 data UpdateOpts m = UpdateOpts
     { flakeUpdate :: m Bool
     , action :: m (UpdateAction m)
@@ -41,8 +21,8 @@ data UpdateOpts m = UpdateOpts
     }
     deriving stock (Generic)
 
-parseUpdateOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (UpdateOpts m)
-parseUpdateOpts f = do
+parseOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (UpdateOpts m)
+parseOpts f = do
     flakeUpdate <- f $ flag' False (long "no-flake-update" <> help "Do not update the flake lock")
     action <-
         f $
@@ -70,9 +50,8 @@ askAction Nothing = do
         _ -> pure NoAction
 
 askReboot :: Maybe Bool -> App Bool
-askReboot = maybe (yesNoButtons "Reboot to new configuration now? (sudo)" False) pure
+askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (sudo)" False
 
--- | Convert CLI options to IO options; if an option has been provided on the CLI, we use that, otherwise we either ask the user or default it.
 askOpts :: UpdateOpts Maybe -> UpdateOpts App
 askOpts opts =
     UpdateOpts

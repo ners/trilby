@@ -32,7 +32,7 @@ parseOptions = do
     let verbosityDebug = flag' LevelDebug $ long "debug" <> help "Set the logging verbosity level to 'debug'"
     verbosity <- optional $ verbosityError <|> verbosityInfo <|> verbosityDebug
     command <- parseCommand
-    simpleVersioner $ unwords [Trilby.name, Trilby.version]
+    simpleVersioner Trilby.fullVersionString
     pure Options{..}
 
 parseOptionsInfo :: ParserInfo (Options Maybe)

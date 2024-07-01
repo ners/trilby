@@ -1,16 +1,20 @@
 module Trilby.App where
 
-import Control.Applicative (Applicative)
-import Control.Monad (Monad)
-import Control.Monad.Logger (LogLevel, LoggingT, MonadLogger, MonadLoggerIO)
+import Control.Monad (unless)
+import Control.Monad.Logger (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
-import Data.Functor (Functor)
+import Data.List (intercalate)
+import Data.List.Extra (split)
+import Data.Text (Text)
 import GHC.Generics (Generic)
-import System.IO (IO)
-import UnliftIO (MonadIO, MonadUnliftIO)
+import System.Environment (getEnv, setEnv)
+import Trilby.Version qualified as Trilby
+import UnliftIO (MonadIO (liftIO), MonadUnliftIO)
+import "base" Prelude
 
-newtype AppState = AppState
+data AppState = AppState
     { verbosity :: LogLevel
+    , hostname :: Text
     }
     deriving stock (Generic)
 
@@ -30,5 +34,13 @@ newtype AppT m a = App
 
 type App = AppT IO
 
-runApp :: AppState -> AppT m a -> LoggingT m a
-runApp state App{..} = runReaderT _runApp state
+runApp :: (MonadIO m) => AppState -> AppT m a -> LoggingT m a
+runApp state App{..} = flip runReaderT state do
+    liftIO do
+        let nixBinPath = "/run/current-system/sw/bin" :: FilePath
+        oldPath <- getEnv "PATH"
+        unless (nixBinPath `elem` split (== ':') oldPath) do
+            let newPath = intercalate ":" [nixBinPath, oldPath]
+            setEnv "PATH" newPath
+    $(logInfo) Trilby.fullVersionString
+    _runApp

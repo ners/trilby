@@ -1,10 +1,8 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Trilby.Install.Flake where
 
 import Data.Text qualified as Text
-import Trilby.Config.Release (Release (..))
 import Trilby.HNix hiding (Flake)
+import Trilby.Install.Config.Release (Release (..))
 import Prelude
 
 data InputOverride = Follows Text Text
