@@ -8,19 +8,17 @@ import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
 import Prelude
 
-textInput :: Text -> Text -> App Text
-textInput ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
+textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
+textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
     $(logDebug) prompt
-    text <-
-        runWidgetIO
-            TextInput
-                { prompt
-                , value
-                , multiline = False
-                , required = True
-                , valueTransform = id
-                }
+    text <- runWidgetIO TextInput{valueTransform = id, ..}
     pure $ RopeZipper.toText text.value
+
+textInput :: Text -> Text -> App Text
+textInput = textInputOpts False True
+
+multilineTextInput :: Text -> Text -> App Text
+multilineTextInput = textInputOpts True False
 
 passwordInput :: Text -> App Text
 passwordInput ((<> " ") -> prompt) = do

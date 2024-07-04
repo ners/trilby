@@ -2,13 +2,13 @@ module Trilby.Infect where
 
 import Data.List.NonEmpty.Extra qualified as NonEmpty
 import Data.Text qualified as Text
+import Data.Text.IO qualified as Text
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
-import Trilby.HNix (FileOrFlake (..), currentSystem, nixBuild, trilbyFlake, writeNixFile)
+import Trilby.HNix (FileOrFlake (..), nixBuild, trilbyFlake, writeNixFile)
 import Trilby.Host
 import Trilby.Infect.Options
 import Turtle ((</>))
-import Turtle.Bytes qualified as Turtle
 import Prelude
 
 infect :: InfectOpts Maybe -> App ()
@@ -25,13 +25,17 @@ infect (askOpts -> opts) = do
                     , "bin"
                     , "kexec-trilby"
                     ]
-        whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromString binPath]
+        whenM opts.reboot $ ssh host rawCmd_ [fromString binPath]
 
 buildKexec :: InfectOpts App -> App FilePath
 buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> do
     hClose handle
     trilbyUrl <- trilbyFlake
     edition <- opts.edition
+    authorisedKeys <-
+        opts.authorisedKeys >>= \case
+            AuthorisedKeys keys -> pure keys
+            AuthorisedKeysFile file -> liftIO $ Text.lines <$> Text.readFile file
     writeNixFile
         tmpFile
         [nix|
@@ -46,27 +50,30 @@ buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> d
           };
           modules = [
             trilby.nixosModules.formats.kexec
+            {
+              users.users.trilby.openssh.authorizedKeys.keys = authorisedKeys;
+            }
           ];
         };
-        in system.config.system.build.kexec_tarball
+        in system.config.system.build.kexecTree
         |]
     resultDir <- nixBuild $ File tmpFile
-    system <- currentSystem
-    pure $ resultDir </> "tarball" </> ("nixos-system-" <> fromText system <> ".tar.xz")
+    pure $ resultDir </> "tarball" </> "trilby-kexec.tar"
 
 extractKexec :: Host -> FilePath -> App FilePath
-extractKexec host srcPath = withSystemTempDirectory "trilby-infect-" $ \dstDir -> do
+extractKexec host srcPath = do
+    let dstDir = "/" :: FilePath
     case host of
         Localhost -> cmd_ ["tar", "-xf", fromString srcPath, "-C", fromString dstDir]
         Host{} ->
             let command =
                     Text.unwords . mconcat $
-                        [ ["ssh", ishow host]
+                        [ ["cat", fromString srcPath]
+                        , ["|"]
+                        , ["ssh", ishow host]
                         , ["'"]
-                        , ["mkdir", "-p", fromString dstDir]
-                        , ["&&"]
                         , ["tar", "-xf", "-", "-C", fromString dstDir]
                         , ["'"]
                         ]
-             in Turtle.input srcPath & byteShells command
+             in void $ shell command empty
     pure dstDir

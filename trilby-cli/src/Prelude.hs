@@ -223,7 +223,9 @@ doubleQuoted t = d <> escape t <> d
     escape = Text.replace d (d <> "\\" <> d <> d)
 
 shell :: Text -> Turtle.Shell Turtle.Line -> App Text
-shell t = Turtle.strict . Turtle.inshell t
+shell cmd s = do
+    $(logInfo) cmd
+    Turtle.strict $ Turtle.inshell cmd s
 
 proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
 proc (p :| args) = Turtle.strict . Turtle.inproc p args
