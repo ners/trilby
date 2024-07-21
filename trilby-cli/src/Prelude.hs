@@ -28,11 +28,14 @@ module Prelude
     , module Nix.Expr.Types
     , module Nix.Pretty
     , module Nix.TH
+    , module Path
+    , module Path.IO
     , module Prelude
     , module System.Exit
     , module System.IO
     , module Trilby.App
     , module UnliftIO
+    , module UnliftIO.Environment
     )
 where
 
@@ -46,6 +49,7 @@ import Control.Monad.Logger.CallStack (LogLevel (..), logDebug, logError, logInf
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
+import Data.Bifunctor qualified as Bifunctor
 import Data.Bool
 import Data.ByteString (ByteString)
 import Data.Char (toLower)
@@ -74,6 +78,7 @@ import Options.Applicative
     , OptionFields
     , Parser
     , completeWith
+    , eitherReader
     , flag'
     , help
     , long
@@ -82,17 +87,59 @@ import Options.Applicative
     , showDefault
     , showDefaultWith
     )
+import Path
+    ( Abs
+    , Dir
+    , File
+    , Path
+    , Rel
+    , SomeBase (..)
+    , dirname
+    , filename
+    , mkAbsDir
+    , mkAbsFile
+    , mkRelDir
+    , mkRelFile
+    , parent
+    , parseAbsDir
+    , parseAbsFile
+    , parseRelDir
+    , parseRelFile
+    , parseSomeFile
+    , toFilePath
+    , (</>)
+    )
+import Path.IO
+    ( AnyPath
+    , canonicalizePath
+    , withSystemTempDir
+    , withSystemTempFile
+    )
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
-import System.Posix (fileExist, getEffectiveUserID)
+import System.Posix (getEffectiveUserID)
 import System.Process qualified as Process
 import Text.Read qualified as Text
 import Trilby.App (App)
 import Turtle (system)
 import Turtle qualified
 import Turtle.Bytes qualified
-import UnliftIO
+import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile)
+import UnliftIO.Environment
 import "base" Prelude hiding (writeFile)
+
+rootDir :: Path Abs Dir
+rootDir = $(mkAbsDir "/")
+
+trilbyHome :: Path Abs Dir -> Path Abs Dir
+trilbyHome root = root </> $(mkRelDir "etc/trilby")
+
+parsePath
+    :: (Show e)
+    => (String -> Either e (Path b t))
+    -> Mod OptionFields (Path b t)
+    -> Parser (Path b t)
+parsePath p = option . eitherReader $ Bifunctor.first ishow . p
 
 parseYesNo :: String -> String -> Parser Bool
 parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag' False (long noLong)
@@ -129,6 +176,13 @@ readsPrecBoundedEnum = readsPrecBoundedEnumOn id
 
 fromText :: (IsString s) => Text -> s
 fromText = fromString . Text.unpack
+
+fromPath :: (IsString s) => Path b t -> s
+fromPath = fromString . toFilePath
+
+fromSomeBase :: (IsString s) => SomeBase t -> s
+fromSomeBase (Abs f) = fromPath f
+fromSomeBase (Rel f) = fromPath f
 
 fromListSafe :: a -> [a] -> NonEmpty a
 fromListSafe x = fromMaybe (x :| []) . nonEmpty
@@ -231,22 +285,39 @@ shell cmd s = do
     logInfo cmd
     Turtle.strict $ Turtle.inshell cmd s
 
+shell_ :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App ()
+shell_ cmd s = do
+    out <- shell cmd s
+    whenM (verbosityAtLeast LevelInfo) do
+        liftIO $ Text.putStr out
+        hFlush stdout
+
 proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
 proc (p :| args) = Turtle.strict . Turtle.inproc p args
 
-ensureDir :: FilePath -> App ()
-ensureDir d = unlessM (liftIO $ fileExist d) $ bool id asRoot (Turtle.isAbsolute d) cmd_ ["mkdir", "-p", fromString d]
+isAbsolute :: Path b t -> Bool
+isAbsolute p = Just '/' == listToMaybe (toFilePath p)
 
-inDir :: FilePath -> App a -> App a
+isRelative :: Path b t -> Bool
+isRelative = not . isAbsolute
+
+ensureDir :: Path b Dir -> App ()
+ensureDir dir = (if isAbsolute dir then asRoot else id) cmd_ ["mkdir", "-p", fromPath dir]
+
+inDir :: Path b Dir -> App a -> App a
 inDir d a = do
     ensureDir d
     unlift <- askRunInIO
-    liftIO $ Turtle.with (Turtle.pushd d) (const $ unlift a)
+    liftIO $ Turtle.with (Turtle.pushd $ toFilePath d) (const $ unlift a)
 
-writeFile :: (HasCallStack) => FilePath -> Text -> App ()
+writeFile :: (HasCallStack) => Path b File -> Text -> App ()
 writeFile f t = do
-    logDebug $ "writeFile " <> fromString f <> "\n" <> t
-    Turtle.output f $ Turtle.toLines $ pure t
+    logDebug $ "writeFile " <> fromPath f <> "\n" <> t
+    ensureDir $ parent f
+    Turtle.output (toFilePath f) $ Turtle.toLines $ pure t
+
+getSymlinkTarget :: (MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
+getSymlinkTarget p f = p =<< Turtle.realpath (fromSomeBase f)
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
@@ -271,3 +342,6 @@ infixl 4 <$$>
 
 (<$$>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
 (<$$>) = fmap . fmap
+
+genM :: (Monad m, Traversable t) => (a -> m b) -> t a -> m (t (a, b))
+genM f = mapM \a -> (a,) <$> f a

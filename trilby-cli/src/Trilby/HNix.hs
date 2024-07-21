@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-exported-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
@@ -12,6 +11,7 @@ import Data.Text qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Path.Internal.Posix (Path (Path))
 import Trilby.Host
 import Prelude
 
@@ -35,6 +35,12 @@ infixl 4 ~::
 k ~:: v = k ~: Fix v
 
 $(makeTraversals ''Fix)
+
+instance ToExpr (Path b t) where
+    toExpr = toExpr @Text . fromPath
+
+instance ToExpr (SomeBase t) where
+    toExpr = toExpr @Text . fromSomeBase
 
 canonicalBinding :: Binding NExpr -> Binding NExpr
 canonicalBinding (NamedVar p1 (Fix (NSet _ [NamedVar p2 e _])) pos) = canonicalBinding $ NamedVar (p1 <> p2) e pos
@@ -69,34 +75,29 @@ instance Show FlakeRef where
     show FlakeRef{..} = Text.unpack $ url <> "#" <> Text.intercalate "." output
 
 data FileOrFlake
-    = File FilePath
+    = File (SomeBase File)
     | Flake FlakeRef
     deriving stock (Generic)
-
-instance Show FileOrFlake where
-    show (File f) = f
-    show (Flake f) = show f
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
-writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
+writeNixFile :: (ToExpr a) => Path b File -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-nixBuild :: (HasCallStack) => FileOrFlake -> App FilePath
+nixBuild :: (HasCallStack) => FileOrFlake -> App (Path Abs t)
 nixBuild f =
-    fmap (fromText . firstLine) . withTrace cmd . sconcat $
+    fmap (Path . fromText . firstLine) . withTrace cmd . sconcat $
         [ ["nix", "build"]
         , ["--no-link", "--print-out-paths"]
         , case f of
-            File{} -> ["--file"]
-            Flake{} -> ["--accept-flake-config"]
-        , [ishow f]
+            File f -> ["--file", fromSomeBase f]
+            Flake f -> ["--accept-flake-config", ishow f]
         ]
 
-copyClosure :: (HasCallStack) => Host -> FilePath -> App ()
+copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
 copyClosure Localhost _ = pure ()
-copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromString path]
+copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromPath path]
 
 currentSystem :: (HasCallStack) => App Text
 currentSystem =

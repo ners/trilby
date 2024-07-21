@@ -3,7 +3,6 @@ module Trilby.Options where
 import Options.Applicative hiding (command)
 import Trilby.Command (Command, parseCommand)
 import Trilby.Version qualified as Trilby
-import UnliftIO.Environment (lookupEnv)
 import Prelude
 
 data Options m = Options

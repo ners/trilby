@@ -8,6 +8,7 @@
 * Add Infect command
 * Switch from TH to callstack-based logging
 * Remove library, build only executable
+* Switch from FilePath to Path
 
 ## 24.4.0 -- 2024-04-04
 

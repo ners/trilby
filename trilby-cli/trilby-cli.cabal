@@ -50,6 +50,7 @@ common common
         RecordWildCards
         RecursiveDo
         StrictData
+        TemplateHaskell
         TypeFamilies
         ViewPatterns
 
@@ -58,13 +59,13 @@ executable trilby
     main-is: Main.hs
     hs-source-dirs: src
     build-depends:
-        base,
-        optparse-applicative,
         ansi-terminal,
+        base,
         base,
         bytestring,
         data-default,
         data-fix,
+        exceptions,
         extra,
         file-embed,
         generic-lens,
@@ -74,6 +75,9 @@ executable trilby
         monad-logger,
         mtl,
         optparse-applicative,
+        optparse-applicative,
+        path,
+        path-io,
         process,
         terminal-widgets,
         text,

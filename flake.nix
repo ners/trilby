@@ -31,7 +31,7 @@
       lib = import ./lib { inherit inputs; inherit (inputs.nixpkgs) lib; };
       buildPlatforms = attrNames inputs.nixpkgs.legacyPackages;
       nixosModules = lib.findModules ./modules;
-      configurations = map lib.trilbyConfig (lib.cartesianProductOfSets {
+      configurations = map lib.trilbyConfig (lib.cartesianProduct {
         name = [ "trilby" ];
         edition = attrNames nixosModules.editions;
         format = attrNames nixosModules.formats;

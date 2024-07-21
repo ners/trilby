@@ -8,7 +8,6 @@ import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), nixBuild, trilbyFlake, writeNixFile)
 import Trilby.Host
 import Trilby.Infect.Options
-import Turtle ((</>))
 import Prelude
 
 infect :: InfectOpts Maybe -> App ()
@@ -17,17 +16,10 @@ infect (askOpts -> opts) = do
     kexec <- buildKexec opts
     for_ configurations $ \Configuration{..} -> do
         targetPath <- extractKexec host kexec
-        let binPath =
-                foldr1 @[]
-                    (</>)
-                    [ targetPath
-                    , "kexec_trilby"
-                    , "bin"
-                    , "kexec-trilby"
-                    ]
-        whenM opts.reboot $ ssh host rawCmd_ [fromString binPath]
+        let binPath = targetPath </> $(mkRelDir "kexec_trilby/bin/kexec-trilby")
+        whenM opts.reboot $ ssh host rawCmd_ [fromPath binPath]
 
-buildKexec :: (HasCallStack) => InfectOpts App -> App FilePath
+buildKexec :: (HasCallStack) => InfectOpts App -> App (Path Abs File)
 buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> do
     hClose handle
     trilbyUrl <- trilbyFlake
@@ -57,22 +49,22 @@ buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> d
         };
         in system.config.system.build.kexecTree
         |]
-    resultDir <- nixBuild $ File tmpFile
-    pure $ resultDir </> "tarball" </> "trilby-kexec.tar"
+    resultDir <- nixBuild $ File (Abs tmpFile)
+    pure $ resultDir </> $(mkRelFile "tarball/trilby-kexec.tar")
 
-extractKexec :: (HasCallStack) => Host -> FilePath -> App FilePath
+extractKexec :: (HasCallStack) => Host -> Path b File -> App (Path Abs Dir)
 extractKexec host srcPath = do
-    let dstDir = "/" :: FilePath
+    let dstDir = $(mkAbsDir "/")
     case host of
-        Localhost -> cmd_ ["tar", "-xf", fromString srcPath, "-C", fromString dstDir]
+        Localhost -> cmd_ ["tar", "-xf", fromPath srcPath, "-C", fromPath dstDir]
         Host{} ->
             let command =
                     Text.unwords . mconcat $
-                        [ ["cat", fromString srcPath]
+                        [ ["cat", fromPath srcPath]
                         , ["|"]
                         , ["ssh", ishow host]
                         , ["'"]
-                        , ["tar", "-xf", "-", "-C", fromString dstDir]
+                        , ["tar", "-xf", "-", "-C", fromPath dstDir]
                         , ["'"]
                         ]
              in void $ shell command empty

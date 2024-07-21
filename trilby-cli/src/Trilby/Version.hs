@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Trilby.Version where
 
 import Data.FileEmbed

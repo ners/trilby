@@ -1,6 +1,7 @@
 module Trilby.App where
 
 import Control.Monad (unless)
+import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Logger.CallStack (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
 import Data.List (intercalate)
@@ -25,6 +26,9 @@ newtype AppT m a = App
         ( Functor
         , Applicative
         , Monad
+        , MonadThrow
+        , MonadCatch
+        , MonadMask
         , MonadReader AppState
         , MonadLogger
         , MonadLoggerIO

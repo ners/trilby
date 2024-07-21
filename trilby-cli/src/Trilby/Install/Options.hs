@@ -10,7 +10,6 @@ import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Host (Keyboard (..))
 import Trilby.Install.Config.Release
 import Trilby.Widgets
-import UnliftIO.Directory (canonicalizePath)
 import Prelude hiding (error)
 
 data LuksOpts m
@@ -51,7 +50,7 @@ parseFlake f = do
 data InstallOpts m = InstallOpts
     { flake :: Maybe (FlakeOpts m)
     , luks :: m (LuksOpts m)
-    , disk :: m FilePath
+    , disk :: m (Path Abs File)
     , format :: m Bool
     , filesystem :: m Format
     , edition :: m Edition
@@ -62,6 +61,7 @@ data InstallOpts m = InstallOpts
     , timezone :: m Text
     , username :: m Text
     , password :: m Text
+    , edit :: m Bool
     , reboot :: m Bool
     }
     deriving stock (Generic)
@@ -70,7 +70,7 @@ parseOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseOpts f = do
     flake <- parseFlake f
     luks <- parseLuks f
-    disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "The disk to install to")
+    disk <- f $ parsePath parseAbsFile (long "disk" <> metavar "DISK" <> help "The disk to install to")
     format <- f $ parseYesNo "format" "Format the installation disk"
     filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
     edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
@@ -81,6 +81,7 @@ parseOpts f = do
     timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
     password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
+    edit <- f $ parseYesNo "edit" "Edit the configuration before installing"
     reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
 
@@ -90,23 +91,22 @@ validateParsedInstallOpts opts =
         Nothing -> pure opts
         Just d -> do
             vd <- fromMaybeM (liftIO exitFailure) $ validateDisk d
-            pure $ opts & #disk ?~ fromString vd
+            pure $ opts & #disk ?~ vd
 
-validateDisk :: FilePath -> App (Maybe FilePath)
+validateDisk :: Path Abs File -> App (Maybe (Path Abs File))
 validateDisk f = do
-    canonical <- canonicalizePath f
-    status <- liftIO $ getFileStatus canonical
+    status <- liftIO . getFileStatus . toFilePath $ f
     if isBlockDevice status
-        then pure $ Just canonical
+        then pure $ Just f
         else do
-            logError $ "Cannot find disk " <> fromString f
+            logError $ "Cannot find disk " <> fromPath f
             pure Nothing
 
-askDisk :: App FilePath
+askDisk :: App (Path Abs File)
 askDisk = do
-    disks <- fmap fromText . Text.lines <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
+    disks <- mapM (parseAbsFile . fromText) . Text.lines =<< shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     when (null disks) $ errorExit "No disks found"
-    fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing id >>= validateDisk . fromText
+    fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
 askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
@@ -153,5 +153,6 @@ askOpts opts =
         , timezone = maybe askTimezone pure opts.timezone
         , username = maybe (textInput "Choose admin username:" "") pure opts.username
         , password = maybe (passwordInput "Choose admin password:") pure opts.password
+        , edit = maybe (yesNoButtons "Edit the configuration?" False) pure opts.edit
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
         }

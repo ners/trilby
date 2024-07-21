@@ -29,8 +29,8 @@ instance ToExpr Subvolume where
         |]
 
 data LuksKeyFile
-    = KeyFile !FilePath
-    | PasswordFile !FilePath
+    = KeyFile (Path Abs File)
+    | PasswordFile (Path Abs File)
     deriving stock (Generic)
 
 data PartitionContent

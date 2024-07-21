@@ -33,11 +33,11 @@ canonicalHost host = do
 -- | Execute a command over SSH, if given a remote host.
 ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
 ssh Localhost c t = c t
-ssh host c t = withSystemTempDirectory "trilby-update" $ \tmpDir ->
+ssh host c t = withSystemTempDir "trilby-update" $ \tmpDir ->
     c . sconcat $
         [ ["ssh"]
         , ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
+        , ["-o", "ControlPath=" <> fromPath tmpDir <> "/ssh-%n"]
         , ["-o", "ControlPersist=60"]
         , ["-t"]
         , [ishow host]

@@ -6,22 +6,20 @@ import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), FlakeRef (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
 import Trilby.Update.Options
-import Turtle (parent, readlink, (</>))
 import Turtle qualified
-import UnliftIO.Directory (canonicalizePath)
 import Prelude
 
 update :: UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
     whenM opts.flakeUpdate do
-        trilbyHome <- canonicalizePath "/etc/trilby"
-        flakes <- Turtle.sort $ parent <$> Turtle.find (Turtle.suffix "/flake.lock") trilbyHome
+        trilbyPath <- canonicalizePath $ trilbyHome rootDir
+        flakes <- Turtle.sort $ Turtle.parent <$> Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
         mapM_ updateFlake flakes
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     configurationResults <- buildConfigurations configurations
     for_ configurationResults $ \(Configuration{..}, resultPath) -> do
         copyClosure host resultPath
-        ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromString resultPath]
+        ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
         unless (host == Localhost && length configurationResults == 1) . logWarn $ "Choosing action for host " <> ishow host
         let perform = switchToConfiguration host resultPath
         opts.action >>= \case
@@ -35,17 +33,17 @@ update (askOpts -> opts) = do
 updateFlake :: FilePath -> App ()
 updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromString path]
 
-buildConfiguration :: Configuration -> App (Configuration, FilePath)
+buildConfiguration :: Configuration -> App (Configuration, Path Abs Dir)
 buildConfiguration c = (c,) <$> nixBuild f
   where
     output = ["nixosConfigurations", c.name, "config", "system", "build", "toplevel"]
-    f = Flake FlakeRef{url = "/etc/trilby", output}
+    f = Flake FlakeRef{url = fromPath $ trilbyHome rootDir, output}
 
 {- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
 To this end we write a single derivation that depends on each of the configurations we wish to build.
 The resulting output path contains symlinks for each configuration by name.
 -}
-buildConfigurations :: NonEmpty Configuration -> App (NonEmpty (Configuration, FilePath))
+buildConfigurations :: NonEmpty Configuration -> App (NonEmpty (Configuration, Path Abs Dir))
 buildConfigurations (configuration :| []) = pure <$> buildConfiguration configuration
 buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \tmpFile handle -> do
     hClose handle
@@ -66,8 +64,8 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
                configurationNames
              )
          |]
-    resultPath <- nixBuild $ File tmpFile
-    forM configurations $ \c -> (c,) <$> readlink (resultPath </> fromText c.name)
+    resultPath <- nixBuild . File . Abs $ tmpFile
+    flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
 
 data ConfigAction
     = ConfigBoot
@@ -80,7 +78,7 @@ instance Show ConfigAction where
     show ConfigSwitch = "switch"
     show ConfigTest = "test"
 
-switchToConfiguration :: Host -> FilePath -> ConfigAction -> App ()
+switchToConfiguration :: Host -> Path Abs Dir -> ConfigAction -> App ()
 switchToConfiguration host path action = do
     case action of
         ConfigBoot -> setProfile host path
@@ -99,16 +97,16 @@ switchToConfiguration host path action = do
         , ["--service-type=exec"]
         , ["--unit=trilby-switch-to-configuration"]
         , ["--wait"]
-        , [fromString activationScript, ishow action]
+        , [fromPath activationScript, ishow action]
         ]
   where
-    activationScript = path <> "/bin/switch-to-configuration"
+    activationScript = path </> $(mkRelFile "bin/switch-to-configuration")
 
-setProfile :: Host -> FilePath -> App ()
+setProfile :: Host -> Path Abs Dir -> App ()
 setProfile host path =
     ssh host rawCmd_ . sconcat $
         [ ["sudo"]
         , ["nix-env"]
         , ["--profile", "/nix/var/nix/profiles/system"]
-        , ["--set", fromString path]
+        , ["--set", fromPath path]
         ]
