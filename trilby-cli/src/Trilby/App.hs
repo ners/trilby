@@ -1,7 +1,7 @@
 module Trilby.App where
 
 import Control.Monad (unless)
-import Control.Monad.Logger (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
+import Control.Monad.Logger.CallStack (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
 import Data.List (intercalate)
 import Data.List.Extra (split)
@@ -42,5 +42,5 @@ runApp state App{..} = flip runReaderT state do
         unless (nixBinPath `elem` split (== ':') oldPath) do
             let newPath = intercalate ":" [nixBinPath, oldPath]
             setEnv "PATH" newPath
-    $(logInfo) Trilby.fullVersionString
+    logInfo Trilby.fullVersionString
     _runApp

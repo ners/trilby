@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Prelude
     ( module Control.Applicative
     , module Control.Arrow
@@ -5,7 +7,7 @@ module Prelude
     , module Control.Lens.Operators
     , module Control.Monad
     , module Control.Monad.Extra
-    , module Control.Monad.Logger
+    , module Control.Monad.Logger.CallStack
     , module Control.Monad.Reader
     , module Control.Monad.State
     , module Control.Monad.Trans
@@ -22,6 +24,7 @@ module Prelude
     , module Data.Traversable
     , module GHC.Generics
     , module GHC.IsList
+    , module GHC.Stack
     , module Nix.Expr.Types
     , module Nix.Pretty
     , module Nix.TH
@@ -39,7 +42,7 @@ import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Extra
-import Control.Monad.Logger (LogLevel (..), logDebug, logError, logInfo, logWarn)
+import Control.Monad.Logger.CallStack (LogLevel (..), logDebug, logError, logInfo, logWarn)
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
@@ -62,6 +65,7 @@ import Data.Text.IO qualified as Text
 import Data.Traversable
 import GHC.Generics (Generic)
 import GHC.IsList hiding (toList)
+import GHC.Stack (HasCallStack)
 import Nix.Expr.Types
 import Nix.Pretty (prettyNix)
 import Nix.TH (ToExpr (toExpr), nix)
@@ -108,8 +112,8 @@ parseChoice m xs = option (maybeReader Text.readMaybe) $ m <> showDefault <> com
 parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
 parseEnum = flip parseChoice [minBound .. maxBound]
 
-errorExit :: Text -> App a
-errorExit msg = $(logError) msg >> liftIO exitFailure
+errorExit :: (HasCallStack) => Text -> App a
+errorExit msg = logError msg >> liftIO exitFailure
 {-# INLINE errorExit #-}
 
 ishow :: (Show a, IsString s) => a -> s
@@ -139,9 +143,9 @@ append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
 -- | Does not suppress a command's stdin, stdout, or stderr
-rawCmd :: NonEmpty Text -> App ExitCode
+rawCmd :: (HasCallStack) => NonEmpty Text -> App ExitCode
 rawCmd (p :| args) = do
-    $(logInfo) $ Text.unwords $ p : args
+    logInfo . Text.unwords $ p : args
     system
         ( (Process.proc (Text.unpack p) (Text.unpack <$> args))
             { Process.std_in = Process.Inherit
@@ -152,27 +156,27 @@ rawCmd (p :| args) = do
         empty
 
 -- | Does not suppress a command's stdout or stderr
-rawCmd_ :: NonEmpty Text -> App ()
+rawCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
 rawCmd_ args = do
     code <- rawCmd args
     case code of
         ExitSuccess -> pure ()
         ExitFailure{} -> liftIO $ exitWith code
 
-cmd' :: NonEmpty Text -> App (ExitCode, Text)
+cmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
-    $(logInfo) $ Text.unwords $ p : args
+    logInfo . Text.unwords $ p : args
     Turtle.procStrict p args Turtle.stdin
 
-cmd :: NonEmpty Text -> App Text
+cmd :: (HasCallStack) => NonEmpty Text -> App Text
 cmd args = do
     (code, out) <- cmd' args
-    $(logDebug) $ "cmd return code: " <> ishow code
+    logDebug $ "cmd return code: " <> ishow code
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code
 
-cmd_ :: NonEmpty Text -> App ()
+cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
 cmd_ args = do
     out <- cmd args
     whenM (verbosityAtLeast LevelInfo) do
@@ -180,9 +184,9 @@ cmd_ args = do
         hFlush stdout
 
 -- | Suppresses a command's stderr if verbosity is not at least LevelInfo
-quietCmd_ :: NonEmpty Text -> App ()
+quietCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
 quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
-    $(logInfo) $ Text.unwords $ p : args
+    logInfo . Text.unwords $ p : args
     (code, _, err) <- Turtle.procStrictWithErr p args Turtle.stdin
     case code of
         ExitSuccess -> pure ()
@@ -190,15 +194,15 @@ quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
             Text.hPutStrLn stderr err
             exitWith code
 
-quietCmd' :: NonEmpty Text -> App (ExitCode, Text)
+quietCmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
 quietCmd' (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd' $ p :| args) do
-    $(logInfo) $ Text.unwords $ p : args
+    logInfo . Text.unwords $ p : args
     (code, out, _) <- Turtle.procStrictWithErr p args Turtle.stdin
     pure (code, out)
 
-byteShells :: Text -> Turtle.Shell ByteString -> App ()
+byteShells :: (HasCallStack) => Text -> Turtle.Shell ByteString -> App ()
 byteShells cmd s = do
-    $(logInfo) cmd
+    logInfo cmd
     Turtle.Bytes.shells cmd s
 
 isRoot :: App Bool
@@ -222,9 +226,9 @@ doubleQuoted t = d <> escape t <> d
     d = "\"" :: Text
     escape = Text.replace d (d <> "\\" <> d <> d)
 
-shell :: Text -> Turtle.Shell Turtle.Line -> App Text
+shell :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App Text
 shell cmd s = do
-    $(logInfo) cmd
+    logInfo cmd
     Turtle.strict $ Turtle.inshell cmd s
 
 proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
@@ -239,9 +243,9 @@ inDir d a = do
     unlift <- askRunInIO
     liftIO $ Turtle.with (Turtle.pushd d) (const $ unlift a)
 
-writeFile :: FilePath -> Text -> App ()
+writeFile :: (HasCallStack) => FilePath -> Text -> App ()
 writeFile f t = do
-    $(logDebug) $ "writeFile " <> fromString f <> "\n" <> t
+    logDebug $ "writeFile " <> fromString f <> "\n" <> t
     Turtle.output f $ Turtle.toLines $ pure t
 
 is :: a -> Getting (First c) a c -> Bool

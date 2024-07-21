@@ -32,23 +32,14 @@
         inputs.terminal-widgets.overlays.default
         (final: prev: {
           haskell = prev.haskell // {
-            packageOverrides = lib.composeExtensions
+            packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
               (hfinal: hprev: {
-                "${pname}" = (hfinal.callCabal2nix pname src { }).overrideAttrs
-                  (attrs: {
-                    outputs = (attrs.outputs or [ ]) ++ [ "bin" ];
-                    meta = attrs.meta // {
-                      outputsToInstall = [ "out" ];
-                    };
-                    postInstall = ''
-                      ${attrs.postInstall or ""}
-                      install -Dt $bin/bin $out/bin/*
-                    '';
-                  });
-              });
+                "${pname}" = hfinal.callCabal2nix pname src { };
+              })
+            ];
           };
-          ${pname} = final.haskellPackages.${pname}.bin;
+          ${pname} = final.haskellPackages.${pname};
         })
       ];
     in

@@ -92,7 +92,13 @@ flake c =
                     , InputFlake
                         { name = "trilby"
                         , url = "github:ners/trilby"
-                        , inputs = ["nixpkgs" `Follows` "nixpkgs", "nixpkgs-unstable" `Follows` "nixpkgs-unstable"]
+                        , inputs =
+                            [ "nixpkgs" `Follows` "nixpkgs"
+                            , "nixpkgs-unstable"
+                                `Follows` if c == Unstable
+                                    then "nixpkgs"
+                                    else "nixpkgs-unstable"
+                            ]
                         }
                     ]
                 ]

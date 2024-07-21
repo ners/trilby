@@ -83,7 +83,7 @@ showNix = fromString . show . prettyNix . toExpr
 writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-nixBuild :: FileOrFlake -> App FilePath
+nixBuild :: (HasCallStack) => FileOrFlake -> App FilePath
 nixBuild f =
     fmap (fromText . firstLine) . withTrace cmd . sconcat $
         [ ["nix", "build"]
@@ -94,11 +94,11 @@ nixBuild f =
         , [ishow f]
         ]
 
-copyClosure :: Host -> FilePath -> App ()
+copyClosure :: (HasCallStack) => Host -> FilePath -> App ()
 copyClosure Localhost _ = pure ()
 copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromString path]
 
-currentSystem :: App Text
+currentSystem :: (HasCallStack) => App Text
 currentSystem =
     fmap firstLine . cmd . sconcat $
         [ ["nix", "eval"]
@@ -107,7 +107,7 @@ currentSystem =
         , ["--expr", "builtins.currentSystem"]
         ]
 
-trilbyFlake :: App Text
+trilbyFlake :: (HasCallStack) => App Text
 trilbyFlake = do
     hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
     pure $ if False then "trilby" else "github:ners/trilby/infect"

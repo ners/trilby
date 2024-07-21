@@ -22,7 +22,7 @@ update (askOpts -> opts) = do
     for_ configurationResults $ \(Configuration{..}, resultPath) -> do
         copyClosure host resultPath
         ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromString resultPath]
-        unless (host == Localhost && length configurationResults == 1) $ $(logWarn) $ "Choosing action for host " <> ishow host
+        unless (host == Localhost && length configurationResults == 1) . logWarn $ "Choosing action for host " <> ishow host
         let perform = switchToConfiguration host resultPath
         opts.action >>= \case
             Switch -> perform ConfigSwitch

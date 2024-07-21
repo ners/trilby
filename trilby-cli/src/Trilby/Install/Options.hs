@@ -99,7 +99,7 @@ validateDisk f = do
     if isBlockDevice status
         then pure $ Just canonical
         else do
-            $(logError) $ "Cannot find disk " <> fromString f
+            logError $ "Cannot find disk " <> fromString f
             pure Nothing
 
 askDisk :: App FilePath

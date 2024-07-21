@@ -50,44 +50,16 @@ common common
         RecordWildCards
         RecursiveDo
         StrictData
-        TemplateHaskell
         TypeFamilies
         ViewPatterns
 
-library
+executable trilby
     import: common
+    main-is: Main.hs
     hs-source-dirs: src
-    other-modules:
-        Prelude
-        Trilby.HNix
-        Trilby.Widgets
-
-    exposed-modules:
-        Trilby.App
-        Trilby.Command
-        Trilby.Configuration
-        Trilby.Disko
-        Trilby.Disko.Disk
-        Trilby.Disko.Filesystem
-        Trilby.Disko.Partition
-        Trilby.Host
-        Trilby.Infect
-        Trilby.Infect.Options
-        Trilby.Install
-        Trilby.Install.Config.Edition
-        Trilby.Install.Config.Host
-        Trilby.Install.Config.Release
-        Trilby.Install.Config.User
-        Trilby.Install.Disko
-        Trilby.Install.Flake
-        Trilby.Install.Options
-        Trilby.Log
-        Trilby.Options
-        Trilby.Update
-        Trilby.Update.Options
-        Trilby.Version
-
     build-depends:
+        base,
+        optparse-applicative,
         ansi-terminal,
         base,
         bytestring,
@@ -109,12 +81,30 @@ library
         turtle,
         unix,
         unliftio,
-
-executable trilby
-    import: common
-    main-is: Main.hs
-    hs-source-dirs: app
-    build-depends:
-        base,
-        optparse-applicative,
-        trilby-cli,
+    other-modules:
+        Prelude
+        Trilby.App
+        Trilby.Command
+        Trilby.Configuration
+        Trilby.Disko
+        Trilby.Disko.Disk
+        Trilby.Disko.Filesystem
+        Trilby.Disko.Partition
+        Trilby.HNix
+        Trilby.Host
+        Trilby.Infect
+        Trilby.Infect.Options
+        Trilby.Install
+        Trilby.Install.Config.Edition
+        Trilby.Install.Config.Host
+        Trilby.Install.Config.Release
+        Trilby.Install.Config.User
+        Trilby.Install.Disko
+        Trilby.Install.Flake
+        Trilby.Install.Options
+        Trilby.Log
+        Trilby.Options
+        Trilby.Update
+        Trilby.Update.Options
+        Trilby.Version
+        Trilby.Widgets

@@ -27,7 +27,7 @@ infect (askOpts -> opts) = do
                     ]
         whenM opts.reboot $ ssh host rawCmd_ [fromString binPath]
 
-buildKexec :: InfectOpts App -> App FilePath
+buildKexec :: (HasCallStack) => InfectOpts App -> App FilePath
 buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> do
     hClose handle
     trilbyUrl <- trilbyFlake
@@ -60,7 +60,7 @@ buildKexec opts = withSystemTempFile "trilby-infect-.nix" $ \tmpFile handle -> d
     resultDir <- nixBuild $ File tmpFile
     pure $ resultDir </> "tarball" </> "trilby-kexec.tar"
 
-extractKexec :: Host -> FilePath -> App FilePath
+extractKexec :: (HasCallStack) => Host -> FilePath -> App FilePath
 extractKexec host srcPath = do
     let dstDir = "/" :: FilePath
     case host of

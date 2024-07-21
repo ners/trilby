@@ -8,9 +8,9 @@ import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
 import Prelude
 
-textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
+textInputOpts :: (HasCallStack) => Bool -> Bool -> Text -> Text -> App Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
-    $(logDebug) prompt
+    logDebug prompt
     text <- runWidgetIO TextInput{valueTransform = id, ..}
     pure $ RopeZipper.toText text.value
 
@@ -37,12 +37,12 @@ passwordInput ((<> " ") -> prompt) = do
     if pw1 == pw2
         then pure pw1
         else do
-            $(logError) "Passwords do not match"
+            logError "Passwords do not match"
             passwordInput prompt
 
 buttons :: (Eq a, Show a) => Text -> [(a, Char)] -> Int -> (a -> Text) -> App a
 buttons prompt values selected buttonText = do
-    $(logDebug) prompt
+    logDebug prompt
     b <-
         runWidgetIO
             Buttons
@@ -53,7 +53,7 @@ buttons prompt values selected buttonText = do
     case values !? b.selected of
         Just (a, _) -> pure a
         Nothing -> do
-            $(logError) "Invalid selection"
+            logError "Invalid selection"
             buttons prompt values selected buttonText
 
 yesNoButtons :: Text -> Bool -> App Bool

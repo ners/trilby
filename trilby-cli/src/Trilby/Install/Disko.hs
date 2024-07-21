@@ -45,7 +45,7 @@ getDisko opts = do
             . fromText
             <$> cmd
                 ["find", "-L", "/dev/disk/by-id", "-samefile", fromString diskName]
-    $(logWarn) $ "Using disk " <> fromString diskName <> " with id " <> fromString diskDevice
+    logWarn $ "Using disk " <> fromString diskName <> " with id " <> fromString diskDevice
     luks <- opts.luks
     let useLuks = luks `is` #_UseLuks
     when useLuks $ writeFile luksPasswordFile =<< luks.luksPassword

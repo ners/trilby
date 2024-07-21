@@ -1,6 +1,5 @@
 module Main where
 
-import Data.String (fromString)
 import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Command

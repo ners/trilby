@@ -46,12 +46,12 @@ install (askOpts -> opts) = do
 
 formatDisk :: App Bool -> FileOrFlake -> App ()
 formatDisk f d = whenM f do
-    $(logWarn) "Formatting disk ... "
+    logWarn "Formatting disk ... "
     disko $ Format d
 
 mountRoot :: FileOrFlake -> App ()
 mountRoot d = unlessM rootIsMounted do
-    $(logWarn) "Partitions are not mounted"
+    logWarn "Partitions are not mounted"
     unlessM (yesNoButtons "Attempt to mount the partitions?" True) $
         errorExit "Cannot install without mounted partitions"
     disko $ Mount d
@@ -113,7 +113,7 @@ setupHost disko opts = do
 
 nixosInstall :: FlakeRef -> App ()
 nixosInstall flakeRef = do
-    $(logWarn) "Performing installation ... "
+    logWarn "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
     (withTrace . asRoot) rawCmd_ . sconcat $
         [ ["nix", "build"]
