@@ -12,7 +12,7 @@ import Trilby.Update (update)
 import Prelude
 
 main :: IO ()
-main = do
+main = withSystemTempDir "trilby" \tmpDir -> do
     opts <- execParser parseOptionsInfo
     verbosity <- getVerbosity opts
     hostname <- fromString . head . lines <$> readFile "/etc/hostname"

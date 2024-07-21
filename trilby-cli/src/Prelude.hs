@@ -22,6 +22,7 @@ module Prelude
     , module Data.String
     , module Data.Text
     , module Data.Traversable
+    , module Debug.Trace
     , module GHC.Generics
     , module GHC.IsList
     , module GHC.Stack
@@ -51,7 +52,6 @@ import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
 import Data.Bifunctor qualified as Bifunctor
 import Data.Bool
-import Data.ByteString (ByteString)
 import Data.Char (toLower)
 import Data.Default (Default (def))
 import Data.Foldable
@@ -67,6 +67,7 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable
+import Debug.Trace
 import GHC.Generics (Generic)
 import GHC.IsList hiding (toList)
 import GHC.Stack (HasCallStack)
@@ -112,6 +113,7 @@ import Path
 import Path.IO
     ( AnyPath
     , canonicalizePath
+    , doesDirExist
     , withSystemTempDir
     , withSystemTempFile
     )
@@ -121,10 +123,8 @@ import System.Posix (getEffectiveUserID)
 import System.Process qualified as Process
 import Text.Read qualified as Text
 import Trilby.App (App)
-import Turtle (system)
 import Turtle qualified
-import Turtle.Bytes qualified
-import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile)
+import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
 import UnliftIO.Environment
 import "base" Prelude hiding (writeFile)
 
@@ -197,25 +197,33 @@ append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
 -- | Does not suppress a command's stdin, stdout, or stderr
-rawCmd :: (HasCallStack) => NonEmpty Text -> App ExitCode
-rawCmd (p :| args) = do
+rawCmdWith :: (HasCallStack) => NonEmpty Text -> Turtle.Shell Turtle.Line -> App ExitCode
+rawCmdWith (p :| args) stdin = do
     logInfo . Text.unwords $ p : args
-    system
+    Turtle.system
         ( (Process.proc (Text.unpack p) (Text.unpack <$> args))
             { Process.std_in = Process.Inherit
             , Process.std_out = Process.Inherit
             , Process.std_err = Process.Inherit
             }
         )
-        empty
+        stdin
+
+-- | Does not suppress a command's stdin, stdout, or stderr
+rawCmd :: (HasCallStack) => NonEmpty Text -> App ExitCode
+rawCmd = flip rawCmdWith empty
 
 -- | Does not suppress a command's stdout or stderr
-rawCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-rawCmd_ args = do
-    code <- rawCmd args
+rawCmdWith_ :: (HasCallStack) => NonEmpty Text -> Turtle.Shell Turtle.Line -> App ()
+rawCmdWith_ args stdin = do
+    code <- rawCmdWith args stdin
     case code of
         ExitSuccess -> pure ()
         ExitFailure{} -> liftIO $ exitWith code
+
+-- | Does not suppress a command's stdout or stderr
+rawCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
+rawCmd_ = flip rawCmdWith_ empty
 
 cmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
 cmd' (p :| args) = do
@@ -254,11 +262,6 @@ quietCmd' (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd' $ p :| args) do
     (code, out, _) <- Turtle.procStrictWithErr p args Turtle.stdin
     pure (code, out)
 
-byteShells :: (HasCallStack) => Text -> Turtle.Shell ByteString -> App ()
-byteShells cmd s = do
-    logInfo cmd
-    Turtle.Bytes.shells cmd s
-
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
@@ -280,10 +283,25 @@ doubleQuoted t = d <> escape t <> d
     d = "\"" :: Text
     escape = Text.replace d (d <> "\\" <> d <> d)
 
-shell :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App Text
-shell cmd s = do
+shell' :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App (ExitCode, Text)
+shell' cmd stdin = do
     logInfo cmd
-    Turtle.strict $ Turtle.inshell cmd s
+    Turtle.systemStrict
+        ( (Process.shell (Text.unpack cmd))
+            { Process.std_in = Process.Inherit
+            , Process.std_out = Process.Inherit
+            , Process.std_err = Process.Inherit
+            }
+        )
+        stdin
+
+shell :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App Text
+shell cmd stdin = do
+    (code, out) <- shell' cmd stdin
+    logDebug $ "shell return code: " <> ishow code
+    case code of
+        ExitSuccess -> pure out
+        ExitFailure{} -> liftIO $ exitWith code
 
 shell_ :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App ()
 shell_ cmd s = do
@@ -292,9 +310,6 @@ shell_ cmd s = do
         liftIO $ Text.putStr out
         hFlush stdout
 
-proc :: NonEmpty Text -> Turtle.Shell Turtle.Line -> App Text
-proc (p :| args) = Turtle.strict . Turtle.inproc p args
-
 isAbsolute :: Path b t -> Bool
 isAbsolute p = Just '/' == listToMaybe (toFilePath p)
 
@@ -302,7 +317,7 @@ isRelative :: Path b t -> Bool
 isRelative = not . isAbsolute
 
 ensureDir :: Path b Dir -> App ()
-ensureDir dir = (if isAbsolute dir then asRoot else id) cmd_ ["mkdir", "-p", fromPath dir]
+ensureDir dir = unlessM (doesDirExist dir) $ (if isAbsolute dir then asRoot else id) cmd_ ["mkdir", "-p", fromPath dir]
 
 inDir :: Path b Dir -> App a -> App a
 inDir d a = do
@@ -316,8 +331,16 @@ writeFile f t = do
     ensureDir $ parent f
     Turtle.output (toFilePath f) $ Turtle.toLines $ pure t
 
+withTempFile :: Path Rel File -> (Path Abs File -> App a) -> App a
+withTempFile file action = do
+    tmpDir <- view #tmpDir
+    let tmpFile = tmpDir </> file
+    withFile (toFilePath tmpFile) ReadWriteMode \handle -> do
+        hClose handle
+        action tmpFile
+
 getSymlinkTarget :: (MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
-getSymlinkTarget p f = p =<< Turtle.realpath (fromSomeBase f)
+getSymlinkTarget = (Turtle.realpath . fromSomeBase >=>)
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c

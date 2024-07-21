@@ -23,7 +23,7 @@
       );
       hsSrc = root: with lib.fileset; toSource {
         inherit root;
-        fileset = fileFilter (file: any file.hasExt ["cabal" "hs" "md"] || file.type == "directory") ./.;
+        fileset = fileFilter (file: any file.hasExt [ "cabal" "hs" "md" ] || file.type == "directory") ./.;
       };
       pname = "trilby-cli";
       src = hsSrc ./.;

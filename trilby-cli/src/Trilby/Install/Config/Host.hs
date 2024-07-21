@@ -10,7 +10,7 @@ data Keyboard = Keyboard
     { layout :: Text
     , variant :: Maybe Text
     }
-    deriving stock (Generic)
+    deriving stock (Generic, Show)
 
 instance ToExpr Keyboard where
     toExpr Keyboard{..} =

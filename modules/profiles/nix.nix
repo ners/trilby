@@ -1,4 +1,4 @@
-{ config, trilby, inputs, ... }:
+{ config, trilby, inputs, lib, pkgs, ... }:
 
 {
   imports = [
@@ -6,6 +6,7 @@
   ];
 
   nix = {
+    package = lib.mkDefault pkgs.nixVersions.latest;
     channel.enable = false;
     monitored.enable = true;
     settings = {

@@ -3,7 +3,7 @@ module Trilby.Install.Options where
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
-import System.Posix (getFileStatus, isBlockDevice)
+import System.Posix (getFileStatus, isBlockDevice, userPassword)
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
 import Trilby.Install.Config.Edition
@@ -66,6 +66,8 @@ data InstallOpts m = InstallOpts
     }
     deriving stock (Generic)
 
+deriving stock instance Show (InstallOpts Maybe)
+
 parseOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
 parseOpts f = do
     flake <- parseFlake f
@@ -109,10 +111,14 @@ askDisk = do
     fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
-askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
+askLuks opts =
+    case opts of
+        Nothing -> bool NoLuks UseLuks{luksPassword = askPassword} <$> askUseLuks
+        Just NoLuks -> pure NoLuks
+        Just UseLuks{..} -> pure UseLuks{luksPassword = maybe askPassword pure luksPassword}
   where
-    useLuks = maybe (yesNoButtons "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (passwordInput "Choose LUKS password:") pure (opts >>= (.luksPassword))
+    askUseLuks = yesNoButtons "Encrypt the disk with LUKS2?" True
+    askPassword = passwordInput "Choose LUKS password:"
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =

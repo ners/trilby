@@ -62,7 +62,6 @@ executable trilby
         ansi-terminal,
         base,
         base,
-        bytestring,
         data-default,
         data-fix,
         exceptions,

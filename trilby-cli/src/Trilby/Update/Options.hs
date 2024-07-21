@@ -31,6 +31,7 @@ parseOpts f = do
                     boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
                     reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
                     pure $ boot reboot
+                <|> flag' Test (long "test" <> help "Test the new configuration without switching to it")
                 <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
     hosts <- f . fmap (fromListSafe Localhost) . many $ fromString <$> strArgument (metavar "HOST" <> help "Target host to update")
     pure UpdateOpts{..}

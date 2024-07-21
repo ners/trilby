@@ -4,7 +4,7 @@ import Trilby.Host
 import Prelude
 
 data Configuration = Configuration {name :: Text, host :: Host}
-    deriving stock (Generic, Eq, Ord)
+    deriving stock (Generic, Eq, Ord, Show)
 
 fromHost :: Host -> App Configuration
 fromHost host' = do

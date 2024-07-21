@@ -3,6 +3,7 @@ module Trilby.Install (install) where
 import Data.Text qualified as Text
 import Trilby.Disko (Disko)
 import Trilby.HNix (FlakeRef (..), currentSystem, writeNixFile)
+import Trilby.Host (Host (Localhost), reboot)
 import Trilby.Install.Config.Host
 import Trilby.Install.Config.User
 import Trilby.Install.Disko
@@ -10,6 +11,7 @@ import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Widgets
+import Turtle qualified
 import Prelude
 
 rootMount :: Path Abs Dir
@@ -17,9 +19,6 @@ rootMount = $(mkAbsDir "/mnt")
 
 trilbyDir :: Path Abs Dir
 trilbyDir = trilbyHome rootMount
-
-diskoFile :: Path Abs File
-diskoFile = $(mkAbsFile "/tmp/disko.nix")
 
 install :: InstallOpts Maybe -> App ()
 install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
@@ -31,8 +30,8 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
         storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path") empty
         asRoot cmd_ ["cp", "-r", storePath, fromPath trilbyDir]
         asRoot cmd_ ["chown", "-R", "1000:1000", fromPath trilbyDir]
-    reboot opts.reboot
-install (askOpts -> opts) = do
+    reboot opts.reboot Localhost
+install (askOpts -> opts) = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     disko <- getDisko opts
     inDir (parent diskoFile) $ writeNixFile diskoFile disko
     let diskoRef = Disko.File $ Abs diskoFile
@@ -40,7 +39,7 @@ install (askOpts -> opts) = do
     mountRoot diskoRef
     flakeRef <- setupHost disko opts
     nixosInstall flakeRef
-    reboot opts.reboot
+    reboot opts.reboot Localhost
 
 formatDisk :: App Bool -> FileOrFlake -> App ()
 formatDisk f d = whenM f do
@@ -72,7 +71,7 @@ setupHost disko opts = do
         username <- opts.username
         password <- do
             rawPassword <- opts.password
-            HashedPassword . firstLine <$> proc ["mkpasswd", rawPassword] empty
+            HashedPassword . firstLine <$> Turtle.strict (Turtle.inproc "mkpasswd" [rawPassword] empty)
         let user = User{uid = 1000, ..}
         userDir <- parseRelDir . fromText $ "users/" <> username
         let userFile = userDir </> defaultNix
@@ -115,7 +114,7 @@ setupHost disko opts = do
             ]
         whenM opts.edit do
             editor <- getEnv "EDITOR"
-            cmd_
+            rawCmd_
                 [ fromString editor
                 , "flake.nix"
                 , fromPath $ hostDir </> configurationNix
@@ -141,6 +140,3 @@ nixosInstall flakeRef = do
         , ["--no-root-password"]
         , ["--impure"]
         ]
-
-reboot :: App Bool -> App ()
-reboot r = whenM r $ cmd_ ["systemctl", "reboot"]

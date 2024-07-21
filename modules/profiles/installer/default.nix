@@ -20,9 +20,9 @@
   ];
 
   services.displayManager.autoLogin = {
-      enable = true;
-      user = "trilby";
-    };
+    enable = true;
+    user = "trilby";
+  };
   services.xserver.displayManager.gdm.autoSuspend = false;
   users.motd = builtins.readFile ./motd.txt;
 

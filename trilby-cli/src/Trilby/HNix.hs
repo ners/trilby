@@ -7,12 +7,13 @@ module Trilby.HNix where
 
 import Data.Fix
 import Data.List.Extra qualified as List
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
-import Path.Internal.Posix (Path (Path))
 import Trilby.Host
+import Turtle qualified
 import Prelude
 
 instance IsString (NAttrPath NExpr) where
@@ -85,19 +86,64 @@ showNix = fromString . show . prettyNix . toExpr
 writeNixFile :: (ToExpr a) => Path b File -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-nixBuild :: (HasCallStack) => FileOrFlake -> App (Path Abs t)
-nixBuild f =
-    fmap (Path . fromText . firstLine) . withTrace cmd . sconcat $
-        [ ["nix", "build"]
-        , ["--no-link", "--print-out-paths"]
-        , case f of
-            File f -> ["--file", fromSomeBase f]
-            Flake f -> ["--accept-flake-config", ishow f]
-        ]
+nixBuild :: (HasCallStack) => FileOrFlake -> (FilePath -> App (Path Abs t)) -> App (Path Abs t)
+nixBuild f p =
+    (p . fromText . firstLine)
+        =<< withTrace
+            cmd
+            ( sconcat
+                [ ["nix", "build"]
+                , ["--no-link", "--print-out-paths"]
+                , case f of
+                    File f -> ["--file", fromSomeBase f]
+                    Flake f -> ["--accept-flake-config", ishow f]
+                ]
+            )
 
 copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
 copyClosure Localhost _ = pure ()
-copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromPath path]
+copyClosure host@Host{} path = do
+    (code, _) <- ssh host cmd' ["command", "-v", "nix-store"]
+    case code of
+        ExitSuccess ->
+            cmd_ . sconcat $
+                [ ["nix-copy-closure"]
+                , ["--use-substitutes"]
+                , ["--gzip"]
+                , ["--to", ishow host]
+                , [fromPath path]
+                ]
+        _ -> do
+            flags <- sshFlags
+            ssh host rawCmd_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
+            flip shell_ Turtle.stdin . Text.intercalate " " . sconcat $
+                [
+                    [ "nix-store"
+                    , "--query"
+                    , "--requisites"
+                    , fromPath path
+                    ]
+                , ["|"]
+                ,
+                    [ "tar"
+                    , "--create"
+                    , "--gzip"
+                    , "--file=-"
+                    , "--files-from=-"
+                    , "--mode='u+rw'"
+                    ]
+                , ["|"]
+                , sconcat
+                    [ "ssh" : NonEmpty.toList flags <> [ishow host]
+                    ,
+                        [ "tar"
+                        , "--extract"
+                        , "--gzip"
+                        , "--file=-"
+                        , "--directory=/"
+                        ]
+                    ]
+                ]
 
 currentSystem :: (HasCallStack) => App Text
 currentSystem =

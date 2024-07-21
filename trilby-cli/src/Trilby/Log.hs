@@ -1,6 +1,6 @@
 module Trilby.Log where
 
-import Control.Monad.Logger
+import Control.Monad.Logger.CallStack
 import Data.List qualified as List
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text

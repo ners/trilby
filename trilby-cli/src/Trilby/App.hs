@@ -8,6 +8,7 @@ import Data.List (intercalate)
 import Data.List.Extra (split)
 import Data.Text (Text)
 import GHC.Generics (Generic)
+import Path (Abs, Dir, Path)
 import System.Environment (getEnv, setEnv)
 import Trilby.Version qualified as Trilby
 import UnliftIO (MonadIO (liftIO), MonadUnliftIO)
@@ -16,6 +17,7 @@ import "base" Prelude
 data AppState = AppState
     { verbosity :: LogLevel
     , hostname :: Text
+    , tmpDir :: Path Abs Dir
     }
     deriving stock (Generic)
 

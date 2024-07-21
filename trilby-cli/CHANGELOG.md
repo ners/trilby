@@ -9,6 +9,7 @@
 * Switch from TH to callstack-based logging
 * Remove library, build only executable
 * Switch from FilePath to Path
+* Add edit option to Install
 
 ## 24.4.0 -- 2024-04-04
 

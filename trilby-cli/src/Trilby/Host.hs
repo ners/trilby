@@ -2,6 +2,7 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
+import Trilby.App ()
 import Prelude
 
 data Host
@@ -30,16 +31,22 @@ canonicalHost host = do
     isLocalhost <- hostname host <&> (`elem` localhostHostnames)
     pure $ if isLocalhost then Localhost else host
 
--- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
-ssh Localhost c t = c t
-ssh host c t = withSystemTempDir "trilby-update" $ \tmpDir ->
-    c . sconcat $
-        [ ["ssh"]
-        , ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromPath tmpDir <> "/ssh-%n"]
+sshFlags :: App (NonEmpty Text)
+sshFlags = do
+    tmpDir <- view #tmpDir
+    pure . sconcat $
+        [ ["-o", "ControlMaster=auto"]
+        , ["-o", "ControlPath=" <> fromPath (tmpDir </> $(mkRelFile "ssh-%n"))]
         , ["-o", "ControlPersist=60"]
         , ["-t"]
-        , [ishow host]
-        , t
         ]
+
+-- | Execute a command over SSH, if given a remote host.
+ssh :: Host -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+ssh Localhost c t = c t
+ssh host c t = do
+    flags <- sshFlags
+    c $ sconcat [["ssh"], flags, [ishow host], t]
+
+reboot :: App Bool -> Host -> App ()
+reboot r host = whenM r $ ssh host rawCmd_ ["sudo", "systemctl", "reboot"]
