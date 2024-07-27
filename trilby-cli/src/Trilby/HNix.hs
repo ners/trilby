@@ -1,18 +1,19 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-missing-exported-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 
 module Trilby.HNix where
 
 import Data.Fix
 import Data.List.Extra qualified as List
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Trilby.Host
+import Turtle qualified
 import Prelude
 
 instance IsString (NAttrPath NExpr) where
@@ -35,6 +36,12 @@ infixl 4 ~::
 k ~:: v = k ~: Fix v
 
 $(makeTraversals ''Fix)
+
+instance ToExpr (Path b t) where
+    toExpr = toExpr @Text . fromPath
+
+instance ToExpr (SomeBase t) where
+    toExpr = toExpr @Text . fromSomeBase
 
 canonicalBinding :: Binding NExpr -> Binding NExpr
 canonicalBinding (NamedVar p1 (Fix (NSet _ [NamedVar p2 e _])) pos) = canonicalBinding $ NamedVar (p1 <> p2) e pos
@@ -69,32 +76,76 @@ instance Show FlakeRef where
     show FlakeRef{..} = Text.unpack $ url <> "#" <> Text.intercalate "." output
 
 data FileOrFlake
-    = File FilePath
+    = File (SomeBase File)
     | Flake FlakeRef
     deriving stock (Generic)
-
-instance Show FileOrFlake where
-    show (File f) = f
-    show (Flake f) = show f
 
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
-writeNixFile :: (ToExpr a) => FilePath -> a -> App ()
+writeNixFile :: (ToExpr a) => Path b File -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-nixBuild :: FileOrFlake -> App FilePath
-nixBuild f =
-    fmap (fromText . firstLine) . withTrace cmd . sconcat $
-        [ ["nix", "build"]
-        , ["--no-link", "--print-out-paths"]
-        , case f of
-            File{} -> ["--file"]
-            Flake{} -> ["--accept-flake-config"]
-        , [ishow f]
-        ]
+nixBuild :: (HasCallStack) => FileOrFlake -> (FilePath -> App (Path Abs t)) -> App (Path Abs t)
+nixBuild f p =
+    (p . fromText . firstLine)
+        =<< withTrace
+            cmd
+            ( sconcat
+                [ ["nix", "build"]
+                , ["--no-link", "--print-out-paths"]
+                , case f of
+                    File f -> ["--file", fromSomeBase f]
+                    Flake f -> ["--accept-flake-config", ishow f]
+                ]
+            )
 
-currentSystem :: App Text
+copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
+copyClosure Localhost _ = pure ()
+copyClosure host@Host{} path = do
+    (code, _) <- ssh host cmd' ["command", "-v", "nix-store"]
+    case code of
+        ExitSuccess ->
+            cmd_ . sconcat $
+                [ ["nix-copy-closure"]
+                , ["--use-substitutes"]
+                , ["--gzip"]
+                , ["--to", ishow host]
+                , [fromPath path]
+                ]
+        _ -> do
+            flags <- sshFlags
+            ssh host rawCmd_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
+            flip shell_ Turtle.stdin . Text.intercalate " " . sconcat $
+                [
+                    [ "nix-store"
+                    , "--query"
+                    , "--requisites"
+                    , fromPath path
+                    ]
+                , ["|"]
+                ,
+                    [ "tar"
+                    , "--create"
+                    , "--gzip"
+                    , "--file=-"
+                    , "--files-from=-"
+                    , "--mode='u+rw'"
+                    ]
+                , ["|"]
+                , sconcat
+                    [ "ssh" : NonEmpty.toList flags <> [ishow host]
+                    ,
+                        [ "tar"
+                        , "--extract"
+                        , "--gzip"
+                        , "--file=-"
+                        , "--directory=/"
+                        ]
+                    ]
+                ]
+
+currentSystem :: (HasCallStack) => App Text
 currentSystem =
     fmap firstLine . cmd . sconcat $
         [ ["nix", "eval"]
@@ -102,3 +153,8 @@ currentSystem =
         , ["--raw"]
         , ["--expr", "builtins.currentSystem"]
         ]
+
+trilbyFlake :: (HasCallStack) => App Text
+trilbyFlake = do
+    hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
+    pure $ if False then "trilby" else "github:ners/trilby/infect"

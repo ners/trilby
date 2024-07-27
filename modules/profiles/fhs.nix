@@ -32,3 +32,9 @@
     ]
   );
 }
+  // lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
+  environment = {
+    ldso = "${pkgs.stdenv.cc.libc_lib}/lib64/ld-linux-x86-64.so.2";
+    ldso32 = "${pkgs.stdenv.cc.libc_lib}/lib/ld-linux-x86-64.so.2";
+  };
+}

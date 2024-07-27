@@ -1,29 +1,24 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-
 module Trilby.Install (install) where
 
 import Data.Text qualified as Text
-import System.FilePath.Lens (directory)
-import Trilby.Config.Host
-import Trilby.Config.User
 import Trilby.Disko (Disko)
 import Trilby.HNix (FlakeRef (..), currentSystem, writeNixFile)
+import Trilby.Host (Host (Localhost), reboot)
+import Trilby.Install.Config.Host
+import Trilby.Install.Config.User
 import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Widgets
-import Turtle ((</>))
+import Turtle qualified
 import Prelude
 
-rootMount :: FilePath
-rootMount = "/mnt"
+rootMount :: Path Abs Dir
+rootMount = $(mkAbsDir "/mnt")
 
-trilbyDir :: FilePath
-trilbyDir = rootMount </> "etc/trilby"
-
-diskoFile :: FilePath
-diskoFile = "/tmp/disko.nix"
+trilbyDir :: Path Abs Dir
+trilbyDir = trilbyHome rootMount
 
 install :: InstallOpts Maybe -> App ()
 install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
@@ -33,32 +28,37 @@ install (askOpts -> opts) | Just FlakeOpts{..} <- opts.flake = do
     nixosInstall flakeRef
     whenM copyFlake do
         storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path") empty
-        asRoot cmd_ ["cp", "-r", storePath, fromString trilbyDir]
-        asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
-    reboot opts.reboot
-install (askOpts -> opts) = do
+        asRoot cmd_ ["cp", "-r", storePath, fromPath trilbyDir]
+        asRoot cmd_ ["chown", "-R", "1000:1000", fromPath trilbyDir]
+    reboot opts.reboot Localhost
+install (askOpts -> opts) = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     disko <- getDisko opts
-    inDir (diskoFile ^. directory) $ writeNixFile diskoFile disko
-    let diskoRef = Disko.File diskoFile
+    inDir (parent diskoFile) $ writeNixFile diskoFile disko
+    let diskoRef = Disko.File $ Abs diskoFile
     formatDisk opts.format diskoRef
     mountRoot diskoRef
     flakeRef <- setupHost disko opts
     nixosInstall flakeRef
-    reboot opts.reboot
+    reboot opts.reboot Localhost
 
 formatDisk :: App Bool -> FileOrFlake -> App ()
 formatDisk f d = whenM f do
-    $(logWarn) "Formatting disk ... "
+    logWarn "Formatting disk ... "
     disko $ Format d
 
 mountRoot :: FileOrFlake -> App ()
 mountRoot d = unlessM rootIsMounted do
-    $(logWarn) "Partitions are not mounted"
+    logWarn "Partitions are not mounted"
     unlessM (yesNoButtons "Attempt to mount the partitions?" True) $
         errorExit "Cannot install without mounted partitions"
     disko $ Mount d
   where
-    rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromString rootMount]
+    rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromPath rootMount]
+
+flakeNix, defaultNix, configurationNix :: Path Rel File
+flakeNix = $(mkRelFile "flake.nix")
+defaultNix = $(mkRelFile "default.nix")
+configurationNix = $(mkRelFile "configuration.nix")
 
 setupHost :: Disko -> InstallOpts App -> App FlakeRef
 setupHost disko opts = do
@@ -66,24 +66,25 @@ setupHost disko opts = do
     edition <- opts.edition
     release <- opts.release
     inDir trilbyDir do
-        asRoot cmd_ ["chown", "-R", "1000:1000", fromString trilbyDir]
-        writeNixFile "flake.nix" $ flake release
+        asRoot cmd_ ["chown", "-R", "1000:1000", fromPath trilbyDir]
+        writeNixFile flakeNix $ flake release
         username <- opts.username
         password <- do
             rawPassword <- opts.password
-            HashedPassword . firstLine <$> proc ["mkpasswd", rawPassword] empty
+            HashedPassword . firstLine <$> Turtle.strict (Turtle.inproc "mkpasswd" [rawPassword] empty)
         let user = User{uid = 1000, ..}
-        let userDir = "users" </> fromText username
-        inDir userDir $ writeNixFile "default.nix" user
+        userDir <- parseRelDir . fromText $ "users/" <> username
+        let userFile = userDir </> defaultNix
+        writeNixFile userFile user
         keyboard <- opts.keyboard
         locale <- opts.locale
         timezone <- opts.timezone
         let host = Host{..}
-        let hostDir = "hosts" </> fromText hostname
+        hostDir <- parseRelDir . fromText $ "hosts/" <> hostname
         inDir hostDir do
             platform <- currentSystem
             writeNixFile
-                "default.nix"
+                defaultNix
                 [nix|
                 { lib, ... }:
                 lib.trilbySystem {
@@ -95,27 +96,35 @@ setupHost disko opts = do
                   modules = lib.findModulesList ./.;
                 }
                 |]
-            writeNixFile "configuration.nix" host
-            writeFile "hardware-configuration.nix"
+            writeNixFile configurationNix host
+            writeFile $(mkRelFile "hardware-configuration.nix")
                 =<< asRoot
                     cmd
                     [ "nixos-generate-config"
                     , "--show-hardware-config"
                     , "--no-filesystems"
                     , "--root"
-                    , fromString rootMount
+                    , fromPath rootMount
                     ]
-            writeNixFile "disko.nix" $ sanitise disko
+            writeNixFile $(mkRelFile "disko.nix") $ sanitise disko
         cmd_ . sconcat $
             [ ["nix", "flake", "lock"]
             , ["--accept-flake-config"]
             , ["--override-input", "trilby", "trilby"]
             ]
-    pure FlakeRef{url = fromString trilbyDir, output = pure hostname}
+        whenM opts.edit do
+            editor <- getEnv "EDITOR"
+            rawCmd_
+                [ fromString editor
+                , "flake.nix"
+                , fromPath $ hostDir </> configurationNix
+                , fromPath $ userDir </> defaultNix
+                ]
+    pure FlakeRef{url = fromPath trilbyDir, output = pure hostname}
 
 nixosInstall :: FlakeRef -> App ()
 nixosInstall flakeRef = do
-    $(logWarn) "Performing installation ... "
+    logWarn "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
     (withTrace . asRoot) rawCmd_ . sconcat $
         [ ["nix", "build"]
@@ -131,6 +140,3 @@ nixosInstall flakeRef = do
         , ["--no-root-password"]
         , ["--impure"]
         ]
-
-reboot :: App Bool -> App ()
-reboot r = whenM r $ cmd_ ["systemctl", "reboot"]

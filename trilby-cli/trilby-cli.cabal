@@ -1,22 +1,32 @@
-cabal-version:   3.4
-name:            trilby-cli
-version:         24.4.0
-synopsis:        Trilby command line tools
-homepage:        https://github.com/ners/trilby
-license:         Apache-2.0
-license-file:    LICENCE.md
-author:          ners
-maintainer:      ners@gmx.ch
-category:        System
-build-type:      Simple
-extra-doc-files: CHANGELOG.md, README.md
+cabal-version: 3.4
+name: trilby-cli
+version: 24.7.0
+synopsis: Trilby command line tools
+homepage: https://github.com/ners/trilby
+license: Apache-2.0
+license-file: LICENCE.md
+author: ners
+maintainer: ners@gmx.ch
+category: System
+build-type: Simple
+extra-doc-files:
+    CHANGELOG.md
+    README.md
 
 common common
-    default-language:   GHC2021
+    default-language: GHC2021
     ghc-options:
-        -Weverything -Wno-unsafe -Wno-missing-safe-haskell-mode
-        -Wno-missing-export-lists -Wno-missing-import-lists
-        -Wno-missing-kind-signatures -Wno-all-missed-specialisations
+        -Weverything
+        -Wno-all-missed-specialisations
+        -Wno-missing-export-lists
+        -Wno-missing-import-lists
+        -Wno-missing-kind-signatures
+        -Wno-missing-safe-haskell-mode
+        -Wno-name-shadowing
+        -Wno-orphans
+        -Wno-partial-fields
+        -Wno-unsafe
+
     default-extensions:
         ApplicativeDo
         BlockArguments
@@ -35,8 +45,8 @@ common common
         OverloadedLists
         OverloadedRecordDot
         OverloadedStrings
-        QuasiQuotes
         PackageImports
+        QuasiQuotes
         RecordWildCards
         RecursiveDo
         StrictData
@@ -44,26 +54,54 @@ common common
         TypeFamilies
         ViewPatterns
 
-library
-    import:          common
-    hs-source-dirs:  src
+executable trilby
+    import: common
+    main-is: Main.hs
+    hs-source-dirs: src
+    build-depends:
+        ansi-terminal,
+        base,
+        base,
+        data-default,
+        data-fix,
+        exceptions,
+        extra,
+        file-embed,
+        generic-lens,
+        hnix,
+        lens,
+        lens-family-th,
+        monad-logger,
+        mtl,
+        optparse-applicative,
+        optparse-applicative,
+        path,
+        path-io,
+        process,
+        terminal-widgets,
+        text,
+        text-rope-zipper,
+        turtle,
+        unix,
+        unliftio,
     other-modules:
         Prelude
-        Trilby.HNix
-        Trilby.Widgets
-    exposed-modules:
         Trilby.App
         Trilby.Command
-        Trilby.Config
-        Trilby.Config.Edition
-        Trilby.Config.Host
-        Trilby.Config.Release
-        Trilby.Config.User
+        Trilby.Configuration
         Trilby.Disko
         Trilby.Disko.Disk
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
+        Trilby.HNix
+        Trilby.Host
+        Trilby.Infect
+        Trilby.Infect.Options
         Trilby.Install
+        Trilby.Install.Config.Edition
+        Trilby.Install.Config.Host
+        Trilby.Install.Config.Release
+        Trilby.Install.Config.User
         Trilby.Install.Disko
         Trilby.Install.Flake
         Trilby.Install.Options
@@ -72,33 +110,4 @@ library
         Trilby.Update
         Trilby.Update.Options
         Trilby.Version
-    build-depends:
-        , ansi-terminal
-        , base
-        , data-default
-        , data-fix
-        , extra
-        , file-embed
-        , generic-lens
-        , hnix
-        , lens
-        , lens-family-th
-        , monad-logger
-        , mtl
-        , optparse-applicative
-        , process
-        , terminal-widgets
-        , text
-        , text-rope-zipper
-        , turtle
-        , unix
-        , unliftio
-
-executable trilby
-    import:         common
-    main-is:        Main.hs
-    hs-source-dirs: app
-    build-depends:
-        , base
-        , optparse-applicative
-        , trilby-cli
+        Trilby.Widgets

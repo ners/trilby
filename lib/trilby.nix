@@ -20,18 +20,19 @@ rec {
     };
 
   trilbyConfig = pipef [
+    (t: traceVerbose "trilbyConfig: ${toJSON t}" t)
     (t: {
       name = "trilby";
       edition = "workstation";
-      hostPlatform = "x86_64-linux";
-      buildPlatform = "x86_64-linux";
+      hostPlatform = t.hostPlatform;
+      buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
       variant = null;
       format = null;
     } // t)
     (t: t // rec {
       name = toLower t.name;
       edition = toLower t.edition;
-      hostSystem = systems.parse.mkSystemFromString t.hostPlatform;
+      hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) cpu; };
       nixpkgs = inputs.nixpkgs // {
         nixosModules = findModules "${inputs.nixpkgs}/nixos/modules";
       };
@@ -55,7 +56,7 @@ rec {
         inherit (trilby.nixpkgs) lib;
       };
     in
-    lib.nixosSystem {
+    traceVerbose "trilbySystem ${toJSON trilby}" (lib.nixosSystem {
       modules = with inputs.self.nixosModules; [
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
@@ -63,7 +64,7 @@ rec {
       ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
       ++ attrs.modules or [ ];
       specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
-    };
+    });
 
   trilbyTest = attrs:
     let
@@ -81,17 +82,11 @@ rec {
       extraDriverArgs = attrs.extraDriverArgs or [ ];
       skipLint = attrs.skipLint or false;
 
-      hostPkgs = pkgsFor {
-        inherit (trilby) nixpkgs;
-        system = trilby.buildPlatform;
-      };
+      hostPkgs = pkgsFor trilby;
 
       node = {
         specialArgs = { inherit inputs trilby lib; };
-        pkgs = pkgsFor {
-          inherit (trilby) nixpkgs;
-          system = trilby.hostPlatform;
-        };
+        pkgs = pkgsFor trilby;
         pkgsReadOnly = false;
       };
 

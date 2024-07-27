@@ -10,6 +10,7 @@
         trilby = {
           edition = "server";
           channel = "unstable";
+          hostPlatform = builtins.currentSystem;
         };
         modules = [
           ({ trilby, ... }: {

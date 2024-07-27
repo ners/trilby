@@ -1,16 +1,16 @@
-module Trilby.Config.Host where
+module Trilby.Install.Config.Host where
 
-import Trilby.Config.Edition
-import Trilby.Config.Release
-import Trilby.Config.User
 import Trilby.HNix (canonicalSet)
+import Trilby.Install.Config.Edition
+import Trilby.Install.Config.Release
+import Trilby.Install.Config.User
 import Prelude
 
 data Keyboard = Keyboard
     { layout :: Text
     , variant :: Maybe Text
     }
-    deriving stock (Generic)
+    deriving stock (Generic, Show)
 
 instance ToExpr Keyboard where
     toExpr Keyboard{..} =

@@ -1,61 +1,51 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Update (update) where
 
 import Data.List.NonEmpty.Extra qualified as NonEmpty
-import Data.Text qualified as Text
-import Trilby.HNix (FileOrFlake (..), FlakeRef (..), nixBuild, writeNixFile)
+import Trilby.Configuration (Configuration (..))
+import Trilby.Configuration qualified as Configuration
+import Trilby.HNix (FileOrFlake (..), FlakeRef (..), copyClosure, nixBuild, writeNixFile)
+import Trilby.Host
 import Trilby.Update.Options
-import Turtle (readlink, (</>))
+import Turtle qualified
 import Prelude
 
-update :: UpdateOpts Maybe -> App ()
+update :: (HasCallStack) => UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
-    whenM opts.flakeUpdate . inDir "/etc/trilby" $ rawCmd_ ["nix", "flake", "update", "--accept-flake-config"]
-    hostname <- Text.strip <$> cmd ["hostnamectl", "hostname"]
-    let canonicalHost :: Host -> Host
-        canonicalHost Localhost = Localhost
-        canonicalHost host@Host{hostname = h}
-            | h `elem` hostname :| ["localhost", "127.0.0.1", "::1"] = Localhost
-            | otherwise = host
-    let configuration :: Host -> Configuration
-        configuration =
-            canonicalHost >>> \case
-                Localhost -> Configuration{name = hostname, host = Localhost}
-                host@Host{hostname} -> Configuration{name = hostname, host}
-    configurations <- configuration <$$> opts.hosts <&> NonEmpty.nubOrd
-    configurationResults <- buildConfigurations configurations
-    for_ configurationResults $ \(Configuration{..}, resultPath) -> do
-        unless (host == Localhost) $ copyClosure host resultPath
-        ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromString resultPath]
-        unless (host == Localhost && length configurationResults == 1) $ $(logWarn) $ "Choosing action for host " <> ishow host
+    whenM opts.flakeUpdate do
+        trilbyPath <- canonicalizePath $ trilbyHome rootDir
+        flakes <- Turtle.sort $ Turtle.parent <$> Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
+        mapM_ updateFlake flakes
+    configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
+    buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
+        traceShowM $ resultPath </> $(mkRelFile "bin/switch-to-configuration")
+        copyClosure host resultPath
+        ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
+        unless (host == Localhost && length configurations == 1) . logWarn $ "Choosing action for host " <> ishow host
         let perform = switchToConfiguration host resultPath
         opts.action >>= \case
             Switch -> perform ConfigSwitch
             Boot{..} -> do
                 perform ConfigBoot
-                whenM reboot $ ssh host cmd_ ["systemctl", "reboot"]
+                Trilby.Host.reboot reboot host
             Test -> perform ConfigTest
             NoAction -> pure ()
 
-data Configuration = Configuration {name :: Text, host :: Host}
-    deriving stock (Generic, Eq, Ord)
+updateFlake :: (HasCallStack) => FilePath -> App ()
+updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromString path]
 
-buildConfiguration :: Configuration -> App (Configuration, FilePath)
-buildConfiguration c = (c,) <$> nixBuild f
+buildConfiguration :: (HasCallStack) => Configuration -> App (Configuration, Path Abs Dir)
+buildConfiguration c = (c,) <$> nixBuild f parseAbsDir
   where
     output = ["nixosConfigurations", c.name, "config", "system", "build", "toplevel"]
-    f = Flake FlakeRef{url = "/etc/trilby", output}
+    f = Flake FlakeRef{url = fromPath $ trilbyHome rootDir, output}
 
 {- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
 To this end we write a single derivation that depends on each of the configurations we wish to build.
 The resulting output path contains symlinks for each configuration by name.
 -}
-buildConfigurations :: NonEmpty Configuration -> App (NonEmpty (Configuration, FilePath))
+buildConfigurations :: (HasCallStack) => NonEmpty Configuration -> App (NonEmpty (Configuration, Path Abs Dir))
 buildConfigurations (configuration :| []) = pure <$> buildConfiguration configuration
-buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \tmpFile handle -> do
-    hClose handle
+buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \tmpFile -> do
     let configurationNames = configurations <&> (.name)
     writeNixFile
         tmpFile
@@ -73,26 +63,8 @@ buildConfigurations configurations = withSystemTempFile "trilby-update-.nix" $ \
                configurationNames
              )
          |]
-    resultPath <- nixBuild $ File tmpFile
-    forM configurations $ \c -> (c,) <$> readlink (resultPath </> fromText c.name)
-
--- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App ()) -> NonEmpty Text -> App ()
-ssh Localhost c t = c t
-ssh host c t = withSystemTempDirectory "trilby-update" $ \tmpDir ->
-    c . sconcat $
-        [ ["ssh"]
-        , ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromString tmpDir <> "/ssh-%n"]
-        , ["-o", "ControlPersist=60"]
-        , ["-t"]
-        , [ishow host]
-        , t
-        ]
-
-copyClosure :: Host -> FilePath -> App ()
-copyClosure Localhost _ = pure ()
-copyClosure host@Host{} path = cmd_ ["nix-copy-closure", "--gzip", "--to", ishow host, fromString path]
+    resultPath <- nixBuild (File $ Abs tmpFile) parseAbsDir
+    flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
 
 data ConfigAction
     = ConfigBoot
@@ -105,7 +77,7 @@ instance Show ConfigAction where
     show ConfigSwitch = "switch"
     show ConfigTest = "test"
 
-switchToConfiguration :: Host -> FilePath -> ConfigAction -> App ()
+switchToConfiguration :: (HasCallStack) => Host -> Path Abs Dir -> ConfigAction -> App ()
 switchToConfiguration host path action = do
     case action of
         ConfigBoot -> setProfile host path
@@ -124,16 +96,16 @@ switchToConfiguration host path action = do
         , ["--service-type=exec"]
         , ["--unit=trilby-switch-to-configuration"]
         , ["--wait"]
-        , [fromString activationScript, ishow action]
+        , [fromPath activationScript, ishow action]
         ]
   where
-    activationScript = path <> "/bin/switch-to-configuration"
+    activationScript = path </> $(mkRelFile "bin/switch-to-configuration")
 
-setProfile :: Host -> FilePath -> App ()
+setProfile :: (HasCallStack) => Host -> Path Abs Dir -> App ()
 setProfile host path =
     ssh host rawCmd_ . sconcat $
         [ ["sudo"]
         , ["nix-env"]
         , ["--profile", "/nix/var/nix/profiles/system"]
-        , ["--set", fromString path]
+        , ["--set", fromPath path]
         ]

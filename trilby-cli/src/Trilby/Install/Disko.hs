@@ -10,7 +10,7 @@ where
 import Control.Lens
 import Data.Generics.Labels ()
 import Data.List (sortOn)
-import System.FilePath.Lens
+import Data.Text qualified as Text
 import Trilby.Disko
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
@@ -19,8 +19,8 @@ import Trilby.HNix (FileOrFlake (..))
 import Trilby.Install.Options
 import Prelude
 
-luksPasswordFile :: FilePath
-luksPasswordFile = "/tmp/luksPassword"
+luksPasswordFile :: Path Abs File
+luksPasswordFile = $(mkAbsFile "/tmp/luksPassword")
 
 data DiskoAction
     = Format !FileOrFlake
@@ -30,22 +30,17 @@ data DiskoAction
 disko :: DiskoAction -> App ()
 disko action =
     (withTrace . asRoot) quietCmd_ $ case action of
-        Format (File f) -> ["disko", "-m", "disko", fromString f]
+        Format (File f) -> ["disko", "-m", "disko", fromSomeBase f]
         Format (Flake f) -> ["disko", "-m", "disko", "--flake", ishow f]
-        Mount (File f) -> ["disko", "-m", "mount", fromString f]
+        Mount (File f) -> ["disko", "-m", "mount", fromSomeBase f]
         Mount (Flake f) -> ["disko", "-m", "mount", "--flake", ishow f]
 
 getDisko :: InstallOpts App -> App Disko
 getDisko opts = do
-    diskName <- opts.disk
-    diskDevice <-
-        headDef diskName
-            . sortOn length
-            . lines
-            . fromText
-            <$> cmd
-                ["find", "-L", "/dev/disk/by-id", "-samefile", fromString diskName]
-    $(logWarn) $ "Using disk " <> fromString diskName <> " with id " <> fromString diskDevice
+    diskName :: Path Abs File <- opts.disk
+    diskLines <- sortOn Text.length . Text.lines <$> cmd ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
+    diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
+    logWarn $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
     luks <- opts.luks
     let useLuks = luks `is` #_UseLuks
     when useLuks $ writeFile luksPasswordFile =<< luks.luksPassword
@@ -116,8 +111,8 @@ getDisko opts = do
         Disko
             { disks =
                 [ Disk
-                    { name = fromString $ diskDevice ^. filename
-                    , device = fromString diskDevice
+                    { name = fromPath . filename $ diskDevice
+                    , device = fromPath diskDevice
                     , content =
                         Gpt
                             [ mbrPartition

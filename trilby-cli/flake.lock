@@ -1,27 +1,29 @@
 {
   "nodes": {
-    "nix-filter": {
+    "haskell-terminal": {
+      "flake": false,
       "locked": {
-        "lastModified": 1710156097,
-        "narHash": "sha256-1Wvk8UP7PXdf8bCCaEoMnOT1qe5/Duqgj+rL8sRQsSM=",
-        "owner": "numtide",
-        "repo": "nix-filter",
-        "rev": "3342559a24e85fc164b295c3444e8a139924675b",
+        "lastModified": 1709159410,
+        "narHash": "sha256-BT0ClAsXsZYx9He7oNQQricb3usxwlYBZj713etxRJg=",
+        "owner": "ners",
+        "repo": "haskell-terminal",
+        "rev": "de3c2fe566fe9b655e46b303d7d93442dafff06c",
         "type": "github"
       },
       "original": {
-        "owner": "numtide",
-        "repo": "nix-filter",
+        "owner": "ners",
+        "ref": "fix-virtual-terminal-erase",
+        "repo": "haskell-terminal",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1712163089,
-        "narHash": "sha256-Um+8kTIrC19vD4/lUCN9/cU9kcOsD1O1m+axJqQPyMM=",
+        "lastModified": 1721924956,
+        "narHash": "sha256-Sb1jlyRO+N8jBXEX9Pg9Z1Qb8Bw9QyOgLDNMEpmjZ2M=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "fd281bd6b7d3e32ddfa399853946f782553163b5",
+        "rev": "5ad6a14c6bf098e98800b091668718c336effc95",
         "type": "github"
       },
       "original": {
@@ -33,27 +35,24 @@
     },
     "root": {
       "inputs": {
-        "nix-filter": "nix-filter",
         "nixpkgs": "nixpkgs",
         "terminal-widgets": "terminal-widgets"
       }
     },
     "terminal-widgets": {
       "inputs": {
-        "nix-filter": [
-          "nix-filter"
-        ],
+        "haskell-terminal": "haskell-terminal",
         "nixpkgs": [
           "nixpkgs"
         ],
         "text-rope-zipper": "text-rope-zipper"
       },
       "locked": {
-        "lastModified": 1712401643,
-        "narHash": "sha256-mOW8LmyA5J77K6ODHVsZ+gYJhqAS6ZeCijOHYivJEig=",
+        "lastModified": 1722012213,
+        "narHash": "sha256-k5+03A1KxyZlE9GAfjWHq57SlGgNpm0mg/FkrwEFFc0=",
         "owner": "ners",
         "repo": "terminal-widgets",
-        "rev": "de1a35d9b56b4677e2b003e45ef9fcfba2827de4",
+        "rev": "654e57d46121a8502d98ee1a0cfefd03f72ec621",
         "type": "github"
       },
       "original": {
@@ -64,21 +63,17 @@
     },
     "text-rope-zipper": {
       "inputs": {
-        "nix-filter": [
-          "terminal-widgets",
-          "nix-filter"
-        ],
         "nixpkgs": [
           "terminal-widgets",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1708069612,
-        "narHash": "sha256-b+ZELaDdvVhzTVTHlxpBV/gLNhC1ij+bXYB4PzyhXXw=",
+        "lastModified": 1715016696,
+        "narHash": "sha256-/D16r86mh4wrimHaFcWZ/8iEzdF7eduHs3DxK8cNVL4=",
         "owner": "ners",
         "repo": "text-rope-zipper",
-        "rev": "f71cd4087bad6eae68b4ff6a691bfc97368f9242",
+        "rev": "d5f943b6eb861e038659570d2015248512cd9c98",
         "type": "github"
       },
       "original": {

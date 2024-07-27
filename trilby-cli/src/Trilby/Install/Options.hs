@@ -1,19 +1,15 @@
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
-{-# OPTIONS_GHC -Wno-partial-fields #-}
-
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
-import System.Posix (getFileStatus, isBlockDevice)
-import Trilby.Config.Edition
-import Trilby.Config.Host (Keyboard (..))
-import Trilby.Config.Release
+import System.Posix (getFileStatus, isBlockDevice, userPassword)
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
+import Trilby.Install.Config.Edition
+import Trilby.Install.Config.Host (Keyboard (..))
+import Trilby.Install.Config.Release
 import Trilby.Widgets
-import UnliftIO.Directory (canonicalizePath)
 import Prelude hiding (error)
 
 data LuksOpts m
@@ -30,13 +26,13 @@ parseLuks f = do
     f $
         flag' NoLuks (long "no-luks")
             <|> do
-                flag' () (long "luks" <> help "encrypt the disk with LUKS2")
-                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "the disk encryption password")
+                flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
+                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
                 pure UseLuks{..}
 
 parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
 parseKeyboard f = f do
-    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "the keyboard layout to use on this system")
+    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
     pure Keyboard{variant = Nothing, ..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
@@ -47,14 +43,14 @@ deriving stock instance Show (FlakeOpts Maybe)
 parseFlake :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (Maybe (FlakeOpts m))
 parseFlake f = do
     optional do
-        flakeRef <- strOption (long "flake" <> metavar "FLAKE" <> help "build the Trilby system from the specified flake")
-        copyFlake <- f $ parseYesNo "copy-flake" "copy the installation flake to /etc/trilby"
+        flakeRef <- strOption (long "flake" <> metavar "FLAKE" <> help "Build the Trilby system from the specified flake")
+        copyFlake <- f $ parseYesNo "copy-flake" "Copy the installation flake to /etc/trilby"
         pure FlakeOpts{..}
 
 data InstallOpts m = InstallOpts
     { flake :: Maybe (FlakeOpts m)
     , luks :: m (LuksOpts m)
-    , disk :: m FilePath
+    , disk :: m (Path Abs File)
     , format :: m Bool
     , filesystem :: m Format
     , edition :: m Edition
@@ -65,26 +61,30 @@ data InstallOpts m = InstallOpts
     , timezone :: m Text
     , username :: m Text
     , password :: m Text
+    , edit :: m Bool
     , reboot :: m Bool
     }
     deriving stock (Generic)
 
-parseInstallOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
-parseInstallOpts f = do
+deriving stock instance Show (InstallOpts Maybe)
+
+parseOpts :: (forall a. Parser a -> Parser (m a)) -> Parser (InstallOpts m)
+parseOpts f = do
     flake <- parseFlake f
     luks <- parseLuks f
-    disk <- f $ strOption (long "disk" <> metavar "DISK" <> help "the disk to install to")
-    format <- f $ parseYesNo "format" "format the installation disk"
-    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "the root partition filesystem")
-    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "the edition of Trilby to install")
-    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "the nixpkgs release to use")
-    hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "the hostname to install")
+    disk <- f $ parsePath parseAbsFile (long "disk" <> metavar "DISK" <> help "The disk to install to")
+    format <- f $ parseYesNo "format" "Format the installation disk"
+    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
+    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
+    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "The nixpkgs release to use")
+    hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "The hostname to install")
     keyboard <- parseKeyboard f
-    locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "the locale of this system")
-    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "the time zone of this system")
-    username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "the username of the admin user")
-    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "the password of the admin user")
-    reboot <- f $ parseYesNo "reboot" "reboot when done installing"
+    locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "The locale of this system")
+    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
+    username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
+    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
+    edit <- f $ parseYesNo "edit" "Edit the configuration before installing"
+    reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
 
 validateParsedInstallOpts :: InstallOpts Maybe -> App (InstallOpts Maybe)
@@ -93,29 +93,32 @@ validateParsedInstallOpts opts =
         Nothing -> pure opts
         Just d -> do
             vd <- fromMaybeM (liftIO exitFailure) $ validateDisk d
-            pure $ opts & #disk ?~ fromString vd
+            pure $ opts & #disk ?~ vd
 
-validateDisk :: FilePath -> App (Maybe FilePath)
+validateDisk :: Path Abs File -> App (Maybe (Path Abs File))
 validateDisk f = do
-    canonical <- canonicalizePath f
-    status <- liftIO $ getFileStatus canonical
+    status <- liftIO . getFileStatus . toFilePath $ f
     if isBlockDevice status
-        then pure $ Just canonical
+        then pure $ Just f
         else do
-            $(logError) $ "Cannot find disk " <> fromString f
+            logError $ "Cannot find disk " <> fromPath f
             pure Nothing
 
-askDisk :: App FilePath
+askDisk :: App (Path Abs File)
 askDisk = do
-    disks <- fmap fromText . Text.lines <$> shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
+    disks <- mapM (parseAbsFile . fromText) . Text.lines =<< shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
     when (null disks) $ errorExit "No disks found"
-    fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing id >>= validateDisk . fromText
+    fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
 askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
-askLuks opts = useLuks <&> bool NoLuks UseLuks{..}
+askLuks opts =
+    case opts of
+        Nothing -> bool NoLuks UseLuks{luksPassword = askPassword} <$> askUseLuks
+        Just NoLuks -> pure NoLuks
+        Just UseLuks{..} -> pure UseLuks{luksPassword = maybe askPassword pure luksPassword}
   where
-    useLuks = maybe (yesNoButtons "Encrypt the disk with LUKS2?" True) (const $ pure True) opts
-    luksPassword = maybe (passwordInput "Choose LUKS password:") pure (opts >>= (.luksPassword))
+    askUseLuks = yesNoButtons "Encrypt the disk with LUKS2?" True
+    askPassword = passwordInput "Choose LUKS password:"
 
 askFlake :: FlakeOpts Maybe -> FlakeOpts App
 askFlake FlakeOpts{..} =
@@ -156,5 +159,6 @@ askOpts opts =
         , timezone = maybe askTimezone pure opts.timezone
         , username = maybe (textInput "Choose admin username:" "") pure opts.username
         , password = maybe (passwordInput "Choose admin password:") pure opts.password
+        , edit = maybe (yesNoButtons "Edit the configuration?" False) pure opts.edit
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
         }

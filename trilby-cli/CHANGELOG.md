@@ -1,5 +1,16 @@
 # Revision history for trilby-cli
 
+## 24.7.0 -- 2024-07-24
+
+* Print version when running verbosely
+* Use correct PATH when running in Nix sandbox
+* Update flakes recursively
+* Add Infect command
+* Switch from TH to callstack-based logging
+* Remove library, build only executable
+* Switch from FilePath to Path
+* Add edit option to Install
+
 ## 24.4.0 -- 2024-04-04
 
 * Set profile on update

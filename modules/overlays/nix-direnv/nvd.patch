@@ -1,32 +1,33 @@
-commit 51ed63e346cc85b94c07eb83dafe77d26de4e420
+commit f0e898398ce3f2342f9da61d18b00219a2874d15
 Author: ners <ners@gmx.ch>
-Date:   Wed Feb 21 21:06:01 2024 +0100
+Date:   Mon Jun 10 11:53:28 2024 +0200
 
     display diff between old and new profiles
 
 diff --git a/direnvrc b/direnvrc
-index 1592a3d..f423a49 100644
---- a/share/nix-direnv/direnvrc
-+++ b/share/nix-direnv/direnvrc
-@@ -298,6 +298,7 @@ use_flake() {
+index 68cef33..552b690 100644
+--- a/direnvrc
++++ b/direnvrc
+@@ -299,6 +299,8 @@ use_flake() {
        local tmp_profile_rc
        local tmp_profile="${layout_dir}/flake-tmp-profile.$$"
        if tmp_profile_rc=$(_nix print-dev-env --profile "$tmp_profile" "$@"); then
 +        local old_store_path=$(find "${layout_dir}" -type l -name '*-profile-*' | head -n1 | xargs readlink)
++
+         # If we've gotten here, the user's current devShell is valid and we should cache it
          _nix_clean_old_gcroots "$layout_dir"
  
-         # We need to update our cache
-@@ -318,6 +319,9 @@ use_flake() {
+@@ -320,6 +322,9 @@ use_flake() {
            flake_input_paths="${flake_input_paths/${store_path}/}"
          done
  
 +        if [[ -n "${old_store_path}" ]]; then
 +          nvd diff "${old_store_path}" "$(readlink $profile)"
 +        fi
-         _nix_direnv_info "renewed cache"
-       fi
-     fi
-@@ -464,11 +468,16 @@ use_nix() {
+         _nix_direnv_info "Renewed cache"
+       else
+         # The user's current flake failed to evaluate,
+@@ -478,11 +483,16 @@ use_nix() {
          --profile "$tmp_profile" \
          --impure \
          "${extra_args[@]}"); then
@@ -40,6 +41,6 @@ index 1592a3d..f423a49 100644
 +        if [[ -n "${old_store_path}" ]]; then
 +          nvd diff "${old_store_path}" "$(readlink $profile)"
 +        fi
-         _nix_direnv_info "renewed cache"
-       fi
-     fi
+         _nix_direnv_info "Renewed cache"
+       else
+         _nix_direnv_warning "Evaluating current nix shell failed. Falling back to previous environment!"
