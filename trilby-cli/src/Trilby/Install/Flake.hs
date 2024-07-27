@@ -2,7 +2,8 @@ module Trilby.Install.Flake where
 
 import Data.Text qualified as Text
 import Trilby.HNix hiding (Flake)
-import Trilby.Install.Config.Release (Release (..))
+import Trilby.Install.Config.Release
+import Trilby.System
 import Prelude
 
 data InputOverride = Follows Text Text
@@ -38,13 +39,13 @@ data NixConfig = NixConfig
 
 instance ToExpr NixConfig where
     toExpr NixConfig{..} =
-        canonicalSet
-            [nix|
-            {
-                extra-substituters = extraSubstituters;
-                extra-trusted-public-keys = extraTrustedPublicKeys;
-            }
-            |]
+        [nix|
+        {
+            extra-substituters = extraSubstituters;
+            extra-trusted-public-keys = extraTrustedPublicKeys;
+        }
+        |]
+            & canonicalSet
 
 data Flake = Flake
     { nixConfig :: NixConfig
@@ -55,19 +56,19 @@ data Flake = Flake
 
 instance ToExpr Flake where
     toExpr Flake{..} =
-        canonicalSet
-            [nix|
+        [nix|
             {
                 nixConfig = nixConfig;
                 inputs = inputsSet;
                 outputs = outputs;
             }
-            |]
+        |]
+            & canonicalSet
       where
         inputsSet = listToSet (fromText . (.name)) inputs
 
-flake :: Release -> Flake
-flake c =
+flake :: Kernel -> Release -> Flake
+flake kernel release =
     Flake
         { nixConfig =
             NixConfig
@@ -81,24 +82,32 @@ flake c =
                     , url = "github:nixos/nixpkgs/nixos-unstable"
                     , inputs = []
                     }
-                  | c /= Unstable
+                  | release /= Unstable
+                  ]
+                , [ InputFlake
+                    { name = "nix-darwin"
+                    , url = "github:LnL7/nix-darwin"
+                    , inputs = ["nixpkgs" `Follows` "nixpkgs"]
+                    }
+                  | kernel == Darwin
                   ]
                 ,
                     [ InputFlake
                         { name = "nixpkgs"
-                        , url = "github:nixos/nixpkgs/nixos-" <> ishow c
+                        , url = "github:nixos/nixpkgs/nixos-" <> ishow release
                         , inputs = []
                         }
                     , InputFlake
                         { name = "trilby"
-                        , url = "github:ners/trilby"
+                        , url = "github:ners/trilby/darwin"
                         , inputs =
                             [ "nixpkgs" `Follows` "nixpkgs"
                             , "nixpkgs-unstable"
-                                `Follows` if c == Unstable
+                                `Follows` if release == Unstable
                                     then "nixpkgs"
                                     else "nixpkgs-unstable"
                             ]
+                                <> ["nix-darwin" `Follows` "nix-darwin" | kernel == Darwin]
                         }
                     ]
                 ]
@@ -106,12 +115,17 @@ flake c =
             [nix|
                 inputs:
                 with builtins;
-                let lib = inputs.trilby.lib; in
-                {
-                  nixosConfigurations = with lib; pipe ./hosts [
+                let
+                  inherit (inputs.trilby) lib;
+                  allConfigurations = with lib; pipe ./hosts [
                     findModules
-                    (mapAttrs (_: host: import host { inherit lib; }))
+                    (mapAttrs (hostname: host: import host { inherit lib; }))
                   ];
+                in
+                {
+                  inherit (inputs.trilby) legacyPackages;
+                  nixosConfigurations = allConfigurations;
+                  darwinConfigurations = allConfigurations;
                 }
                 |]
         }

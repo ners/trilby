@@ -148,4 +148,4 @@ copyClosure host@Host{} path = do
 trilbyFlake :: (HasCallStack) => App Text
 trilbyFlake = do
     hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
-    pure $ if False then "trilby" else "github:ners/trilby/infect"
+    pure $ if False then "trilby" else "github:ners/trilby/darwin"

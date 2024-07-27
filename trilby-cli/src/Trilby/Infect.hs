@@ -8,24 +8,21 @@ import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, trilbyFlake, writeNixFile)
 import Trilby.Host
 import Trilby.Infect.Options
+import Trilby.System
 import Prelude
 
 infect :: InfectOpts Maybe -> App ()
 infect (askOpts -> opts) = do
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
-    for_ configurations \c -> do
-        infectLinux opts c
-
-infectLinux :: InfectOpts App -> Configuration -> App ()
-infectLinux opts Configuration{..} = do
-    kexec <- buildKexec opts
-    copyClosure host kexec
-    let bin = kexec </> $(mkRelFile "kexec-boot")
-    whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
-
-infectDarwin :: InfectOpts App -> Configuration -> App ()
-infectDarwin opts Configuration{..} = do
-    logError "Not yet implemented"
+    for_ configurations \Configuration{..} -> do
+        system <- hostSystem host
+        case system.kernel of
+            Linux -> do
+                kexec <- buildKexec opts
+                copyClosure host kexec
+                let bin = kexec </> $(mkRelFile "kexec-boot")
+                whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
+            Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec :: (HasCallStack) => InfectOpts App -> App (Path Abs Dir)
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do

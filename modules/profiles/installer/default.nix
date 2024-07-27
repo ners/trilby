@@ -1,8 +1,8 @@
-{ lib, pkgs, ... }:
+{ trilby, lib, pkgs, ... }:
 
 {
   imports = [
-    (lib.trilbyUser {
+    (lib.trilbyUser trilby {
       name = "trilby";
       initialPassword = "trilby";
     })

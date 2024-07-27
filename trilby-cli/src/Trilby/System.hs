@@ -1,21 +1,29 @@
 module Trilby.System where
 
 import Data.List.Extra qualified as List
+import Data.Text qualified as Text
 import Text.Read (readMaybe)
 import Prelude
 
 newtype Architecture = Architecture Text
-    deriving newtype (Show, Read)
+    deriving newtype (Eq, Ord)
+
+instance Show Architecture where
+    show (Architecture a) = Text.unpack a
 
 data Kernel
     = Linux
     | Darwin
-    deriving stock (Generic, Eq, Show, Bounded, Enum)
+    deriving stock (Generic, Eq, Ord, Show, Bounded, Enum)
 
 instance Read Kernel where
     readsPrec = readsPrecBoundedEnumOn (fmap toLower)
 
-data System = System {architecture :: Architecture, kernel :: Kernel}
+data System = System
+    { architecture :: Architecture
+    , kernel :: Kernel
+    }
+    deriving stock (Generic, Eq, Ord)
 
 instance Show System where
     show System{..} = show architecture <> "-" <> fmap toLower (show kernel)
@@ -27,6 +35,6 @@ instance Read System where
             case List.splitOn "-" s of
                 [archPart, kernelPart] -> Just (archPart, kernelPart)
                 _ -> Nothing
-        architecture <- readMaybe archPart
+        let architecture = Architecture $ Text.pack archPart
         kernel <- readMaybe kernelPart
         pure (System{..}, "")
