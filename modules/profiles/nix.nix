@@ -7,8 +7,12 @@
 
   nix = lib.mkMerge [
     {
-      package = lib.mkDefault pkgs.nixVersions.latest;
-      monitored.enable = true;
+      monitored = {
+        enable = lib.mkDefault true;
+        package = lib.mkDefault (pkgs.nix-monitored.override {
+          nix = pkgs.nixVersions.latest;
+        });
+      };
       settings = {
         auto-optimise-store = true;
         preallocate-contents = false;

@@ -5,46 +5,47 @@ import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), FlakeRef (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
+import Trilby.System
 import Trilby.Update.Options
 import Turtle qualified
 import Prelude
 
 update :: (HasCallStack) => UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
+    trilbyPath <- canonicalizePath $ trilbyHome rootDir
     whenM opts.flakeUpdate do
-        trilbyPath <- canonicalizePath $ trilbyHome rootDir
-        flakes <- Turtle.sort $ Turtle.parent <$> Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
+        flakes <- Turtle.sort $ parseAbsFile =<< Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
         mapM_ updateFlake flakes
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
-    buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
-        traceShowM $ resultPath </> $(mkRelFile "bin/switch-to-configuration")
-        copyClosure host resultPath
-        ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
-        unless (host == Localhost && length configurations == 1) . logWarn $ "Choosing action for host " <> ishow host
-        let perform = switchToConfiguration host resultPath
-        opts.action >>= \case
-            Switch -> perform ConfigSwitch
-            Boot{..} -> do
-                perform ConfigBoot
-                Trilby.Host.reboot reboot host
-            Test -> perform ConfigTest
-            NoAction -> pure ()
+    hostSystem Localhost >>= \case
+        System{kernel = Linux} -> do
+            buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
+                traceShowM $ resultPath </> $(mkRelFile "bin/switch-to-configuration")
+                copyClosure host resultPath
+                ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
+                unless (host == Localhost && length configurations == 1) . logWarn $ "Choosing action for host " <> ishow host
+                let perform = switchToConfiguration host resultPath
+                opts.action >>= \case
+                    Switch -> perform ConfigSwitch
+                    Boot{..} -> do
+                        perform ConfigBoot
+                        Trilby.Host.reboot reboot host
+                    Test -> perform ConfigTest
+                    NoAction -> pure ()
+        System{kernel = Darwin} -> updateDarwin opts trilbyPath
 
-updateFlake :: (HasCallStack) => FilePath -> App ()
-updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromString path]
-
-buildConfiguration :: (HasCallStack) => Configuration -> App (Configuration, Path Abs Dir)
-buildConfiguration c = (c,) <$> nixBuild f parseAbsDir
-  where
-    output = ["nixosConfigurations", c.name, "config", "system", "build", "toplevel"]
-    f = Flake FlakeRef{url = fromPath $ trilbyHome rootDir, output}
+updateFlake :: (HasCallStack) => Path b File -> App ()
+updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromPath $ parent path]
 
 {- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
 To this end we write a single derivation that depends on each of the configurations we wish to build.
 The resulting output path contains symlinks for each configuration by name.
 -}
 buildConfigurations :: (HasCallStack) => NonEmpty Configuration -> App (NonEmpty (Configuration, Path Abs Dir))
-buildConfigurations (configuration :| []) = pure <$> buildConfiguration configuration
+buildConfigurations (configuration :| []) = pure . (configuration,) <$> nixBuild f parseAbsDir
+  where
+    output = ["nixosConfigurations", configuration.name, "config", "system", "build", "toplevel"]
+    f = Flake FlakeRef{url = fromPath $ trilbyHome rootDir, output}
 buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \tmpFile -> do
     let configurationNames = configurations <&> (.name)
     writeNixFile
@@ -101,7 +102,7 @@ switchToConfiguration host path action = do
   where
     activationScript = path </> $(mkRelFile "bin/switch-to-configuration")
 
-setProfile :: (HasCallStack) => Host -> Path Abs Dir -> App ()
+setProfile :: (HasCallStack) => Host -> Path Abs t -> App ()
 setProfile host path =
     ssh host rawCmd_ . sconcat $
         [ ["sudo"]
@@ -109,3 +110,21 @@ setProfile host path =
         , ["--profile", "/nix/var/nix/profiles/system"]
         , ["--set", fromPath path]
         ]
+
+updateDarwin :: UpdateOpts App -> Path Abs Dir -> App ()
+updateDarwin opts trilbyDir = inDir trilbyDir do
+    cmd_ ["darwin-rebuild", "build", "--flake", fromPath trilbyDir]
+    let result = $(mkRelDir "./result")
+    cmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath result]
+    systemConfig <- canonicalizePath result
+    let perform action = do
+            case action of
+                ConfigSwitch -> setProfile Localhost systemConfig
+                _ -> pure ()
+            cmd_ [fromPath $ result </> $(mkRelFile "activate-user")]
+            asRoot cmd_ [fromPath $ result </> $(mkRelFile "activate")]
+    opts.action >>= \case
+        Switch -> perform ConfigSwitch
+        Test -> perform ConfigTest
+        Boot{} -> errorExit "Boot is not supported on Darwin"
+        NoAction -> pure ()

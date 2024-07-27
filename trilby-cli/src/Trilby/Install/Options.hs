@@ -6,6 +6,7 @@ import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Disko.Filesystem
 import Trilby.HNix (FlakeRef (..))
+import Trilby.Host
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Host (Keyboard (..))
 import Trilby.Install.Config.Release
@@ -153,7 +154,7 @@ askOpts opts =
         , filesystem = maybe (selectEnum "Choose root partition filesystem:" Nothing) pure opts.filesystem
         , edition = maybe (selectEnum "Choose edition:" Nothing) pure opts.edition
         , release = maybe (selectEnum "Choose release:" Nothing) pure opts.release
-        , hostname = maybe (textInput "Choose hostname:" "") pure opts.hostname
+        , hostname = maybe (textInput "Choose hostname:" =<< hostname Localhost) pure opts.hostname
         , keyboard = maybe askKeyboard pure opts.keyboard
         , locale = maybe askLocale pure opts.locale
         , timezone = maybe askTimezone pure opts.timezone

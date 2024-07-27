@@ -27,6 +27,7 @@ instance ToExpr Subvolume where
             mountOptions = mountoptions;
         }
         |]
+            & canonicalSet
 
 data LuksKeyFile
     = KeyFile (Path Abs File)
@@ -86,16 +87,16 @@ data Partition = Partition
 
 instance ToExpr Partition where
     toExpr Partition{..} =
-        canonicalSet
-            [nix|
-            {
-                label = label;
-                size = size;
-                type = typ;
-                priority = priority;
-                content = content;
-            }
-            |]
+        [nix|
+        {
+            label = label;
+            size = size;
+            type = typ;
+            priority = priority;
+            content = content;
+        }
+        |]
+            & canonicalSet
       where
         typ = toExpr @(Maybe String) $ case content of
             EfiPartition{} -> Just "EF00"
