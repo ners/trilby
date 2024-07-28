@@ -9,7 +9,7 @@ rec {
       overlaySrcs = attrValues inputs.self.nixosModules.overlays;
       overlays = map
         (o: import o {
-          inherit inputs lib trilby;
+          inherit inputs lib;
           overlays = overlaySrcs;
         })
         overlaySrcs;
@@ -110,33 +110,34 @@ rec {
     let
       isLinux = trilby.hostSystem.kernel.name == "linux";
       isDarwin = trilby.hostSystem.kernel.name == "darwin";
-      user =
-      {
-        uid = u.uid or 1000;
-        name = u.name;
-        home = u.home or (if isDarwin then "/Users/${u.name}" else "/home/${u.name}");
-      }
-      // lib.optionalAttrs isLinux (
-        if (u ? initialPassword && u ? initialHashedPassword)
-        then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
-        else if (u ? initialPassword)
-        then { inherit (u) initialPassword; }
-        else if (u ? initialHashedPassword)
-        then { inherit (u) initialHashedPassword; }
-        else
-          throw "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
-      )
-      // lib.optionalAttrs isLinux {
-        isNormalUser = u.isNormalUser or true;
-        createHome = u.createHome or true;
-        group = u.group or u.name;
-        extraGroups = u.extraGroups or [
-          "audio"
-          "networkmanager"
-          "video"
-          "wheel"
-        ];
-      };
+      user = lib.recursiveConcat [
+        {
+          uid = u.uid or 1000;
+          name = u.name;
+          home = u.home or (if isDarwin then "/Users/${u.name}" else "/home/${u.name}");
+        }
+        (lib.optionalAttrs isLinux (
+          if (u ? initialPassword && u ? initialHashedPassword)
+          then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
+          else if (u ? initialPassword)
+          then { inherit (u) initialPassword; }
+          else if (u ? initialHashedPassword)
+          then { inherit (u) initialHashedPassword; }
+          else
+            throw "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
+        ))
+        (lib.optionalAttrs isLinux {
+          isNormalUser = u.isNormalUser or true;
+          createHome = u.createHome or true;
+          group = u.group or u.name;
+          extraGroups = u.extraGroups or [
+            "audio"
+            "networkmanager"
+            "video"
+            "wheel"
+          ];
+        })
+      ];
       group.gid = u.gid or user.uid;
       home = {
         home = {
@@ -148,12 +149,13 @@ rec {
         ] ++ (u.imports or [ ]);
       };
     in
-    {
-      users.users.${user.name} = user;
-      home-manager.users.${user.name} = home;
-    }
-    //
-    lib.optionalAttrs isLinux {
-      users.groups.${user.name} = group;
-    };
+    lib.recursiveConcat [
+      {
+        users.users.${user.name} = user;
+        home-manager.users.${user.name} = home;
+      }
+      (lib.optionalAttrs isLinux {
+        users.groups.${user.name} = group;
+      })
+    ];
 }

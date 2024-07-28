@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ ... }:
 
 final: prev: {
   nix-direnv = prev.nix-direnv.override {
@@ -7,7 +7,7 @@ final: prev: {
         patches = (attrs.patches or [ ]) ++ [
           ./nvd.patch
         ];
-        solutions = lib.recursiveUpdate attrs.solutions {
+        solutions = prev.lib.recursiveUpdate attrs.solutions {
           default = {
             inputs = with final; [ findutils nvd ] ++ attrs.solutions.default.inputs;
             execer = [ "cannot:${final.nvd}/bin/nvd" ] ++ attrs.solutions.default.execer;
