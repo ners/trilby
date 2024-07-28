@@ -47,6 +47,10 @@
     lib.recursiveConcat [
       {
         inherit lib nixosModules;
+        overlays.default = lib.composeManyExtensions (
+          let overlays = attrValues nixosModules.overlays;
+          in map (o: import o { inherit inputs lib overlays; }) overlays
+        );
       }
       (lib.foreach configurations (trilby:
         import ./outputs/configuration {

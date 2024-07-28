@@ -1,5 +1,6 @@
-{ trilby, inputs, ... }:
+{ inputs, ... }:
 
-if (trilby.hostSystem.kernel.name == "darwin")
-then inputs.nix-darwin.overlays.default
-else _: _: { }
+final: prev:
+if prev.stdenv.isDarwin
+then inputs.nix-darwin.overlays.default final prev
+else { }
