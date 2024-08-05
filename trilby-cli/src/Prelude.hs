@@ -166,8 +166,14 @@ errorExit msg = logError msg >> liftIO exitFailure
 ishow :: (Show a, IsString s) => a -> s
 ishow = fromString . show
 
-readsPrecBoundedEnumOn :: forall a. (Show a, Bounded a, Enum a) => (String -> String) -> Int -> String -> [(a, String)]
-readsPrecBoundedEnumOn m _ s = maybeToList $ asum $ map f [minBound .. maxBound]
+readsPrecBoundedEnumOn
+    :: forall a
+     . (Show a, Bounded a, Enum a)
+    => (String -> String)
+    -> Int
+    -> String
+    -> [(a, String)]
+readsPrecBoundedEnumOn m _ s = maybeToList . asum . map f $ [minBound .. maxBound]
   where
     f e = (e,) <$> List.stripPrefix (m $ show e) (m s)
 
@@ -233,7 +239,7 @@ cmd' (p :| args) = do
 cmd :: (HasCallStack) => NonEmpty Text -> App Text
 cmd args = do
     (code, out) <- cmd' args
-    logDebug $ "cmd return code: " <> ishow code
+    logDebug $ "cmd: " <> ishow (code, out)
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code
@@ -298,7 +304,7 @@ shell' cmd stdin = do
 shell :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App Text
 shell cmd stdin = do
     (code, out) <- shell' cmd stdin
-    logDebug $ "shell return code: " <> ishow code
+    logDebug $ "shell: " <> ishow (code, out)
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code

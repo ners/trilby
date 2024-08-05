@@ -1,5 +1,5 @@
-{ inputs, trilby, ... }:
+{ inputs, trilby ? null, ... }:
 
-self: _: {
-  inherit (inputs.disko.packages.${self.system or trilby.hostPlatform}) disko;
+final: _: {
+  inherit (inputs.disko.packages.${final.system or trilby.hostPlatform}) disko;
 }

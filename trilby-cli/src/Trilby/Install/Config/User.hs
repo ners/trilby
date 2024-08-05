@@ -13,16 +13,16 @@ data Password
 data User = User
     { uid :: Int
     , username :: Username
-    , password :: Password
+    , password :: Maybe Password
     }
     deriving stock (Generic)
 
 instance ToExpr User where
     toExpr User{..} =
         [nix|
-        { lib, ... }:
+        { trilby, lib, ... }:
 
-        lib.trilbyUser userAttrs
+        lib.trilbyUser trilby userAttrs
         |]
       where
         userAttrs =
@@ -37,5 +37,6 @@ instance ToExpr User where
                 & canonicalSet
         (initialPassword, initialHashedPassword) =
             case password of
-                PlainPassword p -> (Just p, Nothing)
-                HashedPassword p -> (Nothing, Just p)
+                Just (PlainPassword p) -> (Just p, Nothing)
+                Just (HashedPassword p) -> (Nothing, Just p)
+                Nothing -> (Nothing, Nothing)

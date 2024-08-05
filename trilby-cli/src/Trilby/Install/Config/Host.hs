@@ -1,6 +1,6 @@
 module Trilby.Install.Config.Host where
 
-import Trilby.HNix (canonicalSet)
+import Trilby.HNix
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Release
 import Trilby.Install.Config.User
@@ -26,9 +26,9 @@ data Host = Host
     { hostname :: Text
     , edition :: Edition
     , release :: Release
-    , keyboard :: Keyboard
-    , locale :: Text
-    , timezone :: Text
+    , keyboard :: Maybe Keyboard
+    , locale :: Maybe Text
+    , timezone :: Maybe Text
     , user :: User
     }
     deriving stock (Generic)
@@ -39,18 +39,21 @@ instance ToExpr Host where
         { lib, ... }:
 
         {
-          imports = [
-            (import userModule { inherit lib; })
-          ];
+          imports = [ userModule ];
+
           networking.hostName = hostname;
-          time.timeZone = timezone;
-          i18n = rec {
-            defaultLocale = locale;
-            extraLocaleSettings.LC_ALL = defaultLocale;
-          };
+
           services.xserver.xkb = keyboard;
+
+          i18n.defaultLocale = locale;
+          i18n.extraLocaleSettings.LC_ALL = locale;
+
+          time.timeZone = timezone;
         }
         |]
+            & _Fix
+            . _NAbs
+            . _2
+            %~ canonicalSet
       where
-        userModule :: NExpr
-        userModule = fromText $ "../../users/" <> user.username
+        userModule = fromText @NExpr $ "../../users/" <> user.username

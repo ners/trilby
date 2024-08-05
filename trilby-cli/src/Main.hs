@@ -9,13 +9,14 @@ import Trilby.Install.Options (validateParsedInstallOpts)
 import Trilby.Log (withLog)
 import Trilby.Options
 import Trilby.Update (update)
+import Turtle qualified
 import Prelude
 
 main :: IO ()
 main = withSystemTempDir "trilby" \tmpDir -> do
     opts <- execParser parseOptionsInfo
     verbosity <- getVerbosity opts
-    hostname <- fromString . head . lines <$> readFile "/etc/hostname"
+    hostname <- Turtle.hostname
     let state = AppState{..}
     withLog state.verbosity do
         runApp state do
