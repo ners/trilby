@@ -15,6 +15,7 @@ module Prelude
     , module Data.Char
     , module Data.Default
     , module Data.Foldable
+    , module Data.Functor
     , module Data.List.Extra
     , module Data.List.NonEmpty
     , module Data.Maybe
@@ -34,6 +35,7 @@ module Prelude
     , module Prelude
     , module System.Exit
     , module System.IO
+    , module Text.Read
     , module Trilby.App
     , module UnliftIO
     , module UnliftIO.Environment
@@ -55,8 +57,8 @@ import Data.Bool
 import Data.Char (toLower)
 import Data.Default (Default (def))
 import Data.Foldable
+import Data.Functor
 import Data.Generics.Labels ()
-import Data.List qualified as List
 import Data.List.Extra (headDef, (!?))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Maybe
@@ -121,7 +123,10 @@ import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
 import System.Process qualified as Process
-import Text.Read qualified as Text
+import Text.ParserCombinators.ReadP (ReadP)
+import Text.ParserCombinators.ReadP qualified as ReadP
+import Text.ParserCombinators.ReadPrec qualified as ReadPrec
+import Text.Read (Read (..), ReadPrec, readMaybe)
 import Trilby.App (App)
 import Turtle qualified
 import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
@@ -152,7 +157,7 @@ parseChoiceWith show' read' m xs = option (maybeReader read') $ m <> showDefault
     options = show' <$> xs
 
 parseChoice :: forall a. (Show a, Read a) => Mod OptionFields a -> [a] -> Parser a
-parseChoice m xs = option (maybeReader Text.readMaybe) $ m <> showDefault <> completeWith options
+parseChoice m xs = option (maybeReader readMaybe) $ m <> showDefault <> completeWith options
   where
     options = show @a <$> xs
 
@@ -166,19 +171,18 @@ errorExit msg = logError msg >> liftIO exitFailure
 ishow :: (Show a, IsString s) => a -> s
 ishow = fromString . show
 
-readsPrecBoundedEnumOn
+readPrecBoundedEnumOn
     :: forall a
      . (Show a, Bounded a, Enum a)
     => (String -> String)
-    -> Int
-    -> String
-    -> [(a, String)]
-readsPrecBoundedEnumOn m _ s = maybeToList . asum . map f $ [minBound .. maxBound]
+    -> ReadPrec a
+readPrecBoundedEnumOn m = ReadPrec.lift . ReadP.choice $ tryChoose <$> [minBound .. maxBound]
   where
-    f e = (e,) <$> List.stripPrefix (m $ show e) (m s)
+    tryChoose :: a -> ReadP a
+    tryChoose a = a <$ ReadP.string (m $ show a)
 
-readsPrecBoundedEnum :: (Show a, Bounded a, Enum a) => Int -> String -> [(a, String)]
-readsPrecBoundedEnum = readsPrecBoundedEnumOn id
+readPrecBoundedEnum :: (Show a, Bounded a, Enum a) => ReadPrec a
+readPrecBoundedEnum = readPrecBoundedEnumOn id
 
 fromText :: (IsString s) => Text -> s
 fromText = fromString . Text.unpack

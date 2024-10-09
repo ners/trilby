@@ -1,15 +1,22 @@
 module Trilby.System where
 
-import Data.List.Extra qualified as List
+import Data.Char (isDigit, isLetter)
 import Data.Text qualified as Text
-import Text.Read (readMaybe)
+import Text.ParserCombinators.ReadP qualified as ReadP
+import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Prelude
 
 newtype Architecture = Architecture Text
-    deriving newtype (Eq, Ord)
+    deriving newtype (Eq, Ord, IsString)
 
 instance Show Architecture where
     show (Architecture a) = Text.unpack a
+
+instance Read Architecture where
+    readPrec = fromString <$> ReadPrec.lift (ReadP.munch allowed)
+      where
+        allowed :: Char -> Bool
+        allowed c = or @[] [isLetter c, isDigit c, c == '_']
 
 data Kernel
     = Linux
@@ -17,7 +24,7 @@ data Kernel
     deriving stock (Generic, Eq, Ord, Show, Bounded, Enum)
 
 instance Read Kernel where
-    readsPrec = readsPrecBoundedEnumOn (fmap toLower)
+    readPrec = readPrecBoundedEnumOn (fmap toLower)
 
 data System = System
     { architecture :: Architecture
@@ -29,12 +36,8 @@ instance Show System where
     show System{..} = show architecture <> "-" <> fmap toLower (show kernel)
 
 instance Read System where
-    readsPrec :: Int -> String -> [(System, String)]
-    readsPrec _ s = maybeToList do
-        (archPart, kernelPart) <-
-            case List.splitOn "-" s of
-                [archPart, kernelPart] -> Just (archPart, kernelPart)
-                _ -> Nothing
-        let architecture = Architecture $ Text.pack archPart
-        kernel <- readMaybe kernelPart
-        pure (System{..}, "")
+    readPrec = do
+        architecture <- fromString <$> ReadPrec.lift (ReadP.munch (/= '-'))
+        ReadPrec.lift $ ReadP.char '-'
+        kernel <- readPrec
+        pure System{..}

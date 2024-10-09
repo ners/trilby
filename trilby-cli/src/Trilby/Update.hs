@@ -51,19 +51,19 @@ buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \t
     writeNixFile
         tmpFile
         [nix|
-         { local ? builtins.getFlake "/etc/trilby"
-         , trilby ? local.inputs.trilby
-         , pkgs ? trilby.inputs.nixpkgs.outputs.legacyPackages.${builtins.currentSystem}
-         }:
-         pkgs.linkFarm "trilby-update"
-             (builtins.map
-               (name: {
-                 inherit name;
-                 path = local.outputs.nixosConfigurations.${name}.config.system.build.toplevel;
-               })
-               configurationNames
-             )
-         |]
+          { local ? builtins.getFlake "/etc/trilby"
+          , trilby ? local.inputs.trilby
+          , lib ? trilby.lib
+          , pkgs ? trilby.inputs.nixpkgs.outputs.legacyPackages.${builtins.currentSystem}
+          }:
+            lib.pipe configurationNames [
+            (builtins.map (name: {
+              inherit name;
+              path = local.outputs.nixosConfigurations.${name}.config.system.build.toplevel;
+            }))
+            (pkgs.linkFarm "trilby-update")
+          ]
+        |]
     resultPath <- nixBuild (File $ Abs tmpFile) parseAbsDir
     flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
 
