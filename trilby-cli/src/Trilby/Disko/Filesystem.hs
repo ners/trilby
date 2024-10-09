@@ -9,7 +9,7 @@ data Format
     | XFS
     deriving stock (Generic, Show, Eq, Bounded, Enum)
 
-instance Read Format where readsPrec = readsPrecBoundedEnumOn (fmap toLower)
+instance Read Format where readPrec = readPrecBoundedEnumOn (fmap toLower)
 
 instance ToExpr Format where
     toExpr Fat32 = toExpr @String "vfat"

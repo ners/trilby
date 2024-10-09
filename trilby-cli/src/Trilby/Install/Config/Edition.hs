@@ -6,7 +6,7 @@ data Edition = Workstation | Server
     deriving stock (Generic, Show, Eq, Bounded, Enum)
 
 instance Read Edition where
-    readsPrec = readsPrecBoundedEnumOn (fmap toLower)
+    readPrec = readPrecBoundedEnumOn (fmap toLower)
 
 instance ToExpr Edition where
     toExpr = toExpr . fmap toLower . show

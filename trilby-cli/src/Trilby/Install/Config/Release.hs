@@ -14,7 +14,7 @@ instance Show Release where
     show Stable_23_11 = "23.11"
 
 instance Read Release where
-    readsPrec = readsPrecBoundedEnum
+    readPrec = readPrecBoundedEnum
 
 instance ToExpr Release where
     toExpr = toExpr . show
