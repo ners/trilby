@@ -18,7 +18,6 @@ let
     fira-mono
     inconsolata
     inter
-    inter-ui
     libertine
     noto-fonts
     noto-fonts-emoji
