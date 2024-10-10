@@ -23,6 +23,10 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-darwin = {
+      url = "github:lnl7/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -35,7 +39,7 @@
         name = [ "trilby" ];
         edition = attrNames nixosModules.editions;
         format = attrNames nixosModules.formats;
-        hostPlatform = attrNames nixosModules.hostPlatforms;
+        hostPlatform = filter (lib.hasSuffix "-linux") (attrNames nixosModules.hostPlatforms);
         buildPlatform = filter (lib.hasSuffix "-linux") buildPlatforms;
         variant = [ null "musl" ];
       });
@@ -43,6 +47,10 @@
     lib.recursiveConcat [
       {
         inherit lib nixosModules;
+        overlays.default = lib.composeManyExtensions (
+          let overlays = attrValues nixosModules.overlays;
+          in map (o: import o { inherit inputs lib overlays; }) overlays
+        );
       }
       (lib.foreach configurations (trilby:
         import ./outputs/configuration {

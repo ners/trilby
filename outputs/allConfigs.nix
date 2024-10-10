@@ -11,7 +11,7 @@ with lib;
         && isEmpty trilby.variant
         && trilby.format == "toplevel"
       ))
-      (map (trilby:
+      (map (trilby: traceVerbose "allConfigs: ${toJSON trilby}"
         inputs.self.packages.${buildPlatform}.${trilby.configurationName}
       ))
     ]

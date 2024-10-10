@@ -1,11 +1,9 @@
 { lib, ... }:
 
 {
-  fileSystems = lib.mkDefault {
-    "/" = {
-      device = "/dev/sda";
-      fsType = "btrfs";
-      options = [ "subvol=root" ];
-    };
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/sda";
+    fsType = "btrfs";
+    options = [ "subvol=root" ];
   };
 }

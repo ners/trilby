@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ ... }:
 
 self: super: {
   trilby-grub2-theme = self.runCommand "trilby-grub2-theme"
