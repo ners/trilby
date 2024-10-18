@@ -1,10 +1,10 @@
 { pkgs, ... }:
 
 {
-  home.packages = with pkgs; [ nil nixpkgs-fmt ];
+  home.packages = with pkgs; [ nixd nixpkgs-fmt ];
 
   programs.neovim.extraLuaConfig = /*lua*/ ''
-    require('lspconfig').nil_ls.setup({})
+    require('lspconfig').nixd.setup({})
   '';
 
   xdg.configFile."nvim/ftplugin/nix.lua".text = /*lua*/ ''

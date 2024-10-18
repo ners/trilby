@@ -15,6 +15,7 @@ in
     profiles.kernel
     profiles.network
     profiles.nix
+    profiles.nixpkgs
     profiles.ssh
     profiles.users
     profiles.xfs
@@ -40,19 +41,6 @@ in
       sn = config.system.name;
     in
     if lib.hasInfix sn cn then cn else "${cn}-${sn}";
-
-  nixpkgs = lib.mkMerge [
-    {
-      inherit (pkgs) overlays;
-      inherit (trilby) hostPlatform;
-    }
-    (lib.optionalAttrs (trilby.buildPlatform != trilby.hostPlatform) {
-      inherit (trilby) buildPlatform;
-    })
-    (lib.optionalAttrs (trilby ? variant && trilby.variant == "musl") {
-      pkgs = pkgs.pkgsMusl;
-    })
-  ];
 
   i18n.defaultLocale = lib.mkDefault "en_GB.UTF-8";
 

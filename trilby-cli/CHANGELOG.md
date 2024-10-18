@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 24.8.0 -- 2024-08-01
+
+* Add Darwin support to Install and Update
+
 ## 24.7.0 -- 2024-07-24
 
 * Print version when running verbosely
@@ -9,7 +13,7 @@
 * Switch from TH to callstack-based logging
 * Remove library, build only executable
 * Switch from FilePath to Path
-* Add edit option to Install
+* Allow editing files during Install
 
 ## 24.4.0 -- 2024-04-04
 
