@@ -1,8 +1,8 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = with pkgs; with gnome; with gnomeExtensions; [
-    totem
+  environment.systemPackages = [
+    pkgs.totem
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.Totem.desktop" = [

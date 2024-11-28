@@ -1,8 +1,8 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = with pkgs; with gnome; with gnomeExtensions; [
-    evince
+  environment.systemPackages = [
+    pkgs.evince
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.Evince.desktop" = [
