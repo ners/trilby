@@ -35,7 +35,7 @@
 
   #environment.gnome.excludePackages = ([]);
 
-  environment.systemPackages = with pkgs; with gnome; with gnomeExtensions; [
+  environment.systemPackages = with pkgs; with gnomeExtensions; [
     adwaita-icon-theme
     appindicator
     gnome-connections

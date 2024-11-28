@@ -10,7 +10,6 @@
     profiles.libreoffice
     profiles.mimetypes
     profiles.pipewire
-    profiles.plymouth
     profiles.sway
     profiles.virtualisation
   ];

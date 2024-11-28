@@ -20,7 +20,6 @@ update (askOpts -> opts) = do
     hostSystem Localhost >>= \case
         System{kernel = Linux} -> do
             buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
-                traceShowM $ resultPath </> $(mkRelFile "bin/switch-to-configuration")
                 copyClosure host resultPath
                 ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
                 unless (host == Localhost && length configurations == 1) . logWarn $ "Choosing action for host " <> ishow host

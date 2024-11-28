@@ -1,8 +1,8 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = with pkgs; with gnome; with gnomeExtensions; [
-    rhythmbox
+  environment.systemPackages = [
+    pkgs.rhythmbox
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.Rhythmbox3.desktop" = [
