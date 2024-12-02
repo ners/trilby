@@ -2,15 +2,6 @@
 
 let
   fonts = with pkgs; [
-    (nerdfonts.override {
-      fonts = [
-        "Cousine"
-        "FiraCode"
-        "Iosevka"
-        "RobotoMono"
-        "SourceCodePro"
-      ];
-    })
     carlito
     dejavu_fonts
     fira
@@ -29,7 +20,25 @@ let
     source-serif-pro
     twitter-color-emoji
     unstable.corefonts
-  ];
+  ] ++ (
+    if (lib.versionAtLeast trilby.release "24.11") then [
+      nerd-fonts.cousine
+      nerd-fonts.fira-code
+      nerd-fonts.iosevka
+      nerd-fonts.roboto-mono
+      nerd-fonts.sauce-code-pro
+    ] else [
+      (nerdfonts.override {
+        fonts = [
+          "Cousine"
+          "FiraCode"
+          "Iosevka"
+          "RobotoMono"
+          "SourceCodePro"
+        ];
+      })
+    ]
+  );
 in
 {
   fonts = lib.mkMerge [
