@@ -44,6 +44,22 @@ nix build .#trilby-server-22.11-aarch64-virtualBoxOVA
 
 You can find the built images in the `result` directory.
 
+## Installing Trilby on Darwin
+
+1. Install Nix
+   ```bash
+   sh <(curl -L https://nixos.org/nix/install)
+   ```
+2. Enable flakes
+   ```bash
+   mkdir -p ~/.config/nix
+   echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
+   ```
+3. Run
+   ```bash
+   nix run github:ners/trilby -- install
+   ```
+
 ## Contributing
 
 If you want to contribute to Trilby, you can fork the project on GitHub and submit pull requests with your changes.
@@ -51,4 +67,4 @@ We welcome contributions of all types, including bug fixes, feature requests, an
 
 ## Licence
 
-Licenced under the Apache Licence, Version 2.0. See the [LICENCE](./LICENCE) file for more details.
+Licenced under the Apache Licence, Version 2.0. See the [LICENCE](./LICENCE.md) file for more details.
