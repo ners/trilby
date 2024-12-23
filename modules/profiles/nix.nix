@@ -13,9 +13,8 @@
           nix = pkgs.unstable.nixVersions.latest;
         });
       };
+      optimise.automatic = true;
       settings = {
-        auto-optimise-store = true;
-        preallocate-contents = false;
         experimental-features = [ "nix-command" "flakes" ];
         trusted-users = [ "root" "@wheel" "@admin" ];
         nix-path = config.nix.nixPath;
