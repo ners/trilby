@@ -24,7 +24,9 @@ lib.recursiveConcat [
     {
       formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
       legacyPackages.${buildPlatform} = pkgs;
-      packages.${buildPlatform} = import ./allConfigs.nix { inherit pkgs lib nixosModules buildPlatform; };
+      packages.${buildPlatform} = import ./allConfigs.nix { inherit pkgs lib nixosModules buildPlatform; } // {
+        default = pkgs.trilby-cli;
+      };
     }
   ))
 ]
