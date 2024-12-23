@@ -7,8 +7,8 @@ let
 in
 lib.recursiveConcat [
   (import ../system.nix {
+    inherit lib name;
     inherit (trilby) buildPlatform format;
-    inherit name;
     system = lib.trilbySystem {
       inherit trilby;
       modules = [{ isoImage = { inherit squashfsCompression; }; }];

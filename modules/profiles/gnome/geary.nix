@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = [
-    pkgs.geary
+  environment.systemPackages = with pkgs.gnome; with pkgs; [
+    geary
   ];
 }

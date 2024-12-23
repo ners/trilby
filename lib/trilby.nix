@@ -14,7 +14,7 @@ rec {
         })
         overlaySrcs;
     in
-    import trilby.nixpkgs {
+    traceVerbose "pkgsFor ${toJSON t}" import trilby.nixpkgs {
       inherit overlays;
       system = trilby.hostPlatform;
     };
@@ -28,15 +28,16 @@ rec {
       buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
       variant = null;
       format = null;
+      nixpkgs = inputs.nixpkgs;
     } // t)
     (t: t // rec {
       name = toLower t.name;
       edition = toLower t.edition;
       hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
-      nixpkgs = inputs.nixpkgs // {
-        nixosModules = findModules "${inputs.nixpkgs}/nixos/modules";
+      nixpkgs = t.nixpkgs // {
+        nixosModules = findModules "${t.nixpkgs}/nixos/modules";
       };
-      release = nixpkgs.lib.trivial.release;
+      release = t.nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         name
         edition
@@ -65,9 +66,11 @@ rec {
         specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
       };
     in
-    if kernelName == "linux" then lib.nixosSystem systemAttrs
-    else if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
-    else throw "trilbySystem: unsupported kernel name: ${kernelName}";
+    (
+      if kernelName == "linux" then lib.nixosSystem systemAttrs
+      else if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
+      else throw "trilbySystem: unsupported kernel name: ${kernelName}"
+    ) // { inherit trilby; };
 
   trilbyTest = attrs:
     let

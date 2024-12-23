@@ -1,19 +1,38 @@
-{ configurations, buildPlatform, inputs, lib, pkgs, ... }:
+{ pkgs, lib, nixosModules, ... }@attrs:
 
 with builtins;
-with lib;
-{
+let
+  configurations =
+    { name ? [ "trilby" ]
+    , edition ? attrNames nixosModules.editions
+    , format ? attrNames nixosModules.formats
+    , buildPlatform ? [ attrs.buildPlatform ]
+    , hostPlatform ? [ attrs.buildPlatform ]
+    , variant ? [ null "musl" ]
+    , nixpkgs ? attrValues ((lib.loadFlake { src = ./releases; }).defaultNix.inputs)
+    }:
+    lib.pipe { inherit name edition format buildPlatform hostPlatform variant nixpkgs; } [
+      lib.cartesianProduct
+      (map lib.trilbyConfig)
+    ];
+  packages =
+    lib.foreach (configurations { }) (trilby:
+      let
+        system = lib.trilbySystem {
+          inherit trilby;
+        };
+      in
+      {
+        ${system.trilby.configurationName} = system.config.system.build.${trilby.format};
+      });
+in
+packages // {
   allConfigs = pkgs.linkFarmFromDrvs "allConfigs" (
-    pipe configurations [
-      (filter (trilby:
-        trilby.buildPlatform == buildPlatform
-        && trilby.hostPlatform == buildPlatform
-        && isEmpty trilby.variant
-        && trilby.format == "toplevel"
-      ))
-      (map (trilby: traceVerbose "allConfigs: ${toJSON trilby}"
-        inputs.self.packages.${buildPlatform}.${trilby.configurationName}
-      ))
-    ]
+    map
+      (trilby: packages.${trilby.configurationName})
+      (configurations {
+        variant = [ null ];
+        format = [ "toplevel" ];
+      })
   );
 }

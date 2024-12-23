@@ -9,8 +9,8 @@
     {
       monitored = {
         enable = lib.mkDefault true;
-        package = lib.mkDefault (pkgs.nix-monitored.override {
-          nix = pkgs.nixVersions.latest;
+        package = lib.mkDefault (pkgs.unstable.nix-monitored.override {
+          nix = pkgs.unstable.nixVersions.latest;
         });
       };
       settings = {

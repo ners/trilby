@@ -2,7 +2,7 @@
 
 {
   environment.systemPackages = [
-    pkgs.totem
+    pkgs.totem or pkgs.gnome.totem
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.Totem.desktop" = [

@@ -22,5 +22,5 @@ with lib;
   isNotEmpty = x: not (isEmpty x);
 
   # A convenient attribute to debug which version of lib we are using.
-  zzz = "zzz";
+  isTrilby = true;
 }
