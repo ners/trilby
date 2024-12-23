@@ -1,7 +1,10 @@
 { trilby, lib, ... }:
 
 {
-  home.stateVersion = lib.mkDefault trilby.release;
+  home = {
+    stateVersion = lib.mkDefault trilby.release;
+    enableNixpkgsReleaseCheck = false;
+  };
 
   imports =
     let kernelName = trilby.hostSystem.kernel.name; in

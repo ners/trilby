@@ -27,12 +27,20 @@ let
       });
 in
 packages // {
-  allConfigs = pkgs.linkFarmFromDrvs "allConfigs" (
+  allToplevel = pkgs.linkFarmFromDrvs "allToplevel" (
     map
       (trilby: packages.${trilby.configurationName})
       (configurations {
         variant = [ null ];
         format = [ "toplevel" ];
+      })
+  );
+  allIsoImage = pkgs.linkFarmFromDrvs "allIsoImage" (
+    map
+      (trilby: packages.${trilby.configurationName})
+      (configurations {
+        variant = [ null ];
+        format = [ "isoImage" ];
       })
   );
 }

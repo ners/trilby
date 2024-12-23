@@ -20,9 +20,9 @@ jobs:
       run: |
         if [ "$(uname --kernel-name)" = "Linux" ]; then
           sudo rm -rf /usr/local/* /usr/share/* /opt/*
-          docker rmi $(docker image ls -aq)
         fi
-    - uses: cachix/install-nix-action@v25
+        docker image ls -aq | xargs --no-run-if-empty docker rmi
+    - uses: cachix/install-nix-action@v30
     - uses: ryanccn/attic-action@v0
       with:
         endpoint: https://cache.ners.ch
@@ -33,7 +33,7 @@ jobs:
     - name: Closure size
       run: nix path-info -sSh ./result
   build:
-    name: Nix build
+    name: Nix build allToplevel
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -43,13 +43,13 @@ jobs:
           sudo rm -rf /usr/local/* /usr/share/* /opt/*
           docker rmi $(docker image ls -aq)
         fi
-    - uses: cachix/install-nix-action@v25
+    - uses: cachix/install-nix-action@v30
     - uses: ryanccn/attic-action@v0
       with:
         endpoint: https://cache.ners.ch
         cache: trilby
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
-      run: nix build --accept-flake-config --print-build-logs .#allConfigs
+      run: nix build --accept-flake-config --print-build-logs .#allToplevel
     - name: Closure size
       run: nix path-info -sSh ./result/*

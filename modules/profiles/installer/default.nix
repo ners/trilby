@@ -19,20 +19,20 @@
     usbutils
   ];
 
-  services.xserver.displayManager.gdm = {
-    autoLogin = {
+  services = {
+    # Automatically log in at the virtual consoles.
+    getty = {
+      autologinUser = lib.mkForce "trilby";
+      helpLine = lib.mkForce "";
+    };
+    xserver.displayManager.gdm.autoSuspend = false;
+    displayManager.autoLogin = {
       enable = true;
       user = "trilby";
     };
-    autoSuspend = false;
   };
-  users.motd = builtins.readFile ./motd.txt;
 
-  # Automatically log in at the virtual consoles.
-  services.getty = {
-    autologinUser = lib.mkForce "trilby";
-    helpLine = lib.mkForce "";
-  };
+  users.motd = builtins.readFile ./motd.txt;
 
   networking.hostName = "trilby";
 }

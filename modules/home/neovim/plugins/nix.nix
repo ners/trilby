@@ -1,7 +1,7 @@
 { pkgs, ... }:
 
 {
-  home.packages = with pkgs; [ nixd nixpkgs-fmt ];
+  home.packages = with pkgs.unstable; [ nixd nixpkgs-fmt ];
 
   programs.neovim.extraLuaConfig = /*lua*/ ''
     require('lspconfig').nixd.setup({})
