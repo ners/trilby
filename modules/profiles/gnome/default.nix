@@ -29,13 +29,13 @@
 
   security.pam.services.login.enableGnomeKeyring = true;
 
-  services.udev.packages = with pkgs; with gnome; [
+  services.udev.packages = with pkgs.gnome; with pkgs; [
     gnome-settings-daemon
   ];
 
   #environment.gnome.excludePackages = ([]);
 
-  environment.systemPackages = with pkgs; with gnomeExtensions; [
+  environment.systemPackages = with pkgs.gnome; with pkgs; with gnomeExtensions; [
     adwaita-icon-theme
     appindicator
     gnome-connections

@@ -1,8 +1,8 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 
 {
-  environment.systemPackages = [
-    pkgs.eog
+  environment.systemPackages = with pkgs.gnome; with pkgs; [
+    eog
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.eog.desktop" = [

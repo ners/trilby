@@ -27,6 +27,7 @@ in
   system.nixos = lib.mkMerge [
     {
       label = trilby.release;
+      inherit (lib.trivial) version;
     }
     (
       lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {

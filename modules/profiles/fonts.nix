@@ -9,7 +9,7 @@ let
     fira-mono
     inconsolata
     inter
-    libertine
+    libertinus
     noto-fonts
     noto-fonts-emoji
     noto-fonts-extra
@@ -21,7 +21,7 @@ let
     twitter-color-emoji
     unstable.corefonts
   ] ++ (
-    if (lib.versionAtLeast trilby.release "24.11") then [
+    if (lib.versionAtLeast trilby.release "25.05") then [
       nerd-fonts.cousine
       nerd-fonts.fira-code
       nerd-fonts.iosevka

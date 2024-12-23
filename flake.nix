@@ -13,7 +13,7 @@
     flake-compat.url = "github:ners/flake-compat";
     nix-monitored = {
       url = "github:ners/nix-monitored";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -29,55 +29,5 @@
     };
   };
 
-  outputs = inputs:
-    with builtins;
-    let
-      lib = import ./lib { inherit inputs; inherit (inputs.nixpkgs) lib; };
-      buildPlatforms = attrNames inputs.nixpkgs.legacyPackages;
-      nixosModules = lib.findModules ./modules;
-      configurations = map lib.trilbyConfig (lib.cartesianProduct {
-        name = [ "trilby" ];
-        edition = attrNames nixosModules.editions;
-        format = attrNames nixosModules.formats;
-        hostPlatform = filter (lib.hasSuffix "-linux") (attrNames nixosModules.hostPlatforms);
-        buildPlatform = filter (lib.hasSuffix "-linux") buildPlatforms;
-        variant = [ null "musl" ];
-      });
-    in
-    lib.recursiveConcat [
-      {
-        inherit lib nixosModules;
-        overlays.default = lib.composeManyExtensions (
-          let overlays = attrValues nixosModules.overlays;
-          in map (o: import o { inherit inputs lib overlays; }) overlays
-        );
-      }
-      (lib.foreach configurations (trilby:
-        import ./outputs/configuration {
-          inherit inputs trilby lib;
-        }
-      ))
-      (lib.foreach buildPlatforms (buildPlatform:
-        let
-          pkgs = lib.pkgsFor {
-            inherit buildPlatform;
-            hostPlatform = buildPlatform;
-          };
-        in
-        {
-          formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
-          devShells.${buildPlatform} = {
-            default = pkgs.mkShell {
-              packages = with pkgs; [ nixpkgs-fmt ];
-            };
-          };
-          legacyPackages.${buildPlatform} = pkgs;
-          packages.${buildPlatform} = {
-            default = pkgs.trilby-cli;
-          } // import ./outputs/allConfigs.nix {
-            inherit configurations buildPlatform inputs lib pkgs;
-          };
-        }
-      ))
-    ];
+  outputs = inputs: import ./outputs inputs;
 }

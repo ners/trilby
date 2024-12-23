@@ -1,8 +1,8 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = [
-    pkgs.file-roller
+  environment.systemPackages = with pkgs.gnome; with pkgs; [
+    file-roller
   ];
 
   xdg.mime.inverted.defaultApplications."org.gnome.FileRoller.desktop" = [
