@@ -33,7 +33,7 @@ jobs:
     - name: Closure size
       run: nix path-info -sSh ./result
   build:
-    name: Nix build allToplevel
+    name: Nix build allToplevels
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -50,6 +50,6 @@ jobs:
         cache: trilby
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
-      run: nix build --accept-flake-config --print-build-logs .#allToplevel
+      run: nix build --accept-flake-config --print-build-logs .#allToplevels
     - name: Closure size
       run: nix path-info -sSh ./result/*

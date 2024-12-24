@@ -37,6 +37,7 @@ module Prelude
     , module System.IO
     , module Text.Read
     , module Trilby.App
+    , module Trilby.FlakeRef
     , module UnliftIO
     , module UnliftIO.Environment
     )
@@ -50,6 +51,7 @@ import Control.Monad
 import Control.Monad.Extra
 import Control.Monad.Logger.CallStack (LogLevel (..), logDebug, logError, logInfo, logWarn)
 import Control.Monad.Reader (MonadReader)
+import Control.Monad.Reader qualified as Reader
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
 import Data.Bifunctor qualified as Bifunctor
@@ -59,6 +61,7 @@ import Data.Default (Default (def))
 import Data.Foldable
 import Data.Functor
 import Data.Generics.Labels ()
+import Data.HashMap.Internal.Strict qualified as HashMap
 import Data.List.Extra (headDef, (!?))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Maybe
@@ -127,7 +130,8 @@ import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..), ReadPrec, readMaybe)
-import Trilby.App (App)
+import Trilby.App (App, AppState (..))
+import Trilby.FlakeRef
 import Turtle qualified
 import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
 import UnliftIO.Environment
@@ -281,6 +285,14 @@ asUser = id
 asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRoot c t = ifM isRoot (c t) (c $ prepend "sudo" t)
 
+cached :: (NonEmpty Text -> App (ExitCode, Text)) -> NonEmpty Text -> App (ExitCode, Text)
+cached c t = do
+    var <- Reader.asks commandCache
+    flip fromMaybeM (HashMap.lookup t <$> readTVarIO var) do
+        o <- c t
+        atomically . modifyTVar var . HashMap.insert t $ o
+        pure o
+
 singleQuoted :: Text -> Text
 singleQuoted t = d <> escape t <> d
   where
@@ -343,7 +355,7 @@ writeFile f t = do
 
 withTempFile :: Path Rel File -> (Path Abs File -> App a) -> App a
 withTempFile file action = do
-    tmpDir <- view #tmpDir
+    tmpDir <- Reader.asks tmpDir
     let tmpFile = tmpDir </> file
     withFile (toFilePath tmpFile) ReadWriteMode \handle -> do
         hClose handle
@@ -356,7 +368,7 @@ is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
 verbosityAtLeast :: LogLevel -> App Bool
-verbosityAtLeast v = (v >=) <$> view #verbosity
+verbosityAtLeast v = Reader.asks $ (v >=) . verbosity
 
 withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 withTrace f (x :| xs) =

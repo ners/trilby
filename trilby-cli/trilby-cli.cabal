@@ -84,6 +84,7 @@ executable trilby
         turtle,
         unix,
         unliftio,
+        unordered-containers,
     other-modules:
         Prelude
         Trilby.App
@@ -93,6 +94,7 @@ executable trilby
         Trilby.Disko.Disk
         Trilby.Disko.Filesystem
         Trilby.Disko.Partition
+        Trilby.FlakeRef
         Trilby.HNix
         Trilby.Host
         Trilby.Infect
@@ -107,6 +109,7 @@ executable trilby
         Trilby.Install.Options
         Trilby.Log
         Trilby.Options
+        Trilby.Setup
         Trilby.System
         Trilby.Update
         Trilby.Update.Options

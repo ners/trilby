@@ -4,6 +4,7 @@ import Data.List.Extra (split)
 import Data.Text qualified as Text
 import Trilby.App ()
 import Trilby.System (System)
+import Turtle qualified
 import Prelude
 
 data Host
@@ -23,12 +24,12 @@ instance Show Host where
     show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
 
 hostname :: Host -> App Text
-hostname Localhost = view #hostname
+hostname Localhost = Turtle.hostname
 hostname Host{..} = pure hostname
 
 canonicalHost :: Host -> App Host
 canonicalHost host = do
-    localhostHostnames <- view #hostname <&> (: ["localhost", "127.0.0.1", "::1"])
+    localhostHostnames <- hostname Localhost <&> (: ["localhost", "127.0.0.1", "::1"])
     isLocalhost <- hostname host <&> (`elem` localhostHostnames)
     pure $ if isLocalhost then Localhost else host
 
