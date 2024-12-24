@@ -61,34 +61,20 @@ canonicalSet s = error $ "canonicalSet bottom: " <> show s
 listToSet :: (ToExpr a) => (a -> NAttrPath NExpr) -> [a] -> NExpr
 listToSet f xs = Fix $ NSet NonRecursive $ (\x -> f x ~: toExpr x) <$> xs
 
-data FlakeRef = FlakeRef
-    { url :: Text
-    , output :: [Text]
-    }
-    deriving stock (Generic)
-
-instance IsString FlakeRef where
-    fromString (fromString -> Text.break (== '#') -> (url, Text.split (== '.') -> output)) =
-        FlakeRef{..}
-
-instance Show FlakeRef where
-    show FlakeRef{output = [], ..} = Text.unpack url
-    show FlakeRef{..} = Text.unpack $ url <> "#" <> Text.intercalate "." output
-
-data FileOrFlake
-    = File (SomeBase File)
-    | Flake FlakeRef
-    deriving stock (Generic)
-
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
 writeNixFile :: (ToExpr a) => Path b File -> a -> App ()
 writeNixFile f = writeFile f . showNix
 
-nixBuild :: (HasCallStack) => FileOrFlake -> (FilePath -> App (Path Abs t)) -> App (Path Abs t)
-nixBuild f p =
-    (p . fromText . firstLine)
+data FileOrFlake
+    = File (SomeBase File)
+    | Flake FlakeRef
+    deriving stock (Generic)
+
+nixBuild :: (HasCallStack) => FileOrFlake -> App [Path Abs Dir]
+nixBuild f =
+    mapM (parseAbsDir . Text.unpack) . Text.lines
         =<< withTrace
             cmd
             ( sconcat
@@ -145,7 +131,7 @@ copyClosure host@Host{} path = do
                     ]
                 ]
 
-trilbyFlake :: (HasCallStack) => App Text
-trilbyFlake = do
-    hasTrilby <- (ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "trilby"]
-    pure $ if False then "trilby" else "github:ners/trilby/darwin"
+trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
+trilbyFlake output = do
+    hasTrilby <- (ExitSuccess ==) . fst <$> cached quietCmd' ["nix", "flake", "metadata", "trilby"]
+    pure FlakeRef{url = if False then "trilby" else "github:ners/trilby/darwin", output}

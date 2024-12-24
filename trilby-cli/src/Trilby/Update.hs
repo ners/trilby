@@ -3,7 +3,7 @@ module Trilby.Update (update) where
 import Data.List.NonEmpty.Extra qualified as NonEmpty
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
-import Trilby.HNix (FileOrFlake (..), FlakeRef (..), copyClosure, nixBuild, writeNixFile)
+import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
 import Trilby.System
 import Trilby.Update.Options
@@ -41,10 +41,14 @@ To this end we write a single derivation that depends on each of the configurati
 The resulting output path contains symlinks for each configuration by name.
 -}
 buildConfigurations :: (HasCallStack) => NonEmpty Configuration -> App (NonEmpty (Configuration, Path Abs Dir))
-buildConfigurations (configuration :| []) = pure . (configuration,) <$> nixBuild f parseAbsDir
+buildConfigurations (configuration :| []) = (configuration,) <$$> NonEmpty.fromList <$> nixBuild f
   where
-    output = ["nixosConfigurations", configuration.name, "config", "system", "build", "toplevel"]
-    f = Flake FlakeRef{url = fromPath $ trilbyHome rootDir, output}
+    f =
+        Flake
+            FlakeRef
+                { url = fromPath $ trilbyHome rootDir
+                , output = ["nixosConfigurations", configuration.name, "config", "system", "build", "toplevel"]
+                }
 buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \tmpFile -> do
     let configurationNames = configurations <&> (.name)
     writeNixFile
@@ -63,7 +67,7 @@ buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \t
             (pkgs.linkFarm "trilby-update")
           ]
         |]
-    resultPath <- nixBuild (File $ Abs tmpFile) parseAbsDir
+    resultPath <- head <$> nixBuild (File $ Abs tmpFile)
     flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
 
 data ConfigAction

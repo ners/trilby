@@ -5,7 +5,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
-import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, trilbyFlake, writeNixFile)
+import Trilby.HNix (FileOrFlake (File), copyClosure, nixBuild, trilbyFlake, writeNixFile)
 import Trilby.Host
 import Trilby.Infect.Options
 import Trilby.System
@@ -26,7 +26,7 @@ infect (askOpts -> opts) = do
 
 buildKexec :: (HasCallStack) => InfectOpts App -> App (Path Abs Dir)
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
-    trilbyUrl <- trilbyFlake
+    FlakeRef{url = trilbyUrl} <- trilbyFlake []
     edition <- opts.edition
     authorisedKeys <-
         opts.authorisedKeys >>= \case
@@ -53,4 +53,4 @@ buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
         };
         in system.config.system.build.kexecTree
         |]
-    nixBuild (File $ Abs tmpFile) parseAbsDir
+    head <$> nixBuild (File $ Abs tmpFile)

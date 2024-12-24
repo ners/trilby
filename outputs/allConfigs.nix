@@ -24,10 +24,11 @@ let
       in
       {
         ${system.trilby.configurationName} = system.config.system.build.${trilby.format};
-      });
+      }
+    );
 in
 packages // {
-  allToplevel = pkgs.linkFarmFromDrvs "allToplevel" (
+  allToplevels = pkgs.linkFarmFromDrvs "allToplevels" (
     map
       (trilby: packages.${trilby.configurationName})
       (configurations {
@@ -35,7 +36,7 @@ packages // {
         format = [ "toplevel" ];
       })
   );
-  allIsoImage = pkgs.linkFarmFromDrvs "allIsoImage" (
+  allIsoImages = pkgs.linkFarmFromDrvs "allIsoImages" (
     map
       (trilby: packages.${trilby.configurationName})
       (configurations {

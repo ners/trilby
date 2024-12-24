@@ -1,7 +1,7 @@
 module Trilby.Install (install) where
 
 import Data.Text qualified as Text
-import Trilby.HNix (FlakeRef (..), writeNixFile)
+import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), hostSystem, reboot)
 import Trilby.Install.Config.Host
 import Trilby.Install.Config.User

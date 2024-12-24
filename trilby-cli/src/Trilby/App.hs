@@ -1,22 +1,23 @@
+{-# LANGUAGE FieldSelectors #-}
+
 module Trilby.App where
 
-import Control.Monad (unless)
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Logger.CallStack (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
-import Data.List (intercalate)
-import Data.List.Extra (split)
+import Data.HashMap.Strict (HashMap)
+import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
 import GHC.Generics (Generic)
 import Path (Abs, Dir, Path)
-import System.Environment (getEnv, setEnv)
+import System.Exit (ExitCode)
 import Trilby.Version qualified as Trilby
-import UnliftIO (MonadIO (liftIO), MonadUnliftIO)
+import UnliftIO (MonadIO, MonadUnliftIO, TVar)
 import "base" Prelude
 
 data AppState = AppState
     { verbosity :: LogLevel
-    , hostname :: Text
+    , commandCache :: TVar (HashMap (NonEmpty Text) (ExitCode, Text))
     , tmpDir :: Path Abs Dir
     }
     deriving stock (Generic)
@@ -42,11 +43,5 @@ type App = AppT IO
 
 runApp :: (MonadIO m) => AppState -> AppT m a -> LoggingT m a
 runApp state App{..} = flip runReaderT state do
-    liftIO do
-        let nixBinPath = "/run/current-system/sw/bin" :: FilePath
-        oldPath <- getEnv "PATH"
-        unless (nixBinPath `elem` split (== ':') oldPath) do
-            let newPath = intercalate ":" [nixBinPath, oldPath]
-            setEnv "PATH" newPath
     logInfo Trilby.fullVersionString
     _runApp

@@ -5,7 +5,6 @@ import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Disko.Filesystem
-import Trilby.HNix (FlakeRef (..))
 import Trilby.Host
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Host (Keyboard (..))

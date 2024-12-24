@@ -78,7 +78,6 @@
               ${ghcName} = hp.shellFor {
                 packages = ps: [ ps.${pname} ];
                 nativeBuildInputs = with pkgs'; with haskellPackages; [
-                  cabal-gild
                   cabal-install
                   fourmolu
                   haskell-debug-adapter
