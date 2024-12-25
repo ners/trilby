@@ -134,4 +134,4 @@ copyClosure host@Host{} path = do
 trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
 trilbyFlake output = do
     hasTrilby <- (ExitSuccess ==) . fst <$> cached quietCmd' ["nix", "flake", "metadata", "trilby"]
-    pure FlakeRef{url = if False then "trilby" else "github:ners/trilby/darwin", output}
+    pure FlakeRef{url = if hasTrilby then "trilby" else "github:ners/trilby", output}

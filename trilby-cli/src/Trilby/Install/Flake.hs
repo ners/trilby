@@ -99,7 +99,7 @@ flake kernel release =
                         }
                     , InputFlake
                         { name = "trilby"
-                        , url = "github:ners/trilby/darwin"
+                        , url = "github:ners/trilby"
                         , inputs =
                             [ "nixpkgs" `Follows` "nixpkgs"
                             , "nixpkgs-unstable"
