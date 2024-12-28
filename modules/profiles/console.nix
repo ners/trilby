@@ -1,12 +1,5 @@
-{ config, lib, pkgs, ... }:
+{ lib, ... }:
 
-let
-  cozette-psf = pkgs.termify {
-    name = "cozette.psf.gz";
-    fontfile = "${pkgs.cozette}/share/fonts/misc/cozette.bdf";
-    scale = config.console.fontScale;
-  };
-in
 {
   options.console.fontScale = with lib; mkOption {
     type = types.int;
@@ -20,7 +13,6 @@ in
       # Enable setting virtual console options as early as possible (in initrd).
       earlySetup = true;
       useXkbConfig = true;
-      font = cozette-psf;
     };
   };
 }

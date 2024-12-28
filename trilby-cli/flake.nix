@@ -68,10 +68,7 @@
         in
         {
           formatter.${system} = pkgs.nixpkgs-fmt;
-          legacyPackages.${system} = {
-            ${pname} = pkgs.${pname};
-            inherit (pkgs) haskell haskellPackages;
-          };
+          legacyPackages.${system} = pkgs;
           packages.${system}.default = pkgs.${pname};
           devShells.${system} =
             foreach hps (ghcName: hp: {
