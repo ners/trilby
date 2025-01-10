@@ -1,5 +1,8 @@
 { config, inputs, trilby, lib, pkgs, ... }:
 
+let
+  baseName = "${config.system.nixos.distroId}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}";
+in
 {
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
@@ -8,8 +11,7 @@
 
   isoImage = lib.mkMerge [
     {
-      volumeID = config.system.nixos.distroId or "${trilby.name}-${trilby.edition}";
-      isoName = lib.mkForce "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}.iso";
+      volumeID = config.system.nixos.distroId;
       grubTheme = pkgs.trilby-grub2-theme;
       splashImage = pkgs.runCommand "bios-boot.png"
         {
@@ -34,7 +36,8 @@
     luks.devices = { };
     systemd.enable = false;
   };
-}
-  // lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
+} // lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
   system.installer.channel.enable = false;
+} // lib.optionalAttrs (lib.versionAtLeast trilby.release "25.05") {
+  image.baseName = lib.mkForce baseName;
 }
