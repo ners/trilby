@@ -16,17 +16,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
-    - name: Free disk space
-      run: |
-        if [ "$(uname --kernel-name)" = "Linux" ]; then
-          sudo rm -rf /usr/local/* /usr/share/* /opt/*
-        fi
-        docker image ls -aq | xargs --no-run-if-empty docker rmi
     - uses: cachix/install-nix-action@v30
     - uses: ryanccn/attic-action@v0
       with:
         endpoint: https://cache.ners.ch
-        cache: trilby
+        cache: haskell
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
       run: nix build --accept-flake-config .#trilby-cli
@@ -41,8 +35,8 @@ jobs:
       run: |
         if [ "$(uname --kernel-name)" = "Linux" ]; then
           sudo rm -rf /usr/local/* /usr/share/* /opt/*
-          docker rmi $(docker image ls -aq)
         fi
+        docker image ls -aq | xargs --no-run-if-empty docker rmi
     - uses: cachix/install-nix-action@v30
     - uses: ryanccn/attic-action@v0
       with:
@@ -53,3 +47,14 @@ jobs:
       run: nix build --accept-flake-config --print-build-logs .#allToplevels
     - name: Closure size
       run: nix path-info -sSh ./result/*
+  check:
+    name: Nix check
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v30
+    - name: Check
+      run: nix flake check

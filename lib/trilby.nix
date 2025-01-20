@@ -67,9 +67,8 @@ rec {
       };
     in
     (
-      if kernelName == "linux" then lib.nixosSystem systemAttrs
-      else if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
-      else throw "trilbySystem: unsupported kernel name: ${kernelName}"
+      if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
+      else lib.nixosSystem systemAttrs
     ) // { inherit trilby; };
 
   trilbyTest = attrs:
@@ -111,15 +110,15 @@ rec {
 
   trilbyUser = trilby: u:
     let
-      isLinux = trilby.hostSystem.kernel.name == "linux";
       isDarwin = trilby.hostSystem.kernel.name == "darwin";
+      isNixos = not isDarwin;
       user = lib.recursiveConcat [
         {
           uid = u.uid or 1000;
           name = u.name;
           home = u.home or (if isDarwin then "/Users/${u.name}" else "/home/${u.name}");
         }
-        (lib.optionalAttrs isLinux (
+        (lib.optionalAttrs isNixos (
           if (u ? initialPassword && u ? initialHashedPassword)
           then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
           else if (u ? initialPassword)
@@ -129,7 +128,7 @@ rec {
           else
             throw "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
         ))
-        (lib.optionalAttrs isLinux {
+        (lib.optionalAttrs isNixos {
           isNormalUser = u.isNormalUser or true;
           createHome = u.createHome or true;
           group = u.group or u.name;
@@ -157,7 +156,7 @@ rec {
         users.users.${user.name} = user;
         home-manager.users.${user.name} = home;
       }
-      (lib.optionalAttrs isLinux {
+      (lib.optionalAttrs isNixos {
         users.groups.${user.name} = group;
       })
     ];

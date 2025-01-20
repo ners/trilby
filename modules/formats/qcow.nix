@@ -17,16 +17,15 @@
     #not supported by systemd-boot yet
     #growPartition = true;
     loader = {
-      grub.device = lib.mkDefault (
-        if trilby.hostPlatform == "x86_64-linux" then
-          "/dev/vda"
-        else
-          "nodev"
-      );
-
-      grub.efiSupport = lib.mkIf (trilby.hostPlatform != "x86_64-linux") (lib.mkDefault true);
-      grub.efiInstallAsRemovable = lib.mkIf (trilby.hostPlatform != "x86_64-linux") (lib.mkDefault true);
       timeout = 0;
+      grub =
+        if (trilby.hostPlatform == "x86_64-linux") then {
+          device = "/dev/vda";
+        } else {
+          device = "nodev";
+          efiSupport = lib.mkDefault true;
+          efiInstallAsRemovable = lib.mkDefault true;
+        };
     };
   };
 
