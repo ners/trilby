@@ -20,13 +20,14 @@ lib.recursiveConcat [
         inherit buildPlatform;
         hostPlatform = buildPlatform;
       };
+      allConfigs = import ./allConfigs.nix {
+        inherit pkgs lib nixosModules buildPlatform;
+      };
     in
     {
       formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
       legacyPackages.${buildPlatform} = pkgs;
-      packages.${buildPlatform} = import ./allConfigs.nix { inherit pkgs lib nixosModules buildPlatform; } // {
-        default = pkgs.trilby-cli;
-      };
+      packages.${buildPlatform} = allConfigs // { default = pkgs.trilby-cli; };
     }
   ))
 ]

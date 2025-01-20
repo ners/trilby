@@ -45,7 +45,10 @@
       if lib.hasInfix sn cn then cn else "${cn}-${sn}";
   };
 
-  i18n.defaultLocale = lib.mkDefault "en_GB.UTF-8";
+  i18n = {
+    defaultLocale = lib.mkDefault "en_GB.UTF-8";
+    supportedLocales = [ "all" ];
+  };
 
   time.timeZone = lib.mkDefault "Europe/Zurich";
 
