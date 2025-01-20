@@ -8,7 +8,5 @@
       config = builtins.readFile ./config.lua;
     }
     rainbow-delimiters-nvim
-    nvim-treesitter-textobjects
-    nvim-treesitter-refactor
   ];
 }
