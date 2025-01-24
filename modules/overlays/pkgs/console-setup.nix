@@ -4,6 +4,7 @@
 , perl
 , genericUpdater
 , writeShellScript
+, ...
 }:
 
 stdenvNoCC.mkDerivation rec {
