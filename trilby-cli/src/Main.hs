@@ -8,10 +8,9 @@ import Trilby.Install (install)
 import Trilby.Install.Options (validateParsedInstallOpts)
 import Trilby.Log (withLog)
 import Trilby.Options
+import Trilby.Setup (setup)
 import Trilby.Update (update)
 import Prelude
-import Trilby.Setup (setup)
-
 
 main :: IO ()
 main = withSystemTempDir "trilby" \tmpDir -> do

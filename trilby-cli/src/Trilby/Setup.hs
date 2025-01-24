@@ -19,14 +19,11 @@ appendNixBinsToPath fs = do
     appendToPath bins
 
 installNix :: App ()
-installNix = shell_ cmd Turtle.empty
-  where
-    cmd =
-        Text.intercalate
-            "|"
-            [ "curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix"
-            , "sh -s -- install --no-confirm"
-            ]
+installNix =
+    flip shell_ Turtle.empty . Text.intercalate " | " $
+        [ "curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix"
+        , "sh -s -- install --no-confirm"
+        ]
 
 ensureFlakes :: App ()
 ensureFlakes = unlessM ((ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "nixpkgs"]) do
