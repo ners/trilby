@@ -5,66 +5,35 @@
 Trilby is a NixOS-based operating system that is modeled after Fedora Linux.
 It provides new users with sensible defaults and a great out-of-the-box experience.
 
-## Features
+Additionally, Trilby can be used to get started with great Nix defaults on macOS.
 
-- Provides a modern, up-to-date system that is designed for both desktop and server use cases.
-- Built on top of NixOS, which is known for its declarative and reproducible nature, making it easy to maintain and upgrade.
-- Can be cross-compiled for multiple target architectures, including x86_64, aarch64, and riscv-64.
-- Built on top of Nixpkgs which includes a large number of software packages, including popular applications such as Firefox, LibreOffice, and GIMP.
-- Designed to be easy to use and install, with an installer that guides you through the process.
-- Designed to be easy to extend in your own NixOS configuration.
+## Installing Trilby on Linux
 
-## Getting Started
+Boot into any Linux live CD (Ubuntu, NixOS, ...).
 
-To get started with Trilby, you can build the ISO image from this repository and burn it to a USB drive or DVD.
-You can then boot from the media and follow the installer prompts to install the operating system.
-
-If you already have NixOS installed, you can add Trilby as a flake input into your NixOS flake, and import its exposed `nixosModules`.
-
-## Building Trilby
-
-If you want to build Trilby from scratch, you can use the provided flake to create a custom ISO image.
-To build Trilby, you will need to have Nix installed on your system.
-
+Then run the Trilby installer:
 ```bash
-nix build .#trilby-<edition>-<release>-<arch>-<format>
+curl -fsSL https://raw.githubusercontent.com/ners/trilby/refs/heads/main/quickstart.sh \
+   | sh -s -- install
 ```
 
-For example, to build the ISO installer for the latest release of the Workstation edition for x86_64:
+> [!TIP]
+> The Trilby installer does not currently support dual-boot or other complex partitioning situations.
+>
+> You may create the partitions manually before running the installer.
+>
+> See [the NixOS manual](https://nixos.org/manual/nixos/stable/#sec-installation-manual-partitioning) for more information.
 
+## Installing Trilby on macOS
+
+Run the Trilby installer:
 ```bash
-nix build .#trilby-workstation-unstable-x86_64-isoImage
+curl -fsSL https://raw.githubusercontent.com/ners/trilby/refs/heads/main/quickstart.sh \
+    | sh -s -- install
 ```
-
-To build a VirtualBox OVA for the 22.11 stable release of the Server edition for aarch64:
-
-```bash
-nix build .#trilby-server-22.11-aarch64-virtualBoxOVA
-```
-
-You can find the built images in the `result` directory.
-
-## Installing Trilby on Darwin
-
-1. Install Nix
-   ```bash
-   sh <(curl -L https://nixos.org/nix/install)
-   ```
-2. Enable flakes
-   ```bash
-   mkdir -p ~/.config/nix
-   echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf
-   ```
-3. Run
-   ```bash
-   nix run github:ners/trilby -- install
-   ```
 
 ## Contributing
 
-If you want to contribute to Trilby, you can fork the project on GitHub and submit pull requests with your changes.
 We welcome contributions of all types, including bug fixes, feature requests, and documentation improvements.
 
-## Licence
-
-Licenced under the Apache Licence, Version 2.0. See the [LICENCE](./LICENCE.md) file for more details.
+If you wish to dive in and help, look for [issues](/issues) labelled with "good first issue".
