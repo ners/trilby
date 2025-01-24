@@ -2,8 +2,8 @@ local opt = vim.opt
 local g = vim.g
 local fn = vim.fn
 
--- Use space as leader key
-g.mapleader = ' '
+-- load .exrc, .nvimrc and .nvim.lua local files
+vim.o.exrc = true
 
 -- Set mouse mode to all modes
 opt.mouse = 'a'
@@ -108,3 +108,10 @@ vim.opt.fillchars = {
   eob = ' ', -- prevent '~' from showing on blank lines
   msgsep = '‾'
 }
+
+-- autoload files on buffer enter
+vim.opt.autoread = true
+vim.api.nvim_create_autocmd({ 'VimEnter', 'FocusGained', 'BufEnter' }, {
+    group = vim.api.nvim_create_augroup('ReloadFileOnChange', {}),
+    command = 'checktime',
+})

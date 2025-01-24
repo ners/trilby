@@ -1,31 +1,17 @@
-{ lib, ... }:
+{ inputs, lib, ... }:
 
 with builtins;
 with lib;
 {
-  imports = findModulesList ./plugins;
+  imports = [ inputs.nixvim.homeManagerModules.nixvim ] ++ findModulesList ./plugins;
 
-  programs.neovim = {
+  programs.nixvim = {
     enable = true;
     viAlias = true;
     vimAlias = true;
-    vimdiffAlias = true;
-    withPython3 = true;
-    extraLuaConfig = mkBefore /*lua*/ ''
-      -- bytecompile lua modules
-      vim.loader.enable()
-
-      -- load .exrc, .nvimrc and .nvim.lua local files
-      vim.o.exrc = true
-    '';
+    luaLoader.enable = true;
+    globals.mapleader = " ";
+    clipboard.providers.wl-copy.enable = true;
+    extraConfigLuaPre = readFile ./init.lua;
   };
-
-  xdg.configFile = pipe ./plugins [
-    readDir
-    attrNames
-    (filter (hasSuffix ".lua"))
-    (names: foreach names (name: {
-      "nvim/plugin/${name}".source = ./plugins/${name};
-    }))
-  ];
 }

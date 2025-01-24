@@ -1,16 +1,29 @@
 { pkgs, ... }:
 
 {
-  home.packages = with pkgs.unstable; [ nixd nixpkgs-fmt ];
-
-  programs.neovim.extraLuaConfig = /*lua*/ ''
-    require('lspconfig').nixd.setup({})
-  '';
-
-  xdg.configFile."nvim/ftplugin/nix.lua".text = /*lua*/ ''
-    vim.bo.expandtab = true
-    vim.bo.shiftwidth = 2
-    vim.bo.softtabstop = 2
-    vim.bo.tabstop = 2
-  '';
+  programs.nixvim = {
+    plugins.treesitter = {
+      grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+        nix
+      ];
+    };
+    files."ftplugin/nix.lua" = {
+      opts = rec {
+        tabstop = 2;
+        softtabstop = tabstop;
+        shiftwidth = tabstop;
+      };
+      extraConfigLua = ''
+        vim.treesitter.start()
+        if vim.fn.executable('nixd') == 1 then
+          vim.lsp.start {
+            name = 'nixd',
+            cmd = { 'nixd' },
+            root_dir = vim.fs.dirname(vim.fs.find({'flake.nix', '.git'}, {upward = true})[1]),
+            capabilities = vim.lsp.protocol.make_client_capabilities(),
+          }
+        end
+      '';
+    };
+  };
 }
