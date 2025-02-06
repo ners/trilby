@@ -25,6 +25,7 @@ lib.recursiveConcat [
       };
     in
     {
+      inherit nixosModules;
       formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
       legacyPackages.${buildPlatform} = pkgs;
       packages.${buildPlatform} = allConfigs // { default = pkgs.trilby-cli; };
