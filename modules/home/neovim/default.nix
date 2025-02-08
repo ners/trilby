@@ -10,7 +10,6 @@ with lib;
     viAlias = true;
     vimAlias = true;
     vimdiffAlias = true;
-    withNodeJs = true;
     withPython3 = true;
     extraLuaConfig = mkBefore /*lua*/ ''
       -- bytecompile lua modules

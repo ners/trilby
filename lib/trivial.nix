@@ -10,6 +10,8 @@ with lib;
   # The unary function equivalent of ! operator
   not = x: !x;
 
+  for = flip map;
+
   # Map each element of a list or attrset to an attrset, then flatten the attrsets.
   foreach = xs: f: recursiveConcat (
     if isList xs then map f xs

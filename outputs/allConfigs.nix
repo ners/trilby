@@ -2,20 +2,24 @@
 
 with builtins;
 let
+  allEditions = attrNames nixosModules.editions;
+  allFormats = attrNames nixosModules.formats;
+  allNixpkgs = attrValues ((lib.loadFlake { src = ./releases; }).defaultNix.inputs);
   configurations =
     { name ? [ "trilby" ]
-    , edition ? attrNames nixosModules.editions
-    , format ? attrNames nixosModules.formats
+    , edition ? allEditions
+    , format ? allFormats
     , buildPlatform ? [ attrs.buildPlatform ]
     , hostPlatform ? [ attrs.buildPlatform ]
     , variant ? [ null ]
-    , nixpkgs ? attrValues ((lib.loadFlake { src = ./releases; }).defaultNix.inputs)
+    , nixpkgs ? allNixpkgs
     }:
     lib.pipe { inherit name edition format buildPlatform hostPlatform variant nixpkgs; } [
       lib.cartesianProduct
       (map lib.trilbyConfig)
       (filter (trilby: trilby.hostSystem.kernel.name != "darwin"))
     ];
+
   packages =
     lib.foreach (configurations { }) (trilby:
       let
@@ -24,21 +28,16 @@ let
         };
       in
       {
-        ${system.trilby.configurationName} = system.config.system.build.toplevel // {
+        ${system.trilby.configurationName} = system.config.system.build.${system.trilby.format} // {
           inherit (system.config.system.build) vm;
         };
       }
     );
-  allToplevels =
-    map
-      (trilby: packages.${trilby.configurationName})
-      (configurations { format = [ "toplevel" ]; });
-  allIsoImages =
-    map
-      (trilby: packages.${trilby.configurationName})
-      (configurations { format = [ "isoImage" ]; });
 in
-packages // {
-  allToplevels = pkgs.linkFarmFromDrvs "allToplevels" allToplevels;
-  allIsoImages = pkgs.linkFarmFromDrvs "allIsoImages" allIsoImages;
-}
+packages // { trilby-all = pkgs.linkFarm "trilby-all" packages; } // lib.foreach allFormats (format: {
+  "trilby-all-${format}" = lib.pipe { format = [ format ]; } [
+    configurations
+    (map (trilby: packages.${trilby.configurationName}))
+    (pkgs.linkFarmFromDrvs "trilby-all-${format}")
+  ];
+})
