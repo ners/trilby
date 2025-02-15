@@ -1,7 +1,7 @@
-{ inputs, ... }:
+{ lib, ... }:
 
 {
-  imports = with inputs.self.nixosModules; [
+  imports = with lib.trilbyModules; [
     profiles.base
   ];
 

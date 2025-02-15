@@ -1,7 +1,7 @@
-{ trilby, ... }:
+{ modulesPath, ... }:
 
 {
   imports = [
-    trilby.nixpkgs.nixosModules.virtualisation.virtualbox-image
+    "${modulesPath}/virtualisation/virtualbox-image.nix"
   ];
 }

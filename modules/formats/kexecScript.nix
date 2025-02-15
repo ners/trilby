@@ -1,13 +1,13 @@
-{ inputs, modulesPath, ... }:
+{ modulesPath, lib, ... }:
 
 {
   disabledModules = [
-    inputs.self.nixosModules.profiles.bootloader
+    lib.trilbyModules.profiles.bootloader
   ];
 
   imports = [
     "${modulesPath}/installer/netboot/netboot.nix"
-    inputs.self.nixosModules.profiles.installer
+    lib.trilbyModules.profiles.installer
   ];
 
   netboot.squashfsCompression = "lz4";

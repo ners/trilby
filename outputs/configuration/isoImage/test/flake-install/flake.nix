@@ -13,9 +13,9 @@
           hostPlatform = builtins.currentSystem;
         };
         modules = [
-          ({ trilby, ... }: {
+          ({ modulesPath, ... }: {
             imports = [
-              trilby.nixpkgs.nixosModules.testing.test-instrumentation
+              "${modulesPath}/testing/test-instrumentation.nix"
             ];
 
             disko.devices.disk.vdb = {

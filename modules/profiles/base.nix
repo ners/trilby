@@ -1,12 +1,9 @@
-{ trilby, lib, ... }:
+{ modulesPath, pkgs, ... }:
 
 with builtins;
-let
-  pkgs = lib.pkgsFor trilby;
-in
 {
   # Prefer our base config. This also prevents adding ZFS to `boot.supportedFilesystems` without forcing it.
-  disabledModules = [ trilby.nixpkgs.nixosModules.profiles.base ];
+  disabledModules = [ "${modulesPath}/profiles/base.nix" ];
 
   environment.systemPackages = with pkgs; [
     expect

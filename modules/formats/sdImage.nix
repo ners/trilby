@@ -1,12 +1,11 @@
-{ trilby, ... }:
+{ trilby, modulesPath, ... }:
 
 {
   imports = [
-    (with trilby.nixpkgs.nixosModules.installer;
-    if (trilby.hostSystem.cpu.arch == "riscv64") then
-      sd-card.sd-image-riscv64-qemu
+    (if (trilby.hostSystem.cpu.arch == "riscv64") then
+      "${modulesPath}/installer/sd-card/sd-image-riscv64-qemu.nix"
     else
-      sd-card."sd-image-${trilby.hostSystem.cpu.name}"
+      "${modulesPath}/installer/sd-card/sd-image-x86_64.nix"
     )
   ];
 }

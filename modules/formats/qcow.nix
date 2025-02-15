@@ -1,11 +1,11 @@
-{ inputs, trilby, config, lib, pkgs, modulesPath, ... }:
+{ trilby, config, lib, pkgs, modulesPath, ... }:
 
 {
   disabledModules = [
-    inputs.self.nixosModules.profiles.btrfs
+    lib.trilbyModules.profiles.btrfs
   ];
   imports = [
-    trilby.nixpkgs.nixosModules.profiles.qemu-guest
+    "${modulesPath}/profiles/qemu-guest.nix"
   ];
 
   fileSystems."/" = {

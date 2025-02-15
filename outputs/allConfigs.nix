@@ -1,9 +1,9 @@
-{ pkgs, lib, nixosModules, ... }@attrs:
+{ pkgs, lib, ... }@attrs:
 
 with builtins;
 let
-  allEditions = attrNames nixosModules.editions;
-  allFormats = attrNames nixosModules.formats;
+  allEditions = attrNames lib.trilbyModules.editions;
+  allFormats = attrNames lib.trilbyModules.formats;
   allNixpkgs = attrValues ((lib.loadFlake { src = ./releases; }).defaultNix.inputs);
   configurations =
     { name ? [ "trilby" ]

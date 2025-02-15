@@ -1,12 +1,12 @@
-{ config, inputs, trilby, lib, pkgs, ... }:
+{ config, inputs, trilby, modulesPath, lib, pkgs, ... }:
 
 let
   baseName = "${config.system.nixos.distroId}-${config.system.nixos.label}-${pkgs.parsedSystem.cpu.name}";
 in
 {
   imports = [
-    trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
-    inputs.self.nixosModules.profiles.installer
+    "${modulesPath}/installer/cd-dvd/installation-cd-base.nix"
+    lib.trilbyModules.profiles.installer
   ];
 
   isoImage = lib.mkMerge [
@@ -17,7 +17,7 @@ in
         {
           buildInputs = with pkgs; [ imagemagick ];
         } ''
-        convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
+        convert ${lib.trilbyModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
       '';
       storeContents = builtins.attrValues inputs;
     }

@@ -1,7 +1,7 @@
-{ trilby, ... }:
+{ modulesPath, ... }:
 
 {
   imports = [
-    trilby.nixpkgs.nixosModules.virtualisation.vmware-image
+    "${modulesPath}/virtualisation/vmware-image.nix"
   ];
 }

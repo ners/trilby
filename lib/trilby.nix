@@ -3,10 +3,12 @@
 with builtins;
 with lib;
 rec {
+  trilbyModules = findModules ../modules;
+
   pkgsFor = t:
     let
       trilby = trilbyConfig t;
-      overlaySrcs = attrValues inputs.self.nixosModules.overlays;
+      overlaySrcs = attrValues trilbyModules.overlays;
       overlays = map
         (o: import o {
           inherit inputs lib;
@@ -34,9 +36,6 @@ rec {
       name = toLower t.name;
       edition = toLower t.edition;
       hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
-      nixpkgs = t.nixpkgs // {
-        nixosModules = findModules "${t.nixpkgs}/nixos/modules";
-      };
       release = t.nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         name
@@ -49,26 +48,31 @@ rec {
     })
   ];
 
-  trilbySystem = attrs:
+  trilbySystemModule = attrs:
     let
       trilby = trilbyConfig (attrs.trilby or { });
       lib = import ../lib {
         inherit inputs;
         inherit (trilby.nixpkgs) lib;
       };
-      kernelName = trilby.hostSystem.kernel.name;
-      systemAttrs = traceVerbose "trilbySystem: ${toJSON trilby}" {
-        modules = with inputs.self.nixosModules; [
+    in traceVerbose "trilbySystem: ${toJSON trilby}" {
+        modules = with trilbyModules; [
           hostPlatforms.${trilby.hostPlatform}
         ]
         ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
         ++ attrs.modules or [ ];
         specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
       };
+
+  trilbySystem = attrs:
+    let
+      module = trilbySystemModule attrs;
+      trilby = module.specialArgs.trilby;
+      kernelName = trilby.hostSystem.kernel.name;
     in
     (
-      if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
-      else lib.nixosSystem systemAttrs
+      if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem module
+      else lib.nixosSystem module
     ) // { inherit trilby; };
 
   trilbyTest = attrs:
@@ -90,22 +94,11 @@ rec {
       hostPkgs = pkgsFor trilby;
 
       node = {
-        specialArgs = { inherit inputs trilby lib; };
         pkgs = pkgsFor trilby;
         pkgsReadOnly = false;
       };
 
-      nodes = (attrs.nodes or { }) // {
-        trilby = {
-          imports = with inputs.self.nixosModules; [
-            editions.${trilby.edition}
-            hostPlatforms.${trilby.hostPlatform}
-            trilby.nixpkgs.nixosModules.testing.test-instrumentation
-          ]
-          ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
-          ++ attrs.modules or [ ];
-        };
-      };
+      nodes = mapAttrs (_: trilbySystemModule) (attrs.nodes or { });
     };
 
   trilbyUser = trilby: u:
@@ -147,7 +140,7 @@ rec {
           homeDirectory = user.home;
         };
         imports = [
-          inputs.self.nixosModules.home
+          trilbyModules.home
         ] ++ (u.imports or [ ]);
       };
     in

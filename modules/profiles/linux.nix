@@ -1,7 +1,7 @@
 { inputs, trilby, lib, config, ... }:
 
 {
-  imports = with inputs.self.nixosModules; [
+  imports = with lib.trilbyModules; [
     editions.${trilby.edition}
     inputs.disko.nixosModules.disko
     profiles.bootloader
