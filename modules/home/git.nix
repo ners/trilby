@@ -1,9 +1,10 @@
-{ ... }:
+{ lib, ... }:
 
 {
   programs.git = {
-    enable = true;
-    difftastic.enable = true;
-    extraConfig.log.date = "iso";
+    enable = lib.mkDefault true;
+    difftastic.enable = lib.mkDefault true;
+    extraConfig.log.date = lib.mkDefault "iso";
+    signing.format = lib.mkDefault "openpgp";
   };
 }
