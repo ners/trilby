@@ -8,6 +8,6 @@
     earlySetup = true;
     useXkbConfig = true;
 
-    font = "${pkgs.console-setup}/share/consolefonts/Uni3-Fixed16.psf.gz";
+    font = "${pkgs.unstable.console-setup}/share/consolefonts/Uni3-Fixed16.psf.gz";
   };
 }
