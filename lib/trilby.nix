@@ -155,6 +155,7 @@ rec {
       {
         users.users.${user.name} = user;
         home-manager.users.${user.name} = home;
+        home-manager.extraSpecialArgs = u.extraSpecialArgs or {};
       }
       (lib.optionalAttrs isNixos {
         users.groups.${user.name} = group;
