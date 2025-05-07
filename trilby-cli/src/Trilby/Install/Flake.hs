@@ -98,6 +98,15 @@ flake kernel release =
                         , inputs = []
                         }
                     , InputFlake
+                        { name = "home-manager"
+                        , url =
+                            "github:nix-community/home-manager"
+                                <> if release == Unstable
+                                    then ""
+                                    else "/release-" <> ishow release
+                        , inputs = []
+                        }
+                    , InputFlake
                         { name = "trilby"
                         , url = "github:ners/trilby"
                         , inputs =
@@ -106,6 +115,7 @@ flake kernel release =
                                 `Follows` if release == Unstable
                                     then "nixpkgs"
                                     else "nixpkgs-unstable"
+                            , "home-manager" `Follows` "home-manager"
                             ]
                                 <> ["nix-darwin" `Follows` "nix-darwin" | kernel == Darwin]
                         }

@@ -1,8 +1,9 @@
 # Revision history for trilby-cli
 
-## 25.5.0 -- 2025-05-25
+## 25.5.0 -- 2025-05-10
 
 * Update to GHC 9.8.4
+* Install adds home-manager to flake
 
 ## 25.1.0 -- 2024-10-09
 

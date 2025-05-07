@@ -1,13 +1,13 @@
 module Trilby.Widgets where
 
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text.Rope.Zipper qualified as RopeZipper
+import Prelude
 import System.Terminal.Widgets.Buttons
 import System.Terminal.Widgets.Common (runWidgetIO)
 import System.Terminal.Widgets.SearchSelect
 import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
-import Prelude
-import Data.List.NonEmpty qualified as NonEmpty
 
 textInputOpts :: (HasCallStack) => Bool -> Bool -> Text -> Text -> App Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
