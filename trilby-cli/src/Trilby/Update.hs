@@ -67,7 +67,7 @@ buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \t
             (pkgs.linkFarm "trilby-update")
           ]
         |]
-    resultPath <- head <$> nixBuild (File $ Abs tmpFile)
+    [resultPath] <- nixBuild (File $ Abs tmpFile)
     flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
 
 data ConfigAction

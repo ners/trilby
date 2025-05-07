@@ -14,8 +14,7 @@ cabalField :: (IsString s) => Text -> s
 cabalField ((<> ":") -> field) =
     fromString
         . Text.unpack
-        . List.head
-        . List.tail
+        . (!! 1)
         . List.dropWhile (/= field)
         . Text.words
         $ cabalFile

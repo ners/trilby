@@ -1,5 +1,13 @@
 # Revision history for trilby-cli
 
+## 25.5.0 -- 2025-05-25
+
+* Update to GHC 9.8.4
+
+## 25.1.0 -- 2024-10-09
+
+* Set up dependencies on startup
+
 ## 24.8.0 -- 2024-08-01
 
 * Add Darwin support to Install and Update

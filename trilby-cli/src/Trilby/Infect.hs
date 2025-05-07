@@ -18,13 +18,13 @@ infect (askOpts -> opts) = do
         system <- hostSystem host
         case system.kernel of
             Linux -> do
-                kexec <- buildKexec opts
+                [kexec] <- buildKexec opts
                 copyClosure host kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
                 whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
-buildKexec :: (HasCallStack) => InfectOpts App -> App (Path Abs Dir)
+buildKexec :: (HasCallStack) => InfectOpts App -> App [Path Abs Dir]
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
     FlakeRef{url = trilbyUrl} <- trilbyFlake []
     edition <- opts.edition
@@ -53,4 +53,4 @@ buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
         };
         in system.config.system.build.kexecTree
         |]
-    head <$> nixBuild (File $ Abs tmpFile)
+    nixBuild (File $ Abs tmpFile)

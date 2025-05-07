@@ -135,7 +135,7 @@ import Trilby.FlakeRef
 import Turtle qualified
 import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
 import UnliftIO.Environment
-import "base" Prelude hiding (writeFile)
+import "base" Prelude hiding (unzip, writeFile)
 
 rootDir :: Path Abs Dir
 rootDir = $(mkAbsDir "/")

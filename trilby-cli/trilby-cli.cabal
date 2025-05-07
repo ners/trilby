@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: trilby-cli
-version: 25.1.0
+version: 25.5.0
 synopsis: Trilby command line tools
 homepage: https://github.com/ners/trilby
 license: Apache-2.0
@@ -21,6 +21,7 @@ common common
         -Wno-missing-export-lists
         -Wno-missing-import-lists
         -Wno-missing-kind-signatures
+        -Wno-missing-role-annotations
         -Wno-missing-safe-haskell-mode
         -Wno-name-shadowing
         -Wno-orphans

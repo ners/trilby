@@ -29,6 +29,7 @@ newtype AppT m a = App
         ( Functor
         , Applicative
         , Monad
+        , MonadFail
         , MonadThrow
         , MonadCatch
         , MonadMask
