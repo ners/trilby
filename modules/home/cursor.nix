@@ -2,9 +2,9 @@
 
 {
   home.pointerCursor = {
-    name = "Vanilla-DMZ";
-    package = pkgs.vanilla-dmz;
-    size = 16;
+    name = "Adwaita";
+    package = pkgs.unstable.adwaita-icon-theme;
+    size = 24;
     gtk.enable = true;
     x11.enable = true;
   };
