@@ -33,7 +33,7 @@ parseOpts f = do
                     pure $ boot reboot
                 <|> flag' Test (long "test" <> help "Test the new configuration without switching to it")
                 <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
-    hosts <- f . fmap (fromListSafe Localhost) . many $ fromString <$> strArgument (metavar "HOST" <> help "Target host to update")
+    hosts <- f . parseHosts $ help "Hosts to update, default: localhost"
     pure UpdateOpts{..}
 
 askAction :: Maybe (UpdateAction Maybe) -> App (UpdateAction App)
@@ -58,5 +58,5 @@ askOpts opts =
     UpdateOpts
         { flakeUpdate = maybe (pure True) pure opts.flakeUpdate
         , action = askAction opts.action
-        , hosts = maybe (pure [Localhost]) pure opts.hosts
+        , hosts = askHosts opts.hosts
         }

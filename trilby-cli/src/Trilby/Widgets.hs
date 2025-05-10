@@ -2,12 +2,12 @@ module Trilby.Widgets where
 
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text.Rope.Zipper qualified as RopeZipper
-import Prelude
 import System.Terminal.Widgets.Buttons
 import System.Terminal.Widgets.Common (runWidgetIO)
 import System.Terminal.Widgets.SearchSelect
 import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
+import Prelude
 
 textInputOpts :: (HasCallStack) => Bool -> Bool -> Text -> Text -> App Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
@@ -63,9 +63,8 @@ yesNoButtons prompt defaultValue = do
     let selected = if defaultValue then 0 else 1
     ("Yes" ==) <$> buttons prompt values selected id
 
-multiSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
+multiSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
 multiSelect prompt options selections optionText minSelect maxSelect
-    | minSelect < 1 = error "multiSelect: minSelect must be > 0"
     | minSelect > maxSelect = error "multiSelect: minSelect must be < maxSelect"
     | length options < minSelect = error "multiSelect: called with fewer options than minSelect"
     | otherwise =
@@ -81,14 +80,25 @@ multiSelect prompt options selections optionText minSelect maxSelect
                 , cursorOption = 0
                 , ..
                 }
-            <&> NonEmpty.fromList . (fmap (.value) . filter (.checked) . (.options))
+            <&> (fmap (.value) . filter (.checked) . (.options))
+
+multiSelect1 :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
+multiSelect1 prompt options selections optionText minSelect maxSelect
+    | minSelect < 1 = error "multiSelect1: minSelect must be > 0"
+    | otherwise = NonEmpty.fromList <$> multiSelect prompt options selections optionText minSelect maxSelect
+
+multiSelectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> [a] -> Int -> Int -> App [a]
+multiSelectEnum prompt selections = multiSelect prompt [minBound .. maxBound] selections ishow
+
+multiSelectEnum1 :: (Eq a, Bounded a, Enum a, Show a) => Text -> [a] -> Int -> Int -> App (NonEmpty a)
+multiSelectEnum1 prompt selections = multiSelect1 prompt [minBound .. maxBound] selections ishow
 
 select :: (Eq a, Show a) => Text -> [a] -> Maybe a -> (a -> Text) -> App a
 select prompt options selection optionText
     | [o] <- options = pure o
     | null options, Just o <- selection = pure o
     | null options = errorExit "select: called with no options and no default value"
-    | otherwise = NonEmpty.head <$> multiSelect prompt options (maybeToList selection) optionText 1 1
+    | otherwise = NonEmpty.head <$> multiSelect1 prompt options (maybeToList selection) optionText 1 1
 
 selectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> Maybe a -> App a
 selectEnum prompt defaultValues = select prompt [minBound .. maxBound] defaultValues ishow

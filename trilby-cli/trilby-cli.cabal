@@ -60,9 +60,11 @@ executable trilby
     main-is: Main.hs
     hs-source-dirs: src
     build-depends:
+        aeson,
         ansi-terminal,
         base,
-        base,
+        bytestring,
+        containers,
         data-default,
         data-fix,
         exceptions,
@@ -89,6 +91,9 @@ executable trilby
     other-modules:
         Prelude
         Trilby.App
+        Trilby.BootloaderEntry
+        Trilby.Clean
+        Trilby.Clean.Options
         Trilby.Command
         Trilby.Configuration
         Trilby.Disko

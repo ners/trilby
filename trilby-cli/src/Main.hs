@@ -2,6 +2,7 @@ module Main where
 
 import Options.Applicative (execParser)
 import Trilby.App
+import Trilby.Clean (clean)
 import Trilby.Command
 import Trilby.Infect (infect)
 import Trilby.Install (install)
@@ -22,6 +23,7 @@ main = withSystemTempDir "trilby" \tmpDir -> do
         runApp state do
             setup
             case opts.command of
-                Update o -> update o
-                Install o -> install =<< validateParsedInstallOpts o
+                Clean o -> clean o
                 Infect o -> infect o
+                Install o -> install =<< validateParsedInstallOpts o
+                Update o -> update o

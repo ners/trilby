@@ -4,6 +4,7 @@
 
 * Update to GHC 9.8.4
 * Install adds home-manager to flake
+* Add Clean command
 
 ## 25.1.0 -- 2024-10-09
 

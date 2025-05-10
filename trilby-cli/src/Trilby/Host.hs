@@ -2,6 +2,8 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
+import Options.Applicative
+import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
 import Trilby.System (System)
 import Turtle qualified
@@ -63,3 +65,9 @@ hostSystem host = do
             , ["--expr", "builtins.currentSystem"]
             ]
     pure . read . Text.unpack $ systemText
+
+parseHosts :: Mod ArgumentFields String -> Parser (NonEmpty Host)
+parseHosts mods = some1 $ fromString <$> strArgument (metavar "HOST" <> mods)
+
+askHosts :: Maybe (NonEmpty Host) -> App (NonEmpty Host)
+askHosts = maybe (pure [Localhost]) pure

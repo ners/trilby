@@ -1,4 +1,4 @@
-module Trilby.Infect where
+module Trilby.Infect (infect) where
 
 import Data.List.NonEmpty.Extra qualified as NonEmpty
 import Data.Text qualified as Text

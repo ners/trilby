@@ -54,8 +54,11 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.Reader qualified as Reader
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
+import Data.Aeson (FromJSON)
+import Data.Aeson qualified as Aeson
 import Data.Bifunctor qualified as Bifunctor
 import Data.Bool
+import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Char (toLower)
 import Data.Default (Default (def))
 import Data.Foldable
@@ -70,6 +73,7 @@ import Data.Semigroup (sconcat)
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable
 import Debug.Trace
@@ -228,8 +232,8 @@ rawCmd :: (HasCallStack) => NonEmpty Text -> App ExitCode
 rawCmd = flip rawCmdWith empty
 
 -- | Does not suppress a command's stdout or stderr
-rawCmdWith_ :: (HasCallStack) => NonEmpty Text -> Turtle.Shell Turtle.Line -> App ()
-rawCmdWith_ args stdin = do
+rawCmdWith_ :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App ()
+rawCmdWith_ stdin args = do
     code <- rawCmdWith args stdin
     case code of
         ExitSuccess -> pure ()
@@ -237,27 +241,39 @@ rawCmdWith_ args stdin = do
 
 -- | Does not suppress a command's stdout or stderr
 rawCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-rawCmd_ = flip rawCmdWith_ empty
+rawCmd_ = rawCmdWith_ empty
+
+cmdWith' :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App (ExitCode, Text)
+cmdWith' stdin (p :| args) = do
+    logInfo . Text.unwords $ p : args
+    Turtle.procStrict p args stdin
 
 cmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
-cmd' (p :| args) = do
-    logInfo . Text.unwords $ p : args
-    Turtle.procStrict p args Turtle.stdin
+cmd' = cmdWith' empty
 
-cmd :: (HasCallStack) => NonEmpty Text -> App Text
-cmd args = do
-    (code, out) <- cmd' args
+cmdWith :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App Text
+cmdWith stdin args = do
+    (code, out) <- cmdWith' stdin args
     logDebug $ "cmd: " <> ishow (code, out)
     case code of
         ExitSuccess -> pure out
         ExitFailure{} -> liftIO $ exitWith code
 
-cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-cmd_ args = do
-    out <- cmd args
+cmd :: (HasCallStack) => NonEmpty Text -> App Text
+cmd = cmdWith empty
+
+cmdJson :: (HasCallStack, FromJSON a) => NonEmpty Text -> App a
+cmdJson = either (errorExit . fromString) pure . Aeson.eitherDecode' . LazyByteString.fromStrict . Text.encodeUtf8 <=< cmd
+
+cmdWith_ :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App ()
+cmdWith_ stdin args = do
+    out <- cmdWith stdin args
     whenM (verbosityAtLeast LevelInfo) do
         liftIO $ Text.putStr out
         hFlush stdout
+
+cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
+cmd_ = cmdWith_ empty
 
 -- | Suppresses a command's stderr if verbosity is not at least LevelInfo
 quietCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
