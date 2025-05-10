@@ -29,6 +29,7 @@ rec {
       variant = null;
       format = null;
       nixpkgs = inputs.nixpkgs;
+      home-manager = inputs.home-manager;
     } // t)
     (t: t // rec {
       name = toLower t.name;

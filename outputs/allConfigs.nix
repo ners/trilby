@@ -2,9 +2,10 @@
 
 with builtins;
 let
+  releases = (lib.loadFlake { src = ./releases; }).defaultNix.outputs.releases;
   allEditions = attrNames nixosModules.editions;
   allFormats = attrNames nixosModules.formats;
-  allNixpkgs = attrValues ((lib.loadFlake { src = ./releases; }).defaultNix.inputs);
+  allReleases = attrNames releases;
   configurations =
     { name ? [ "trilby" ]
     , edition ? allEditions
@@ -12,10 +13,11 @@ let
     , buildPlatform ? [ attrs.buildPlatform ]
     , hostPlatform ? [ attrs.buildPlatform ]
     , variant ? [ null ]
-    , nixpkgs ? allNixpkgs
+    , release ? allReleases
     }:
-    lib.pipe { inherit name edition format buildPlatform hostPlatform variant nixpkgs; } [
+    lib.pipe { inherit name edition format buildPlatform hostPlatform variant release; } [
       lib.cartesianProduct
+      (map (c: c // releases.${c.release}))
       (map lib.trilbyConfig)
       (filter (trilby: trilby.hostSystem.kernel.name != "darwin"))
     ];

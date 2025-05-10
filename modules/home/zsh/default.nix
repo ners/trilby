@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ trilby, lib, pkgs, ... }:
 
 {
   home.packages = with pkgs; [
@@ -25,16 +25,19 @@
       share = true;
     };
 
-    plugins = with pkgs; [
+    plugins = [
       {
         name = "fzf-tab";
         src = "${pkgs.zsh-fzf-tab}/share/fzf-tab";
       }
     ];
-    initExtra = builtins.readFile ./init.sh;
 
     shellAliases = {
       ls = "ls --color=auto";
     };
-  };
+  } // (
+    if lib.versionAtLeast trilby.release "25.05"
+    then { initContent = builtins.readFile ./init.sh; }
+    else { initExtra = builtins.readFile ./init.sh; }
+  );
 }
