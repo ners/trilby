@@ -1,12 +1,13 @@
 module Main where
 
+import Data.Text.IO qualified as Text
 import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Clean (clean)
 import Trilby.Command
 import Trilby.Infect (infect)
 import Trilby.Install (install)
-import Trilby.Install.Options (validateParsedInstallOpts)
+import Trilby.Install.Options (askLocale, validateParsedInstallOpts, askTimezone)
 import Trilby.Log (withLog)
 import Trilby.Options
 import Trilby.Setup (setup)

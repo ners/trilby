@@ -136,7 +136,6 @@ import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..), ReadPrec, readMaybe)
 import Trilby.App (App, AppState (..))
 import Trilby.FlakeRef
-import Turtle qualified
 import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
 import UnliftIO.Environment
 import "base" Prelude hiding (unzip, writeFile)
@@ -215,8 +214,8 @@ append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
 -- | Does not suppress a command's stdin, stdout, or stderr
-rawCmdWith :: (HasCallStack) => NonEmpty Text -> Turtle.Shell Turtle.Line -> App ExitCode
-rawCmdWith (p :| args) stdin = do
+rawCmdWith :: (HasCallStack) => NonEmpty Text -> App ExitCode
+rawCmdWith (p :| args) = do
     logInfo . Text.unwords $ p : args
     Turtle.system
         ( (Process.proc (Text.unpack p) (Text.unpack <$> args))
@@ -406,3 +405,6 @@ infixl 4 <$$>
 
 genM :: (Monad m, Traversable t) => (a -> m b) -> t a -> m (t (a, b))
 genM f = mapM \a -> (a,) <$> f a
+
+replaceSuffix :: Text -> Text -> Text -> Text
+replaceSuffix oldSuffix newSuffix text = maybe text (<> newSuffix) $ Text.stripSuffix oldSuffix text
