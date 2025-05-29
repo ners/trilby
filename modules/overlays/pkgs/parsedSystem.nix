@@ -1,1 +1,1 @@
-{ lib, system }: lib.systems.parse.mkSystemFromString system
+{ lib, system, ... }: lib.systems.parse.mkSystemFromString system
