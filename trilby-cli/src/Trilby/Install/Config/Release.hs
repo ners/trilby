@@ -4,14 +4,14 @@ import Prelude
 
 data Release
     = Unstable
+    | Stable_25_05
     | Stable_24_11
-    | Stable_24_05
     deriving stock (Generic, Eq, Bounded, Enum)
 
 instance Show Release where
     show Unstable = "unstable"
+    show Stable_25_05 = "25.05"
     show Stable_24_11 = "24.11"
-    show Stable_24_05 = "24.05"
 
 instance Read Release where
     readPrec = readPrecBoundedEnum
