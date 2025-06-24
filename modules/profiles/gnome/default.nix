@@ -18,6 +18,9 @@
     };
     dbus.enable = true;
     gvfs.enable = true;
+    udev.packages = with pkgs.gnome; with pkgs; [
+      gnome-settings-daemon
+    ];
   };
 
   programs = {
@@ -27,13 +30,10 @@
     };
   };
 
-  security.pam.services.login.enableGnomeKeyring = true;
-
-  services.udev.packages = with pkgs.gnome; with pkgs; [
-    gnome-settings-daemon
-  ];
-
-  #environment.gnome.excludePackages = ([]);
+  security.pam.services = {
+    login.enableGnomeKeyring = true;
+    gdm.enableGnomeKeyring = true;
+  };
 
   environment.systemPackages = with pkgs.gnome; with pkgs; with gnomeExtensions; [
     adwaita-icon-theme

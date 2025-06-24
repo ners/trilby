@@ -18,7 +18,7 @@ clean (askOpts -> opts) = do
         whats <- opts.what
         for_ whats \case
             Boot -> boot host system
-            Podman -> ssh host cmd_ ["sudo", "podman", "system", "reset", "--force"]
+            Podman -> ssh host cmd_ ["podman", "system", "reset", "--force"]
             Profiles -> ssh host cmd_ ["sudo", "nix-collect-garbage", "--delete-old"]
             Store -> unless (Profiles `Set.member` whats) $ ssh host cmd_ ["nix-collect-garbage"]
 
