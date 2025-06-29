@@ -9,14 +9,15 @@ on:
 
 jobs:
   build-cli:
-    name: Nix build trilby-cli
+    name: Build trilby-cli
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
-    - uses: nixbuild/nix-quick-install-action@v31
+    - uses: ners/simply-nix@main
     - uses: ryanccn/attic-action@v0
       with:
         endpoint: https://cache.ners.ch
@@ -27,14 +28,13 @@ jobs:
     - name: Closure size
       run: nix path-info -sSh ./result* | sed 's,/nix/store.[^-]\+-,,' | sort
   build:
-    name: Nix build all toplevels
+    name: Build all toplevels
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: wimpysworld/nothing-but-nix@v6
+    - uses: ners/simply-nix@main
       with:
-        nix-permission-edict: true
-    - uses: nixbuild/nix-quick-install-action@v31
+        reclaim_space: true
     - uses: ryanccn/attic-action@v0
       with:
         endpoint: https://cache.ners.ch
@@ -45,16 +45,16 @@ jobs:
     - name: Closure size
       run: nix path-info -Sh ./result/* | sed 's,/nix/store.[^-]\+-,,' | sort
   check:
-    name: Nix check
+    name: Flake check
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
-    - uses: wimpysworld/nothing-but-nix@v6
+    - uses: ners/simply-nix@main
       with:
-        nix-permission-edict: true
-    - uses: nixbuild/nix-quick-install-action@v31
-    - name: Check
+        reclaim_space: true
+    - name: Flake check
       run: nix flake check --accept-flake-config
