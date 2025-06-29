@@ -16,7 +16,7 @@ case "$(basename $(realpath $(command -v nix)))" in
     "nix-monitored")
         ;;
     "nix")
-        export PATH="$(nix build --no-link --print-out-paths github:ners/trilby#nix-monitored.out):$PATH"
+        export PATH="$(nix build --no-link --print-out-paths --accept-flake-config github:ners/trilby\#nix-monitored.out):$PATH"
         ;;
     *)
         echo "error: unexpected output of command -v nix" >&2
@@ -24,4 +24,4 @@ case "$(basename $(realpath $(command -v nix)))" in
         ;;
 esac
 
-nix run github:ners/trilby -- "$@"
+nix run --accept-flake-config github:ners/trilby -- "$@"

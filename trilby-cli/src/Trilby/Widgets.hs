@@ -9,7 +9,7 @@ import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
 import Prelude
 
-textInputOpts :: (HasCallStack) => Bool -> Bool -> Text -> Text -> App Text
+textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
     logDebug prompt
     text <- runWidgetIO TextInput{valueTransform = id, ..}

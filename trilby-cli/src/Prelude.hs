@@ -11,7 +11,10 @@ module Prelude
     , module Control.Monad.Reader
     , module Control.Monad.State
     , module Control.Monad.Trans
+    , module Data.Aeson
     , module Data.Bool
+    , module Data.ByteString
+    , module Data.ByteString.Lazy
     , module Data.Char
     , module Data.Default
     , module Data.Foldable
@@ -23,6 +26,7 @@ module Prelude
     , module Data.String
     , module Data.Text
     , module Data.Traversable
+    , module Data.Tuple.Extra
     , module Debug.Trace
     , module GHC.Generics
     , module GHC.IsList
@@ -39,6 +43,7 @@ module Prelude
     , module Trilby.App
     , module Trilby.FlakeRef
     , module UnliftIO
+    , module UnliftIO.Directory
     , module UnliftIO.Environment
     )
 where
@@ -54,10 +59,12 @@ import Control.Monad.Reader (MonadReader)
 import Control.Monad.Reader qualified as Reader
 import Control.Monad.State (MonadState, evalStateT, execStateT, get, put)
 import Control.Monad.Trans (MonadTrans, lift)
-import Data.Aeson (FromJSON)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as Aeson
 import Data.Bifunctor qualified as Bifunctor
 import Data.Bool
+import Data.ByteString (ByteString)
+import Data.ByteString.Lazy (LazyByteString)
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Char (toLower)
 import Data.Default (Default (def))
@@ -66,6 +73,7 @@ import Data.Functor
 import Data.Generics.Labels ()
 import Data.HashMap.Internal.Strict qualified as HashMap
 import Data.List.Extra (headDef, (!?))
+import Data.List.Extra qualified as List
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.Maybe
 import Data.Monoid (First)
@@ -76,6 +84,7 @@ import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Data.Text.IO qualified as Text
 import Data.Traversable
+import Data.Tuple.Extra (fst3)
 import Debug.Trace
 import GHC.Generics (Generic)
 import GHC.IsList hiding (toList)
@@ -123,21 +132,24 @@ import Path.IO
     ( AnyPath
     , canonicalizePath
     , doesDirExist
+    , doesFileExist
     , withSystemTempDir
     , withSystemTempFile
     )
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
-import System.Process qualified as Process
+import System.Process.Typed (StreamSpec, inherit)
+import System.Process.Typed qualified as Process
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..), ReadPrec, readMaybe)
 import Trilby.App (App, AppState (..))
 import Trilby.FlakeRef
-import Turtle qualified
 import UnliftIO hiding (withSystemTempDirectory, withSystemTempFile, withTempFile)
+import UnliftIO.Directory (getCurrentDirectory, setCurrentDirectory)
+import UnliftIO.Directory qualified as UnliftIO
 import UnliftIO.Environment
 import "base" Prelude hiding (unzip, writeFile)
 
@@ -172,7 +184,7 @@ parseChoice m xs = option (maybeReader readMaybe) $ m <> showDefault <> complete
 parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
 parseEnum = flip parseChoice [minBound .. maxBound]
 
-errorExit :: (HasCallStack) => Text -> App a
+errorExit :: Text -> App a
 errorExit msg = logError msg >> liftIO exitFailure
 {-# INLINE errorExit #-}
 
@@ -214,97 +226,85 @@ prepend x xs = pure x <> xs
 append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
--- | Does not suppress a command's stdin, stdout, or stderr
-rawCmdWith :: (HasCallStack) => NonEmpty Text -> Turtle.Shell Turtle.Line -> App ExitCode
-rawCmdWith (p :| args) stdin = do
-    logInfo . Text.unwords $ p : args
-    Turtle.system
-        ( (Process.proc (Text.unpack p) (Text.unpack <$> args))
-            { Process.std_in = Process.Inherit
-            , Process.std_out = Process.Inherit
-            , Process.std_err = Process.Inherit
-            }
-        )
-        stdin
+type Process' a = NonEmpty Text -> App a
 
--- | Does not suppress a command's stdin, stdout, or stderr
-rawCmd :: (HasCallStack) => NonEmpty Text -> App ExitCode
-rawCmd = flip rawCmdWith empty
+type Process a = NonEmpty Text -> StreamSpec 'Process.STInput () -> App a
 
--- | Does not suppress a command's stdout or stderr
-rawCmdWith_ :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App ()
-rawCmdWith_ stdin args = do
-    code <- rawCmdWith args stdin
-    case code of
+readProcess :: Process (ExitCode, LazyByteString)
+readProcess (x :| xs) input = do
+    logInfo $ Text.unwords (x : xs)
+    (exitCode, stdout) <-
+        Process.readProcessStdout . Process.setStdin input $
+            Process.proc (Text.unpack x) (Text.unpack <$> xs)
+    pure (exitCode, stdout)
+
+readProcess' :: Process' (ExitCode, LazyByteString)
+readProcess' = flip readProcess inherit
+
+readProcessOut :: Process LazyByteString
+readProcessOut xs input =
+    readProcess xs input >>= \case
+        (ExitSuccess, out) -> pure out
+        (code, _) -> liftIO $ exitWith code
+
+readProcessOut' :: Process' LazyByteString
+readProcessOut' = flip readProcessOut inherit
+
+readProcessOutText :: Process Text
+readProcessOutText xs input = Text.decodeUtf8 . LazyByteString.toStrict <$> readProcessOut xs input
+
+readProcessOutText' :: Process' Text
+readProcessOutText' = flip readProcessOutText inherit
+
+readProcessOutJson :: (FromJSON a) => Process a
+readProcessOutJson xs input = either (errorExit . fromString) pure . Aeson.eitherDecode =<< readProcessOut xs input
+
+readProcessOutJson' :: (FromJSON a) => Process' a
+readProcessOutJson' = flip readProcessOutJson inherit
+
+runShell :: Text -> App ()
+runShell t = do
+    logInfo t
+    Process.runProcess (Process.shell (Text.unpack t)) >>= \case
         ExitSuccess -> pure ()
-        ExitFailure{} -> liftIO $ exitWith code
+        code -> liftIO $ exitWith code
 
--- | Does not suppress a command's stdout or stderr
-rawCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-rawCmd_ = rawCmdWith_ empty
+readShell :: Text -> App (ExitCode, LazyByteString, LazyByteString)
+readShell t = do
+    logInfo t
+    Process.readProcess . Process.shell . Text.unpack $ t
 
-cmdWith' :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App (ExitCode, Text)
-cmdWith' stdin (p :| args) = do
-    logInfo . Text.unwords $ p : args
-    Turtle.procStrict p args stdin
+readShellOut :: Text -> App LazyByteString
+readShellOut t =
+    readShell t >>= \case
+        (ExitSuccess, out, _) -> pure out
+        (code, _, _) -> liftIO $ exitWith code
 
-cmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
-cmd' = cmdWith' empty
+readShellOutText :: Text -> App Text
+readShellOutText t = Text.decodeUtf8 . LazyByteString.toStrict <$> readShellOut t
 
-cmdWith :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App Text
-cmdWith stdin args = do
-    (code, out) <- cmdWith' stdin args
-    logDebug $ "cmd: " <> ishow (code, out)
-    case code of
-        ExitSuccess -> pure out
-        ExitFailure{} -> liftIO $ exitWith code
+runProcess_ :: Process ()
+runProcess_ (x :| xs) input = do
+    logInfo $ Text.unwords (x : xs)
+    Process.runProcess_ . Process.setStdin input $
+        Process.proc (Text.unpack x) (Text.unpack <$> xs)
 
-cmd :: (HasCallStack) => NonEmpty Text -> App Text
-cmd = cmdWith empty
-
-cmdJson :: (HasCallStack, FromJSON a) => NonEmpty Text -> App a
-cmdJson = either (errorExit . fromString) pure . Aeson.eitherDecode' . LazyByteString.fromStrict . Text.encodeUtf8 <=< cmd
-
-cmdWith_ :: (HasCallStack) => Turtle.Shell Turtle.Line -> NonEmpty Text -> App ()
-cmdWith_ stdin args = do
-    out <- cmdWith stdin args
-    whenM (verbosityAtLeast LevelInfo) do
-        liftIO $ Text.putStr out
-        hFlush stdout
-
-cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-cmd_ = cmdWith_ empty
-
--- | Suppresses a command's stderr if verbosity is not at least LevelInfo
-quietCmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-quietCmd_ (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd_ $ p :| args) do
-    logInfo . Text.unwords $ p : args
-    (code, _, err) <- Turtle.procStrictWithErr p args Turtle.stdin
-    case code of
-        ExitSuccess -> pure ()
-        ExitFailure{} -> liftIO do
-            Text.hPutStrLn stderr err
-            exitWith code
-
-quietCmd' :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
-quietCmd' (p :| args) = ifM (verbosityAtLeast LevelInfo) (cmd' $ p :| args) do
-    logInfo . Text.unwords $ p : args
-    (code, out, _) <- Turtle.procStrictWithErr p args Turtle.stdin
-    pure (code, out)
+runProcess'_ :: Process' ()
+runProcess'_ = flip runProcess_ inherit
 
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
-asUser :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-asUser = id
+asUser :: Process a -> Process a
+asUser c = c
 
-asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRoot :: Process' a -> Process' a
 asRoot c t = ifM isRoot (c t) (c $ prepend "sudo" t)
 
-cached :: (NonEmpty Text -> App (ExitCode, Text)) -> NonEmpty Text -> App (ExitCode, Text)
+cached :: Process' (ExitCode, LazyByteString) -> Process' (ExitCode, LazyByteString)
 cached c t = do
     var <- Reader.asks commandCache
-    flip fromMaybeM (HashMap.lookup t <$> readTVarIO var) do
+    HashMap.lookup t <$> readTVarIO var & fromMaybeM do
         o <- c t
         atomically . modifyTVar var . HashMap.insert t $ o
         pure o
@@ -321,33 +321,6 @@ doubleQuoted t = d <> escape t <> d
     d = "\"" :: Text
     escape = Text.replace d (d <> "\\" <> d <> d)
 
-shell' :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App (ExitCode, Text)
-shell' cmd stdin = do
-    logInfo cmd
-    Turtle.systemStrict
-        ( (Process.shell (Text.unpack cmd))
-            { Process.std_in = Process.Inherit
-            , Process.std_out = Process.Inherit
-            , Process.std_err = Process.Inherit
-            }
-        )
-        stdin
-
-shell :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App Text
-shell cmd stdin = do
-    (code, out) <- shell' cmd stdin
-    logDebug $ "shell: " <> ishow (code, out)
-    case code of
-        ExitSuccess -> pure out
-        ExitFailure{} -> liftIO $ exitWith code
-
-shell_ :: (HasCallStack) => Text -> Turtle.Shell Turtle.Line -> App ()
-shell_ cmd s = do
-    out <- shell cmd s
-    whenM (verbosityAtLeast LevelInfo) do
-        liftIO $ Text.putStr out
-        hFlush stdout
-
 isAbsolute :: Path b t -> Bool
 isAbsolute p = Just '/' == listToMaybe (toFilePath p)
 
@@ -355,19 +328,22 @@ isRelative :: Path b t -> Bool
 isRelative = not . isAbsolute
 
 ensureDir :: Path b Dir -> App ()
-ensureDir dir = unlessM (doesDirExist dir) $ (if isAbsolute dir then asRoot else id) cmd_ ["mkdir", "-p", fromPath dir]
+ensureDir dir = unlessM (doesDirExist dir) $ runProcess'_ ["mkdir", "-p", fromPath dir]
 
 inDir :: Path b Dir -> App a -> App a
 inDir d a = do
     ensureDir d
-    unlift <- askRunInIO
-    liftIO $ Turtle.with (Turtle.pushd $ toFilePath d) (const $ unlift a)
+    d' <- getCurrentDirectory
+    setCurrentDirectory $ toFilePath d
+    a <- a
+    setCurrentDirectory d'
+    pure a
 
-writeFile :: (HasCallStack) => Path b File -> Text -> App ()
+writeFile :: Path b File -> Text -> App ()
 writeFile f t = do
     logDebug $ "writeFile " <> fromPath f <> "\n" <> t
     ensureDir $ parent f
-    Turtle.output (toFilePath f) $ Turtle.toLines $ pure t
+    liftIO $ Text.writeFile (toFilePath f) t
 
 withTempFile :: Path Rel File -> (Path Abs File -> App a) -> App a
 withTempFile file action = do
@@ -378,7 +354,7 @@ withTempFile file action = do
         action tmpFile
 
 getSymlinkTarget :: (MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
-getSymlinkTarget = (Turtle.realpath . fromSomeBase >=>)
+getSymlinkTarget = (UnliftIO.canonicalizePath . fromSomeBase >=>)
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
@@ -406,3 +382,9 @@ infixl 4 <$$>
 
 genM :: (Monad m, Traversable t) => (a -> m b) -> t a -> m (t (a, b))
 genM f = mapM \a -> (a,) <$> f a
+
+which :: FilePath -> App [Path Abs File]
+which f = do
+    f <- parseRelFile f
+    paths <- maybe (pure mempty) (mapM parseAbsDir . List.split (':' ==)) =<< lookupEnv "PATH"
+    filterM doesFileExist $ paths <&> (</> f)

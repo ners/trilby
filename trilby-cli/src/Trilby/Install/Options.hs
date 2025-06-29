@@ -106,7 +106,9 @@ validateDisk f = do
 
 askDisk :: App (Path Abs File)
 askDisk = do
-    disks <- mapM (parseAbsFile . fromText) . Text.lines =<< shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
+    disks <-
+        mapM (parseAbsFile . fromText) . Text.lines
+            =<< readShellOutText "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'"
     when (null disks) $ errorExit "No disks found"
     fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
@@ -134,13 +136,13 @@ askKeyboard = do
 
 askLocale :: App Text
 askLocale = do
-    currentLocale <- firstLine <$> shell "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'" empty
+    currentLocale <- firstLine <$> readShellOutText "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'"
     textInput "Choose locale:" currentLocale
 
 askTimezone :: App Text
 askTimezone = do
-    currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
-    allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
+    currentTz <- firstLine <$> readShellOutText "timedatectl show --property=Timezone --value"
+    allTimezones <- Text.lines <$> readShellOutText "timedatectl list-timezones"
     fromMaybeM askTimezone $ searchSelect "Choose time zone:" allTimezones [currentTz] id <&> listToMaybe
 
 askOpts :: InstallOpts Maybe -> InstallOpts App

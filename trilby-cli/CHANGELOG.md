@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 25.7.0 -- 2025-07-01
+
+* Drop dependency on turtle in favour of typed-process
+
 ## 25.5.0 -- 2025-05-10
 
 * Update to GHC 9.8.4

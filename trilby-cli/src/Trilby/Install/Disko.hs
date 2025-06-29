@@ -29,7 +29,7 @@ data DiskoAction
 
 disko :: DiskoAction -> App ()
 disko action =
-    (withTrace . asRoot) quietCmd_ $ case action of
+    (withTrace . asRoot) runProcess'_ $ case action of
         Format (File f) -> ["disko", "-m", "disko", fromSomeBase f]
         Format (Flake f) -> ["disko", "-m", "disko", "--flake", ishow f]
         Mount (File f) -> ["disko", "-m", "mount", fromSomeBase f]
@@ -38,7 +38,9 @@ disko action =
 getDisko :: InstallOpts App -> App Disko
 getDisko opts = do
     diskName :: Path Abs File <- opts.disk
-    diskLines <- sortOn Text.length . Text.lines <$> cmd ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
+    diskLines <-
+        sortOn Text.length . Text.lines
+            <$> readProcessOutText' ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
     diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
     logWarn $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
     luks <- opts.luks

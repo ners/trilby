@@ -18,14 +18,14 @@ clean (askOpts -> opts) = do
         whats <- opts.what
         for_ whats \case
             Boot -> boot host system
-            Podman -> ssh host cmd_ ["podman", "system", "reset", "--force"]
-            Profiles -> ssh host cmd_ ["sudo", "nix-collect-garbage", "--delete-old"]
-            Store -> unless (Profiles `Set.member` whats) $ ssh host cmd_ ["nix-collect-garbage"]
+            Podman -> ssh host runProcess'_ ["podman", "system", "reset", "--force"]
+            Profiles -> ssh host runProcess'_ ["sudo", "nix-collect-garbage", "--delete-old"]
+            Store -> unless (Profiles `Set.member` whats) $ ssh host runProcess'_ ["nix-collect-garbage"]
 
 boot :: Host -> System -> App ()
 boot host System{kernel = Linux} = do
     getBootloaderEntries host >>= mapM_ \BootloaderEntry{..} ->
         when (type' == Type1 && not isDefault && not isSelected) $
-            ssh host cmd_ ["sudo", "bootctl", "unlink", id]
-    ssh host cmd_ ["sudo", "bootctl", "cleanup"]
+            ssh host runProcess'_ ["sudo", "bootctl", "unlink", id]
+    ssh host runProcess'_ ["sudo", "bootctl", "cleanup"]
 boot _ system = errorExit $ "Cleaning the boot partition is not supported on " <> ishow system.kernel

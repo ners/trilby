@@ -1,6 +1,10 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Trilby.Install (install) where
 
-import Data.Text qualified as Text
+import Data.ByteString.Lazy qualified as LazyByteString
+import Data.Text.Encoding qualified as Text
+import System.Process.Typed qualified as Process
 import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), hostSystem, reboot)
 import Trilby.Install.Config.Host
@@ -11,7 +15,6 @@ import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.System
 import Trilby.Widgets
-import Turtle qualified
 import Prelude
 
 rootMount :: Kernel -> Path Abs Dir
@@ -28,6 +31,11 @@ install (askOpts -> opts) = do
         Linux -> installLinux opts
         Darwin -> installDarwin opts
 
+newtype WithPath b t = WithPath {path :: Path b t}
+    deriving stock (Generic)
+
+deriving anyclass instance (FromJSON (Path b t)) => FromJSON (WithPath b t)
+
 installLinux :: InstallOpts App -> App ()
 installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     let diskoRef = Disko.Flake flakeRef
@@ -35,9 +43,9 @@ installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     mountRoot diskoRef
     nixosInstall flakeRef
     whenM copyFlake do
-        storePath <- Text.strip <$> shell ("nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path") empty
-        asRoot cmd_ ["cp", "-r", storePath, fromPath $ trilbyDir Linux]
-        asRoot cmd_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
+        WithPath @Abs @Dir storePath <- readProcessOutJson' ["nix", "flake", "archive", "--json", flakeRef.url]
+        asRoot runProcess'_ ["cp", "-r", fromPath storePath, fromPath $ trilbyDir Linux]
+        asRoot runProcess'_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
     reboot opts.reboot Localhost
 installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     disko <- getDisko opts
@@ -62,7 +70,7 @@ mountRoot d = unlessM rootIsMounted do
         errorExit "Cannot install without mounted partitions"
     disko $ Mount d
   where
-    rootIsMounted = (ExitSuccess ==) . fst <$> cmd' ["mountpoint", "-q", fromPath $ rootMount Linux]
+    rootIsMounted = (ExitSuccess ==) . fst <$> readProcess' ["mountpoint", "-q", fromPath $ rootMount Linux]
 
 flakeNix, defaultNix, configurationNix :: Path Rel File
 flakeNix = $(mkRelFile "flake.nix")
@@ -89,10 +97,10 @@ setupHost kernel opts actions = do
             case kernel of
                 Linux -> pure Owner{uid = 1000, gid = 1000}
                 Darwin -> do
-                    uid <- read . fromText <$> cmd ["id", "-u"]
-                    gid <- read . fromText <$> cmd ["id", "-g"]
+                    uid <- read . fromText <$> readProcessOutText' ["id", "-u"]
+                    gid <- read . fromText <$> readProcessOutText' ["id", "-g"]
                     pure Owner{..}
-        asRoot cmd_ ["chown", "-R", ishow owner, fromPath realTrilbyDir]
+        asRoot runProcess'_ ["chown", "-R", ishow owner, fromPath realTrilbyDir]
         writeNixFile flakeNix $ flake kernel release
         hostDir <- parseRelDir . fromText $ "hosts/" <> hostname
         username <- opts.username
@@ -133,14 +141,14 @@ setupHost kernel opts actions = do
                 Linux -> do
                     writeFile $(mkRelFile "hardware-configuration.nix")
                         =<< asRoot
-                            cmd
+                            readProcessOutText'
                             [ "nixos-generate-config"
                             , "--show-hardware-config"
                             , "--no-filesystems"
                             , "--root"
                             , fromPath $ rootMount kernel
                             ]
-                    cmd_ . sconcat $
+                    runProcess'_ . sconcat $
                         [ ["nix", "flake", "lock"]
                         , ["--accept-flake-config"]
                         , ["--override-input", "trilby", "trilby"]
@@ -149,7 +157,7 @@ setupHost kernel opts actions = do
         actions hostDir userDir
         whenM opts.edit do
             editor <- fromMaybe "nano" <$> lookupEnv "EDITOR"
-            rawCmd_
+            runProcess'_
                 [ fromString editor
                 , "flake.nix"
                 , fromPath $ hostDir </> configurationNix
@@ -157,20 +165,25 @@ setupHost kernel opts actions = do
     pure FlakeRef{url = fromPath realTrilbyDir, output = pure hostname}
 
 hashedPassword :: Text -> App Password
-hashedPassword plain = HashedPassword . firstLine <$> Turtle.strict (Turtle.inproc "mkpasswd" [plain] empty)
+hashedPassword plain =
+    HashedPassword
+        . firstLine
+        . Text.decodeUtf8
+        . LazyByteString.toStrict
+        <$> Process.readProcessStdout_ (Process.proc "mkpasswd" [fromText plain])
 
 nixosInstall :: FlakeRef -> App ()
 nixosInstall flakeRef = do
     logWarn "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
-    (withTrace . asRoot) rawCmd_ . sconcat $
+    (withTrace . asRoot) runProcess'_ . sconcat $
         [ ["nix", "build"]
         , ["--store", "/mnt"]
         , ["--impure"]
         , ["--accept-flake-config"]
         , ["trilby#nix-monitored"]
         ]
-    (withTrace . asRoot) rawCmd_ . sconcat $
+    (withTrace . asRoot) runProcess'_ . sconcat $
         [ ["nixos-install"]
         , ["--flake", ishow flakeRef]
         , ["--option", "accept-flake-config", "true"]
@@ -183,4 +196,4 @@ installDarwin :: InstallOpts App -> App ()
 installDarwin opts = do
     flakeRef <- setupHost Darwin opts \_ _ -> pure ()
     let darwinRebuild = flakeRef{output = ["darwin-rebuild"]}
-    cmd_ ["nix", "run", ishow darwinRebuild, "--", "switch", "--flake", ishow flakeRef]
+    runProcess'_ ["nix", "run", ishow darwinRebuild, "--", "switch", "--flake", ishow flakeRef]

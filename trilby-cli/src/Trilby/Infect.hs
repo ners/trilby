@@ -21,10 +21,10 @@ infect (askOpts -> opts) = do
                 [kexec] <- buildKexec opts
                 copyClosure host kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
+                whenM opts.reboot $ ssh host runProcess'_ ["sudo", fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
-buildKexec :: (HasCallStack) => InfectOpts App -> App [Path Abs Dir]
+buildKexec :: InfectOpts App -> App [Path Abs Dir]
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
     FlakeRef{url = trilbyUrl} <- trilbyFlake []
     edition <- opts.edition

@@ -7,7 +7,7 @@
   };
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/haskell-updates";
     terminal-widgets = {
       url = "github:ners/terminal-widgets";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -69,7 +69,10 @@
         {
           formatter.${system} = pkgs.nixpkgs-fmt;
           legacyPackages.${system} = pkgs;
-          packages.${system}.default = pkgs.${pname};
+          packages.${system} = {
+            default = pkgs.${pname};
+            ${pname} = pkgs.${pname};
+          };
           devShells.${system} =
             foreach hps (ghcName: hp: {
               ${ghcName} = hp.shellFor {

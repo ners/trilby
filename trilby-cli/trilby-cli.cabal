@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: trilby-cli
-version: 25.5.0
+version: 25.7.0
 synopsis: Trilby command line tools
 homepage: https://github.com/ners/trilby
 license: Apache-2.0
@@ -72,6 +72,7 @@ executable trilby
         file-embed,
         generic-lens,
         hnix,
+        hostname,
         lens,
         lens-family-th,
         monad-logger,
@@ -80,11 +81,10 @@ executable trilby
         optparse-applicative,
         path,
         path-io,
-        process,
         terminal-widgets,
         text,
         text-rope-zipper,
-        turtle,
+        typed-process,
         unix,
         unliftio,
         unordered-containers,

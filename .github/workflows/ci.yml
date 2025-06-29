@@ -24,7 +24,7 @@ jobs:
         cache: haskell
         token: ${{ secrets.ATTIC_TOKEN }}
     - name: Build
-      run: nix build --accept-flake-config .#trilby-cli
+      run: nix build --accept-flake-config .#trilby-cli .#pkgsStatic.trilby-cli
     - name: Closure size
       run: nix path-info -sSh ./result* | sed 's,/nix/store.[^-]\+-,,' | sort
   build:

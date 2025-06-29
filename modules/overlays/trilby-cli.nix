@@ -1,15 +1,11 @@
-{ lib
-, unstable ? false
-, ...
-}:
+{ lib , ... }:
 
-final: prev:
-if (lib.versionAtLeast prev.lib.trivial.release "24.05" || unstable) then
-  (lib.loadFlake {
+let
+  flake = lib.loadFlake {
     src = ../../trilby-cli;
-  }).defaultNix.outputs.overlays.default final
-    prev
-else
-  {
-    inherit (final.unstable) trilby-cli;
-  }
+  };
+in
+final: prev:
+{
+  inherit (flake.defaultNix.outputs.legacyPackages.${prev.system}) trilby-cli;
+}

@@ -13,7 +13,6 @@ import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
 import Trilby.Host
-import Turtle qualified
 import Prelude
 
 instance IsString (NAttrPath NExpr) where
@@ -72,11 +71,11 @@ data FileOrFlake
     | Flake FlakeRef
     deriving stock (Generic)
 
-nixBuild :: (HasCallStack) => FileOrFlake -> App [Path Abs Dir]
+nixBuild :: FileOrFlake -> App [Path Abs Dir]
 nixBuild f =
     mapM (parseAbsDir . Text.unpack) . Text.lines
         =<< withTrace
-            cmd
+            readProcessOutText'
             ( sconcat
                 [ ["nix", "build"]
                 , ["--no-link", "--print-out-paths"]
@@ -86,13 +85,13 @@ nixBuild f =
                 ]
             )
 
-copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
+copyClosure :: Host -> Path Abs Dir -> App ()
 copyClosure Localhost _ = pure ()
 copyClosure host@Host{} path = do
-    (code, _) <- ssh host cmd' ["command", "-v", "nix-store"]
+    (code, _) <- ssh host readProcess' ["command", "-v", "nix-store"]
     case code of
         ExitSuccess ->
-            cmd_ . sconcat $
+            runProcess'_ . sconcat $
                 [ ["nix-copy-closure"]
                 , ["--use-substitutes"]
                 , ["--gzip"]
@@ -101,8 +100,8 @@ copyClosure host@Host{} path = do
                 ]
         _ -> do
             flags <- sshFlags
-            ssh host rawCmd_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
-            flip shell_ Turtle.stdin . Text.intercalate " " . sconcat $
+            ssh host runProcess'_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
+            runShell . Text.intercalate " " . sconcat $
                 [
                     [ "nix-store"
                     , "--query"
@@ -131,7 +130,7 @@ copyClosure host@Host{} path = do
                     ]
                 ]
 
-trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
+trilbyFlake :: [Text] -> App FlakeRef
 trilbyFlake output = do
-    hasTrilby <- (ExitSuccess ==) . fst <$> cached quietCmd' ["nix", "flake", "metadata", "trilby"]
+    hasTrilby <- (ExitSuccess ==) . fst <$> cached readProcess' ["nix", "flake", "metadata", "trilby"]
     pure FlakeRef{url = if hasTrilby then "trilby" else "github:ners/trilby", output}

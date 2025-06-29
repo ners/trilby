@@ -5,6 +5,7 @@ module Trilby.App where
 import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
 import Control.Monad.Logger.CallStack (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
 import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
+import Data.ByteString.Lazy (LazyByteString)
 import Data.HashMap.Strict (HashMap)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
@@ -17,7 +18,7 @@ import "base" Prelude
 
 data AppState = AppState
     { verbosity :: LogLevel
-    , commandCache :: TVar (HashMap (NonEmpty Text) (ExitCode, Text))
+    , commandCache :: TVar (HashMap (NonEmpty Text) (ExitCode, LazyByteString))
     , tmpDir :: Path Abs Dir
     }
     deriving stock (Generic)

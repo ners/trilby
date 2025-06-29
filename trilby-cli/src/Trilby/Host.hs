@@ -2,11 +2,11 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
+import Network.HostName (getHostName)
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
 import Trilby.System (System)
-import Turtle qualified
 import Prelude
 
 data Host
@@ -26,7 +26,7 @@ instance Show Host where
     show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
 
 hostname :: Host -> App Text
-hostname Localhost = Turtle.hostname
+hostname Localhost = liftIO $ fromString <$> getHostName
 hostname Host{..} = pure hostname
 
 canonicalHost :: Host -> App Host
@@ -46,19 +46,19 @@ sshFlags = do
         ]
 
 -- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+ssh :: Host -> Process' a -> Process' a
 ssh Localhost c t = c t
 ssh host c t = do
     flags <- sshFlags
     c $ sconcat [["ssh"], flags, [ishow host], t]
 
 reboot :: App Bool -> Host -> App ()
-reboot r host = whenM r $ ssh host rawCmd_ ["sudo", "systemctl", "reboot"]
+reboot r host = whenM r $ ssh host runProcess'_ ["sudo", "systemctl", "reboot"]
 
-hostSystem :: (HasCallStack) => Host -> App System
+hostSystem :: Host -> App System
 hostSystem host = do
     systemText <-
-        fmap firstLine . ssh host cmd . sconcat $
+        fmap firstLine . ssh host readProcessOutText' . sconcat $
             [ ["nix", "eval"]
             , ["--impure"]
             , ["--raw"]
