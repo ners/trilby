@@ -84,7 +84,7 @@ multiSelect prompt options selections optionText minSelect maxSelect
 
 multiSelect1 :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
 multiSelect1 prompt options selections optionText minSelect maxSelect
-    | minSelect < 1 = error "multiSelect1: minSelect must be > 0"
+    | minSelect < 1 = errorExit "multiSelect1: minSelect must be > 0"
     | otherwise = NonEmpty.fromList <$> multiSelect prompt options selections optionText minSelect maxSelect
 
 multiSelectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> [a] -> Int -> Int -> App [a]
@@ -103,23 +103,30 @@ select prompt options selection optionText
 selectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> Maybe a -> App a
 selectEnum prompt defaultValues = select prompt [minBound .. maxBound] defaultValues ishow
 
-searchSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> App [a]
-searchSelect ((<> " ") -> prompt) options selections optionText
-    | length options < 2 = pure selections
+searchSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
+searchSelect ((<> " ") -> prompt) options visibleOptions selections optionText minSelect maxSelect
+    | minSelect > maxSelect = error "searchSelect: minSelect must be < maxSelect"
+    | length options < minSelect = errorExit "searchSelect: need at least as many options as minSelect"
+    | length options == minSelect = pure options
     | otherwise =
         runWidgetIO
             SearchSelect
                 { prompt
                 , searchValue = ""
                 , options
-                , visibleOptions = []
+                , visibleOptions
                 , selections
                 , optionText
                 , newOption = const Nothing
-                , minSelect = 1
-                , maxSelect = 1
+                , minSelect
+                , maxSelect
                 , maxVisible = 5
-                , minSearchLength = 3
+                , minSearchLength = 2
                 , cursorRow = 0
                 }
             <&> (.selections)
+
+searchSelect1 :: (Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
+searchSelect1 ((<> " ") -> prompt) options visibleOptions selections optionText minSelect maxSelect
+    | minSelect < 1 = errorExit "searchSelect1: minSelect must be > 0"
+    | otherwise = NonEmpty.fromList <$> searchSelect prompt options visibleOptions selections optionText minSelect maxSelect
