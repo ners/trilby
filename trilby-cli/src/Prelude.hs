@@ -388,3 +388,6 @@ which f = do
     f <- parseRelFile f
     paths <- maybe (pure mempty) (mapM parseAbsDir . List.split (':' ==)) =<< lookupEnv "PATH"
     filterM doesFileExist $ paths <&> (</> f)
+
+replaceSuffix :: Text -> Text -> Text -> Text
+replaceSuffix oldSuffix newSuffix text = maybe text (<> newSuffix) $ Text.stripSuffix oldSuffix text

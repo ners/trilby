@@ -1,6 +1,7 @@
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
@@ -136,14 +137,25 @@ askKeyboard = do
 
 askLocale :: App Text
 askLocale = do
-    currentLocale <- firstLine <$> readShellOutText "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'"
-    textInput "Choose locale:" currentLocale
+    currentLocale <- fromString <$$> lookupEnv "LC_ALL"
+    allLocales <-
+        replaceSuffix ".utf8" ".UTF-8"
+            <$$> filter (Text.isSuffixOf ".utf8")
+            . Text.lines
+            <$> readProcessOutText' ["locale", "--all-locales"]
+    NonEmpty.head <$> searchSelect1 "Choose locale:" allLocales exampleLocales (maybeToList currentLocale) id 1 1
+  where
+    exampleLocales :: [Text]
+    exampleLocales = ["en-GB", "de-DE", "es-ES", "fr-FR", "zh-CN"] <&> (<> ".UTF-8")
 
 askTimezone :: App Text
 askTimezone = do
-    currentTz <- firstLine <$> readShellOutText "timedatectl show --property=Timezone --value"
-    allTimezones <- Text.lines <$> readShellOutText "timedatectl list-timezones"
-    fromMaybeM askTimezone $ searchSelect "Choose time zone:" allTimezones [currentTz] id <&> listToMaybe
+    currentTz <- firstLine <$> readProcessOutText' ["timedatectl", "show", "--property=Timezone", "--value"]
+    allTimezones <- Text.lines <$> readProcessOutText' ["timedatectl", "list-timezones"]
+    NonEmpty.head <$> searchSelect1 "Choose time zone:" allTimezones exampleTimezones [currentTz] id 1 1
+  where
+    exampleTimezones :: [Text]
+    exampleTimezones = ["UTC", "CET", "Europe/Amsterdam", "Asia/Singapore", "Japan"]
 
 askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts =
