@@ -20,7 +20,7 @@ data User = User
 instance ToExpr User where
     toExpr User{..} =
         [nix|
-        { trilby, lib, ... }:
+        { trilby, inputs, lib, ... }:
 
         lib.trilbyUser trilby userAttrs
         |]
@@ -28,6 +28,7 @@ instance ToExpr User where
         userAttrs =
             [nix|
             {
+              inherit inputs;
               uid = uid;
               name = username;
               initialPassword = initialPassword;
