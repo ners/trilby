@@ -118,8 +118,9 @@ setupHost kernel opts actions = do
             writeNixFile
                 defaultNix
                 [nix|
-                { lib, ... }:
+                { inputs, lib, ... }:
                 lib.trilbySystem {
+                  inherit inputs;
                   trilby = {
                     edition = edition;
                     buildPlatform = platform;

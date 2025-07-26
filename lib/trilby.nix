@@ -6,7 +6,7 @@ rec {
   pkgsFor = t:
     let
       trilby = trilbyConfig t;
-      overlaySrcs = attrValues inputs.self.nixosModules.overlays;
+      overlaySrcs = attrValues trilby.inputs.self.nixosModules.overlays;
       overlays = map
         (o: import o {
           inherit inputs lib;
@@ -28,17 +28,16 @@ rec {
       buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
       variant = null;
       format = null;
-      nixpkgs = inputs.nixpkgs;
-      home-manager = inputs.home-manager;
+      inherit inputs;
     } // t)
     (t: t // rec {
       name = toLower t.name;
       edition = toLower t.edition;
       hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
-      nixpkgs = t.nixpkgs // {
-        nixosModules = findModules "${t.nixpkgs}/nixos/modules";
+      nixpkgs = t.inputs.nixpkgs // {
+        nixosModules = findModules "${t.inputs.nixpkgs}/nixos/modules";
       };
-      release = t.nixpkgs.lib.trivial.release;
+      release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
         name
         edition
@@ -54,21 +53,21 @@ rec {
     let
       trilby = trilbyConfig (attrs.trilby or { });
       lib = import ../lib {
-        inherit inputs;
+        inherit (trilby) inputs;
         inherit (trilby.nixpkgs) lib;
       };
       kernelName = trilby.hostSystem.kernel.name;
       systemAttrs = traceVerbose "trilbySystem: ${toJSON trilby}" {
-        modules = with inputs.self.nixosModules; [
+        modules = with trilby.inputs.self.nixosModules; [
           hostPlatforms.${trilby.hostPlatform}
         ]
         ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
         ++ attrs.modules or [ ];
-        specialArgs = { inherit inputs lib trilby; } // attrs.specialArgs or { };
+        specialArgs = { inherit lib trilby; inputs = attrs.inputs or trilby.inputs; } // attrs.specialArgs or { };
       };
     in
     (
-      if kernelName == "darwin" then inputs.nix-darwin.lib.darwinSystem systemAttrs
+      if kernelName == "darwin" then trilby.inputs.nix-darwin.lib.darwinSystem systemAttrs
       else lib.nixosSystem systemAttrs
     ) // { inherit trilby; };
 
@@ -98,7 +97,7 @@ rec {
 
       nodes = (attrs.nodes or { }) // {
         trilby = {
-          imports = with inputs.self.nixosModules; [
+          imports = with trilby.inputs.self.nixosModules; [
             editions.${trilby.edition}
             hostPlatforms.${trilby.hostPlatform}
             trilby.nixpkgs.nixosModules.testing.test-instrumentation
@@ -148,15 +147,19 @@ rec {
           homeDirectory = user.home;
         };
         imports = [
-          inputs.self.nixosModules.home
+          trilby.inputs.self.nixosModules.home
         ] ++ (u.imports or [ ]);
       };
     in
     lib.recursiveConcat [
       {
         users.users.${user.name} = user;
-        home-manager.users.${user.name} = home;
-        home-manager.extraSpecialArgs = u.extraSpecialArgs or { };
+        home-manager = {
+          users.${user.name} = home;
+          extraSpecialArgs = u.extraSpecialArgs or { } // lib.optionalAttrs (u ? inputs) {
+            inherit (u) inputs;
+          };
+        };
       }
       (lib.optionalAttrs isNixos {
         users.groups.${user.name} = group;

@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 25.7.0 -- 2025-07-26
+
+* Install passes flake inputs as system and user args
+
 ## 25.5.0 -- 2025-05-10
 
 * Update to GHC 9.8.4

@@ -129,7 +129,7 @@ flake kernel release =
                   inherit (inputs.trilby) lib;
                   allConfigurations = with lib; pipe ./hosts [
                     findModules
-                    (mapAttrs (hostname: host: import host { inherit lib; }))
+                    (mapAttrs (hostname: host: import host { inherit inputs lib; }))
                   ];
                 in
                 {
