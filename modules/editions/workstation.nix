@@ -1,7 +1,7 @@
-{ inputs, trilby, lib, pkgs, ... }:
+{ trilby, lib, pkgs, ... }:
 
 {
-  imports = with inputs.self.nixosModules; [
+  imports = with trilby.inputs.self.nixosModules; [
     profiles.base
     profiles.firefox
     profiles.fonts

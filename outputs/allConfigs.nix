@@ -37,8 +37,8 @@ let
     );
 in
 packages // { trilby-all = pkgs.linkFarm "trilby-all" packages; } // lib.foreach allFormats (format: {
-  "trilby-all-${format}" = lib.pipe { format = [ format ]; } [
-    configurations
+  "trilby-all-${format}" = lib.pipe format [
+    (format: configurations { format = [ format ]; })
     (map (trilby: packages.${trilby.configurationName}))
     (pkgs.linkFarmFromDrvs "trilby-all-${format}")
   ];

@@ -1,9 +1,9 @@
-{ inputs, trilby, lib, config, ... }:
+{ trilby, lib, config, ... }:
 
 {
-  imports = with inputs.self.nixosModules; [
+  imports = with trilby.inputs.self.nixosModules; [
     editions.${trilby.edition}
-    inputs.disko.nixosModules.disko
+    trilby.inputs.disko.nixosModules.disko
     profiles.bootloader
     profiles.btrfs
     profiles.console
