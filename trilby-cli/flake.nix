@@ -7,7 +7,7 @@
   };
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/haskell-updates";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     terminal-widgets = {
       url = "github:ners/terminal-widgets";
       inputs.nixpkgs.follows = "nixpkgs";

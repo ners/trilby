@@ -2,6 +2,7 @@
 
 module Trilby.Install (install) where
 
+import Control.Monad.Reader qualified as Reader
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Text.Encoding qualified as Text
 import System.Process.Typed qualified as Process
@@ -43,18 +44,20 @@ installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     mountRoot diskoRef
     nixosInstall flakeRef
     whenM copyFlake do
-        WithPath @Abs @Dir storePath <- readProcessOutJson' ["nix", "flake", "archive", "--json", flakeRef.url]
+        WithPath (storePath :: Path Abs Dir) <- readProcessOutJson' ["nix", "flake", "archive", "--json", flakeRef.url]
         asRoot runProcess'_ ["cp", "-r", fromPath storePath, fromPath $ trilbyDir Linux]
         asRoot runProcess'_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
     reboot opts.reboot Localhost
-installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
+installLinux opts = do
     disko <- getDisko opts
-    inDir (parent diskoFile) $ writeNixFile diskoFile disko
-    let diskoRef = Disko.File $ Abs diskoFile
-    formatDisk opts.format diskoRef
-    mountRoot diskoRef
-    flakeRef <- setupHost Linux opts $ \hostDir _ -> do
-        inDir hostDir $ writeNixFile $(mkRelFile "disko.nix") $ sanitise disko
+    let diskoFile = $(mkRelFile "disko.nix")
+    tmpDiskoFile <- Reader.asks $ tmpDir >>> (</> diskoFile)
+    writeNixFile tmpDiskoFile disko
+    let tmpDiskoRef = Disko.File . Abs $ tmpDiskoFile
+    formatDisk opts.format tmpDiskoRef
+    mountRoot tmpDiskoRef
+    flakeRef <- setupHost Linux opts \hostDir _ ->
+        writeNixFile (hostDir </> diskoFile) $ sanitise disko
     nixosInstall flakeRef
     reboot opts.reboot Localhost
 
@@ -76,11 +79,6 @@ flakeNix, defaultNix, configurationNix :: Path Rel File
 flakeNix = $(mkRelFile "flake.nix")
 defaultNix = $(mkRelFile "default.nix")
 configurationNix = $(mkRelFile "configuration.nix")
-
-data Owner = Owner {uid :: Int, gid :: Int}
-
-instance Show Owner where
-    show Owner{..} = show uid <> ":" <> show gid
 
 setupHost
     :: Kernel

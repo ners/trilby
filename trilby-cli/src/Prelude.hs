@@ -130,17 +130,17 @@ import Path
     )
 import Path.IO
     ( AnyPath
+    , Permissions (writable)
     , canonicalizePath
     , doesDirExist
     , doesFileExist
+    , getPermissions
     , withSystemTempDir
     , withSystemTempFile
     )
 import System.Exit (ExitCode (..), exitFailure, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
-import System.Process.Typed (StreamSpec, inherit)
-import System.Process.Typed qualified as Process
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
@@ -152,6 +152,8 @@ import UnliftIO.Directory (getCurrentDirectory, setCurrentDirectory)
 import UnliftIO.Directory qualified as UnliftIO
 import UnliftIO.Environment
 import "base" Prelude hiding (unzip, writeFile)
+import System.Process.Typed (StreamSpec)
+import System.Process.Typed qualified as Process
 
 rootDir :: Path Abs Dir
 rootDir = $(mkAbsDir "/")
@@ -239,7 +241,7 @@ readProcess (x :| xs) input = do
     pure (exitCode, stdout)
 
 readProcess' :: Process' (ExitCode, LazyByteString)
-readProcess' = flip readProcess inherit
+readProcess' = flip readProcess Process.inherit
 
 readProcessOut :: Process LazyByteString
 readProcessOut xs input =
@@ -248,19 +250,19 @@ readProcessOut xs input =
         (code, _) -> liftIO $ exitWith code
 
 readProcessOut' :: Process' LazyByteString
-readProcessOut' = flip readProcessOut inherit
+readProcessOut' = flip readProcessOut Process.inherit
 
 readProcessOutText :: Process Text
 readProcessOutText xs input = Text.decodeUtf8 . LazyByteString.toStrict <$> readProcessOut xs input
 
 readProcessOutText' :: Process' Text
-readProcessOutText' = flip readProcessOutText inherit
+readProcessOutText' = flip readProcessOutText Process.inherit
 
 readProcessOutJson :: (FromJSON a) => Process a
 readProcessOutJson xs input = either (errorExit . fromString) pure . Aeson.eitherDecode =<< readProcessOut xs input
 
 readProcessOutJson' :: (FromJSON a) => Process' a
-readProcessOutJson' = flip readProcessOutJson inherit
+readProcessOutJson' = flip readProcessOutJson Process.inherit
 
 runShell :: Text -> App ()
 runShell t = do
@@ -283,14 +285,24 @@ readShellOut t =
 readShellOutText :: Text -> App Text
 readShellOutText t = Text.decodeUtf8 . LazyByteString.toStrict <$> readShellOut t
 
-runProcess_ :: Process ()
-runProcess_ (x :| xs) input = do
+runProcess :: Process ()
+runProcess (x :| xs) input = do
     logInfo $ Text.unwords (x : xs)
     Process.runProcess_ . Process.setStdin input $
         Process.proc (Text.unpack x) (Text.unpack <$> xs)
 
+runProcess' :: Process' ()
+runProcess' = flip runProcess Process.inherit
+
+runProcess_ :: Process ()
+runProcess_ (x :| xs) input = do
+    logInfo $ Text.unwords (x : xs)
+    out <- ifM (verbosityAtLeast LevelInfo) (pure Process.inherit) (pure Process.nullStream)
+    Process.runProcess_ . Process.setStdin input . Process.setStdout out $
+        Process.proc (Text.unpack x) (Text.unpack <$> xs)
+
 runProcess'_ :: Process' ()
-runProcess'_ = flip runProcess_ inherit
+runProcess'_ = flip runProcess_ Process.inherit
 
 isRoot :: App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
@@ -327,8 +339,33 @@ isAbsolute p = Just '/' == listToMaybe (toFilePath p)
 isRelative :: Path b t -> Bool
 isRelative = not . isAbsolute
 
+createDir :: Path b Dir -> App ()
+createDir dir = do
+    logDebug $ "createDir " <> fromPath dir
+    parentWritable <- handleAny (const $ pure False) $ writable <$> getPermissions (parent dir)
+    (if parentWritable then id else asRoot) runProcess'_ ["mkdir", "-p", fromPath dir]
+
+data Owner = Owner {uid :: Int, gid :: Int}
+
+instance Show Owner where
+    show Owner{..} = show uid <> ":" <> show gid
+
+currentOwner :: App Owner
+currentOwner = do
+    uid <- read . fromText <$> readProcessOutText' ["id", "-u"]
+    gid <- read . fromText <$> readProcessOutText' ["id", "-g"]
+    pure Owner{..}
+
+changeOwner :: Owner -> Path b t -> App ()
+changeOwner owner dir = asRoot runProcess'_ ["chown", "-R", ishow owner, fromPath dir]
+
 ensureDir :: Path b Dir -> App ()
-ensureDir dir = unlessM (doesDirExist dir) $ runProcess'_ ["mkdir", "-p", fromPath dir]
+ensureDir dir = do
+    logDebug $ "ensureDir " <> fromPath dir
+    owner <- currentOwner
+    unlessM (doesDirExist dir) do
+        createDir dir
+        changeOwner owner dir
 
 inDir :: Path b Dir -> App a -> App a
 inDir d a = do
@@ -338,6 +375,11 @@ inDir d a = do
     a <- a
     setCurrentDirectory d'
     pure a
+
+inTmpDir :: (Path Abs Dir -> App a) -> App a
+inTmpDir a = do
+    d <- Reader.asks tmpDir
+    inDir d $ a d
 
 writeFile :: Path b File -> Text -> App ()
 writeFile f t = do

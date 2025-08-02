@@ -78,7 +78,6 @@ executable trilby
         monad-logger,
         mtl,
         optparse-applicative,
-        optparse-applicative,
         path,
         path-io,
         terminal-widgets,
