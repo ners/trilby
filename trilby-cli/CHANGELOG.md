@@ -3,6 +3,7 @@
 ## 25.7.0 -- 2025-07-01
 
 * Drop dependency on turtle in favour of typed-process
+* Better keyboard layout selection during Install
 
 ## 25.5.0 -- 2025-05-10
 

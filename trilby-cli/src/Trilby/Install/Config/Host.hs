@@ -4,23 +4,8 @@ import Trilby.HNix
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Release
 import Trilby.Install.Config.User
+import Trilby.Install.Config.Keyboard
 import Prelude
-
-data Keyboard = Keyboard
-    { layout :: Text
-    , variant :: Maybe Text
-    }
-    deriving stock (Generic, Show)
-
-instance ToExpr Keyboard where
-    toExpr Keyboard{..} =
-        [nix|
-        {
-            layout = layout;
-            variant = variant;
-        }
-        |]
-            & canonicalSet
 
 data Host = Host
     { hostname :: Text

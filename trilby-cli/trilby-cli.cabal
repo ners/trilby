@@ -87,6 +87,7 @@ executable trilby
         unix,
         unliftio,
         unordered-containers,
+        xml,
     other-modules:
         Prelude
         Trilby.App
@@ -107,6 +108,7 @@ executable trilby
         Trilby.Install
         Trilby.Install.Config.Edition
         Trilby.Install.Config.Host
+        Trilby.Install.Config.Keyboard
         Trilby.Install.Config.Release
         Trilby.Install.Config.User
         Trilby.Install.Disko

@@ -104,7 +104,7 @@ selectEnum :: (Eq a, Bounded a, Enum a, Show a) => Text -> Maybe a -> App a
 selectEnum prompt defaultValues = select prompt [minBound .. maxBound] defaultValues ishow
 
 searchSelect :: (Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
-searchSelect ((<> " ") -> prompt) options visibleOptions selections optionText minSelect maxSelect
+searchSelect prompt options visibleOptions selections optionText minSelect maxSelect
     | minSelect > maxSelect = error "searchSelect: minSelect must be < maxSelect"
     | length options < minSelect = errorExit "searchSelect: need at least as many options as minSelect"
     | length options == minSelect = pure options
@@ -120,7 +120,7 @@ searchSelect ((<> " ") -> prompt) options visibleOptions selections optionText m
                 , newOption = const Nothing
                 , minSelect
                 , maxSelect
-                , maxVisible = 5
+                , maxVisible = 10
                 , minSearchLength = 2
                 , cursorRow = 0
                 }

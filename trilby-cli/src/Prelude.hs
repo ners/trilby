@@ -138,9 +138,11 @@ import Path.IO
     , withSystemTempDir
     , withSystemTempFile
     )
-import System.Exit (ExitCode (..), exitFailure, exitWith)
+import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
+import System.Process.Typed (StreamSpec)
+import System.Process.Typed qualified as Process
 import Text.ParserCombinators.ReadP (ReadP)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
@@ -152,8 +154,6 @@ import UnliftIO.Directory (getCurrentDirectory, setCurrentDirectory)
 import UnliftIO.Directory qualified as UnliftIO
 import UnliftIO.Environment
 import "base" Prelude hiding (unzip, writeFile)
-import System.Process.Typed (StreamSpec)
-import System.Process.Typed qualified as Process
 
 rootDir :: Path Abs Dir
 rootDir = $(mkAbsDir "/")
