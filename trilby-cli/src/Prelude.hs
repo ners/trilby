@@ -126,7 +126,7 @@ import Path.IO
     , withSystemTempDir
     , withSystemTempFile
     )
-import System.Exit (ExitCode (..), exitFailure, exitWith)
+import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
 import System.IO (BufferMode (NoBuffering), IO)
 import System.Posix (getEffectiveUserID)
 import System.Process qualified as Process

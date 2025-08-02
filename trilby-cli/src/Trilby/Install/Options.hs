@@ -1,16 +1,17 @@
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Disko.Filesystem
 import Trilby.Host
 import Trilby.Install.Config.Edition
-import Trilby.Install.Config.Host (Keyboard (..))
+import Trilby.Install.Config.Keyboard (Keyboard (..), getAllKeyboards, getCurrentKeyboard)
 import Trilby.Install.Config.Release
 import Trilby.Widgets
-import Prelude hiding (error)
+import Prelude
 
 data LuksOpts m
     = NoLuks
@@ -33,7 +34,7 @@ parseLuks f = do
 parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
 parseKeyboard f = f do
     layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
-    pure Keyboard{variant = Nothing, ..}
+    pure Keyboard{layout, variant = Nothing, description = Nothing}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
     deriving stock (Generic)
@@ -129,8 +130,11 @@ askFlake FlakeOpts{..} =
 
 askKeyboard :: App Keyboard
 askKeyboard = do
-    layout <- textInput "Choose keyboard layout:" ""
-    pure Keyboard{variant = Nothing, ..}
+    allKeyboards <- getAllKeyboards
+    let findKeyboard layout variant = find (\k -> k.layout == layout && k.variant == variant) allKeyboards
+        exampleKeyboards = mapMaybe (uncurry findKeyboard) [("us", Nothing), ("de", Nothing), ("us", Just "dvorak")]
+    currentKeyboard <- getCurrentKeyboard <&> (>>= \Keyboard{..} -> findKeyboard layout variant)
+    NonEmpty.head <$> searchSelect1 "Choose keyboard layout:" allKeyboards exampleKeyboards (maybeToList currentKeyboard) ishow 1 1
 
 askLocale :: App Text
 askLocale = do
@@ -141,7 +145,10 @@ askTimezone :: App Text
 askTimezone = do
     currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
     allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
-    fromMaybeM askTimezone $ searchSelect "Choose time zone:" allTimezones [currentTz] id <&> listToMaybe
+    NonEmpty.head <$> searchSelect1 "Choose time zone:" allTimezones exampleTimezones [currentTz] id 1 1
+  where
+    exampleTimezones :: [Text]
+    exampleTimezones = ["UTC", "CET", "Europe/Amsterdam", "Asia/Singapore", "Japan"]
 
 askOpts :: InstallOpts Maybe -> InstallOpts App
 askOpts opts =

@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 25.8.0 -- 2025-08-02
+
+* Better keyboard layout selection during Install
+
 ## 25.7.0 -- 2025-07-26
 
 * Install passes flake inputs as system and user args

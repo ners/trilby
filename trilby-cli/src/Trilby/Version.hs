@@ -5,9 +5,9 @@ import Data.List qualified as List
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
-import "base" Prelude
 import Data.Version (Version, showVersion)
 import Data.Version.Extra (readVersion)
+import "base" Prelude
 
 cabalFile :: (IsString s) => s
 cabalFile = $(embedStringFile "trilby-cli.cabal")
