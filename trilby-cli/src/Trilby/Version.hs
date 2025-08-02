@@ -6,6 +6,8 @@ import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import "base" Prelude
+import Data.Version (Version, showVersion)
+import Data.Version.Extra (readVersion)
 
 cabalFile :: (IsString s) => s
 cabalFile = $(embedStringFile "trilby-cli.cabal")
@@ -22,8 +24,8 @@ cabalField ((<> ":") -> field) =
 name :: (IsString s) => s
 name = cabalField "name"
 
-version :: (IsString s) => s
-version = cabalField "version"
+version :: Version
+version = readVersion $ cabalField "version"
 
 fullVersionString :: (IsString s) => s
-fullVersionString = fromString $ unwords [name, version]
+fullVersionString = fromString $ unwords [name, showVersion version]
