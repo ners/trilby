@@ -1,52 +1,51 @@
 module Trilby.Setup (setup) where
 
-import Data.Text qualified as Text
-import Path.IO (XdgDirectory (XdgConfig), getXdgDir)
+import Data.List qualified as List
+import Data.Text.IO qualified as Text
+import Effectful.Path (findBinary)
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
-import Turtle qualified
 import Prelude
 
 appendToPath :: [Path Abs Dir] -> App ()
 appendToPath fs = do
-    currentPath <- Turtle.need "PATH"
-    let newPath = Text.intercalate ":" . catMaybes $ [Just . Text.pack . toFilePath $ f | f <- fs] <> [currentPath]
-    Turtle.export "PATH" newPath
+    currentPath <- lookupEnv "PATH"
+    let newPath = List.intercalate ":" $ (toFilePath <$> fs) <> maybeToList currentPath
+    setEnv "PATH" newPath
 
-appendNixBinsToPath :: [FileOrFlake] -> App ()
+appendNixBinsToPath :: (HasCallStack) => [FileOrFlake] -> App ()
 appendNixBinsToPath fs = do
     outs <- concatMapM nixBuild fs
     bins <- filterM doesDirExist $ outs <&> (</> $(mkRelDir "bin"))
     appendToPath bins
 
-installNix :: App ()
-installNix =
-    flip shell_ Turtle.empty . Text.intercalate " | " $
-        [ "curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix"
-        , "sh -s -- install --no-confirm"
-        ]
+installNix :: (HasCallStack) => App ()
+installNix = shell_ ["curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm"]
 
-ensureFlakes :: App ()
-ensureFlakes = unlessM ((ExitSuccess ==) . fst <$> quietCmd' ["nix", "flake", "metadata", "nixpkgs"]) do
+ensureFlakes :: (HasCallStack) => App ()
+ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata", "nixpkgs"]) do
     confDir <- getXdgDir XdgConfig $ Just $(mkRelDir "nix")
     ensureDir confDir
     let confFile = confDir </> $(mkRelFile "nix.conf")
-    Turtle.append (toFilePath confFile) . Turtle.toLines $ "experimental-features = nix-command flakes"
+    liftIO . Text.appendFile (toFilePath confFile) $ "experimental-features = nix-command flakes"
 
-setupNixMonitored :: App ()
+setupNixMonitored :: (HasCallStack) => App ()
 setupNixMonitored = appendNixBinsToPath . pure . Flake =<< trilbyFlake ["nix-monitored"]
 
-ensureNix :: App ()
+ensureNix :: (HasCallStack) => App ()
 ensureNix =
-    Turtle.which "nix" >>= mapM (fmap Turtle.basename . Turtle.realpath) >>= \case
-        Just "nix-monitored" -> ensureFlakes
-        Just "nix" -> ensureFlakes >> setupNixMonitored
-        _ -> installNix >> ensureFlakes >> setupNixMonitored
+    findBinary "nix"
+        >>= mapM parseAbsFile
+        >>= mapM (fmap (toFilePath . filename) . canonicalizePath)
+        >>= \case
+            Just "nix-monitored" -> ensureFlakes
+            Just "nix" -> ensureFlakes >> setupNixMonitored
+            _ -> installNix >> ensureFlakes >> setupNixMonitored
 
-ensureDeps :: App ()
+ensureDeps :: (HasCallStack) => App ()
 ensureDeps = do
-    let ensure :: String -> [Text] -> App (Maybe FlakeRef)
+    let ensure :: (HasCallStack) => String -> [Text] -> App (Maybe FlakeRef)
         ensure c o =
-            Turtle.which c >>= \case
+            findBinary c >>= \case
                 Nothing -> Just <$> trilbyFlake o
                 Just _ -> pure Nothing
     flakes <-
@@ -56,7 +55,7 @@ ensureDeps = do
             ]
     appendNixBinsToPath $ Flake <$> flakes
 
-setup :: App ()
+setup :: (HasCallStack) => App ()
 setup = do
     ensureNix
     ensureDeps

@@ -1,9 +1,11 @@
 module Trilby.Install.Config.Keyboard where
 
 import Data.ByteString qualified as ByteString
+import Data.Either (fromRight)
 import Data.List qualified as List
 import Data.Ord (comparing)
 import Data.Text qualified as Text
+import Effectful.Fail (runFail)
 import Text.XML.Light qualified as XML
 import Text.XML.Light.Cursor qualified as XML (Cursor)
 import Text.XML.Light.Cursor qualified as XML.Cursor
@@ -43,26 +45,27 @@ instance ToExpr Keyboard where
         |]
             & canonicalSet
 
-getCurrentKeyboard :: App (Maybe Keyboard)
+getCurrentKeyboard :: (HasCallStack) => App (Maybe Keyboard)
 getCurrentKeyboard = do
-    localeStatus <- fmap Text.strip . Text.lines <$> cmd ["localectl", "status", "--full"]
+    localeStatus <- cmdOutTextLines ["localectl", "status", "--full"]
     let layout = fmap Text.strip . listToMaybe $ mapMaybe (Text.stripPrefix "X11 Layout:") localeStatus
         variant = fmap Text.strip . listToMaybe $ mapMaybe (Text.stripPrefix "X11 Variant:") localeStatus
     forM layout \layout -> pure $ Keyboard{layout, variant, description = Nothing}
 
-getAllKeyboards :: App [Keyboard]
-getAllKeyboards = handleAny (const $ pure []) do
-    Just cursor <- liftIO $ XML.Cursor.fromForest . XML.parseXML <$> ByteString.readFile "/usr/share/X11/xkb/rules/base.xml"
-    Just layoutList <- pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
-    let layouts = findChildrenByName "layout" layoutList
-    pure . List.sort . flip concatMap layouts $ \layout ->
-        let (baseName, baseDescription) = fromMaybe (error $ "Could not find name and description in " <> show layout) $ nameAndDescription layout
-            baseKeyboard = Keyboard{layout = baseName, variant = Nothing, description = Just baseDescription}
-            variants = maybe [] (findChildrenByName "variant") $ findChildByName "variantList" layout
-         in baseKeyboard
-                : [ Keyboard{layout = baseName, variant = Just name, description = Just description}
-                  | Just (name, description) <- nameAndDescription <$> variants
-                  ]
+getAllKeyboards :: (HasCallStack) => App [Keyboard]
+getAllKeyboards =
+    fromRight [] <$> runFail do
+        Just cursor <- liftIO $ XML.Cursor.fromForest . XML.parseXML <$> ByteString.readFile "/usr/share/X11/xkb/rules/base.xml"
+        Just layoutList <- pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
+        let layouts = findChildrenByName "layout" layoutList
+        pure . List.sort . flip concatMap layouts $ \layout ->
+            let (baseName, baseDescription) = fromMaybe (error $ "Could not find name and description in " <> show layout) $ nameAndDescription layout
+                baseKeyboard = Keyboard{layout = baseName, variant = Nothing, description = Just baseDescription}
+                variants = maybe [] (findChildrenByName "variant") $ findChildByName "variantList" layout
+             in baseKeyboard
+                    : [ Keyboard{layout = baseName, variant = Just name, description = Just description}
+                      | Just (name, description) <- nameAndDescription <$> variants
+                      ]
   where
     findChildByName :: String -> XML.Element -> Maybe XML.Element
     findChildByName qName = XML.findChild XML.blank_name{XML.qName}

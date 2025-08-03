@@ -2,47 +2,49 @@
 
 module Trilby.App where
 
-import Control.Monad.Catch (MonadCatch, MonadMask, MonadThrow)
-import Control.Monad.Logger.CallStack (LogLevel, LoggingT, MonadLogger, MonadLoggerIO, logInfo)
-import Control.Monad.Reader (MonadReader, ReaderT (runReaderT))
+import Data.Aeson (Value)
+import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.List.NonEmpty (NonEmpty)
+import Data.Monoid (Monoid (mempty))
 import Data.Text (Text)
+import Effectful (Eff, IOE, MonadIO, inject, liftIO, runEff)
+import Effectful.Concurrent.STM (Concurrent, TVar, newTVarIO, runConcurrent)
+import Effectful.Environment (Environment, runEnvironment)
+import Effectful.Fail (Fail, runFailIO)
+import Effectful.FileSystem.Path.IO (FileSystem, runFileSystem)
+import Effectful.Process.Typed (TypedProcess, runTypedProcess)
+import Effectful.Reader.Static (Reader, runReader)
+import Effectful.Temporary.Path.IO (Temporary, runTemporary, withSystemTempDir)
+import Effectful.Time (Time, runTime)
 import GHC.Generics (Generic)
 import Path (Abs, Dir, Path)
-import System.Exit (ExitCode)
+import Trilby.Log
 import Trilby.Version qualified as Trilby
-import UnliftIO (MonadIO, MonadUnliftIO, TVar)
-import "base" Prelude
 
 data AppState = AppState
     { verbosity :: LogLevel
-    , commandCache :: TVar (HashMap (NonEmpty Text) (ExitCode, Text))
+    , commandCache :: TVar (HashMap (NonEmpty Text) Value)
     , tmpDir :: Path Abs Dir
     }
     deriving stock (Generic)
 
-newtype AppT m a = App
-    { _runApp :: ReaderT AppState (LoggingT m) a
-    }
-    deriving newtype
-        ( Functor
-        , Applicative
-        , Monad
-        , MonadFail
-        , MonadThrow
-        , MonadCatch
-        , MonadMask
-        , MonadReader AppState
-        , MonadLogger
-        , MonadLoggerIO
-        , MonadIO
-        , MonadUnliftIO
-        )
+type App = Eff '[IOE, Fail, Environment, Reader AppState, Concurrent, TypedProcess, Time, Temporary, FileSystem, Log]
 
-type App = AppT IO
-
-runApp :: (MonadIO m) => AppState -> AppT m a -> LoggingT m a
-runApp state App{..} = flip runReaderT state do
-    logInfo Trilby.fullVersionString
-    _runApp
+runApp :: (MonadIO m) => LogLevel -> App a -> m a
+runApp verbosity action = do
+    liftIO
+        . runEff
+        . runLog verbosity
+        . runFileSystem
+        . runTemporary
+        . runTime
+        . runTypedProcess
+        . runConcurrent
+        . runEnvironment
+        . runFailIO
+        $ do
+            logInfo_ Trilby.fullVersionString
+            commandCache <- newTVarIO mempty
+            withSystemTempDir "trilby-XXXXX" \tmpDir ->
+                runReader AppState{..} . inject $ action
