@@ -1,13 +1,14 @@
 module Trilby.Update (update) where
 
 import Data.List.NonEmpty.Extra qualified as NonEmpty
+import System.FilePath.Glob (globDir1)
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
+import Trilby.Process
 import Trilby.System
 import Trilby.Update.Options
-import Turtle qualified
 import Prelude
 
 update :: (HasCallStack) => UpdateOpts Maybe -> App ()
@@ -18,15 +19,15 @@ update (askOpts -> opts) = do
         let filterGitTracked
                 | isGit = filterM $ isGitTracked trilbyPath
                 | otherwise = pure
-        flakes <- Turtle.sort $ parseAbsFile =<< Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
+        flakes <- liftIO $ mapM parseAbsFile =<< globDir1 "**/flake.lock" (toFilePath trilbyPath)
         mapM_ updateFlake =<< filterGitTracked flakes
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     hostSystem Localhost >>= \case
         System{kernel = Linux} -> do
             buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
                 copyClosure host resultPath
-                ssh host rawCmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
-                unless (host == Localhost && length configurations == 1) . logWarn $ "Choosing action for host " <> ishow host
+                ssh host (runProcess_ . proc) ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
+                unless (host == Localhost && length configurations == 1) . logAttention_ $ "Choosing action for host " <> ishow host
                 let perform = switchToConfiguration host resultPath
                 opts.action >>= \case
                     Switch -> perform ConfigSwitch
@@ -38,7 +39,7 @@ update (askOpts -> opts) = do
         System{kernel = Darwin} -> updateDarwin opts trilbyPath
 
 updateFlake :: (HasCallStack) => Path b File -> App ()
-updateFlake path = rawCmd_ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromPath $ parent path]
+updateFlake path = runProcess_ . proc $ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromPath $ parent path]
 
 {- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
 To this end we write a single derivation that depends on each of the configurations we wish to build.
@@ -91,7 +92,7 @@ switchToConfiguration host path action = do
         ConfigBoot -> setProfile host path
         ConfigSwitch -> setProfile host path
         _ -> pure ()
-    ssh host rawCmd_ . sconcat $
+    ssh host (runProcess_ . proc) . sconcat $
         [ ["sudo"]
         , ["systemd-run"]
         , ["-E", "LOCALE_ARCHIVE"]
@@ -111,14 +112,14 @@ switchToConfiguration host path action = do
 
 setProfile :: (HasCallStack) => Host -> Path Abs t -> App ()
 setProfile host path =
-    ssh host rawCmd_ . sconcat $
+    ssh host cmd_ . sconcat $
         [ ["sudo"]
         , ["nix-env"]
         , ["--profile", "/nix/var/nix/profiles/system"]
         , ["--set", fromPath path]
         ]
 
-updateDarwin :: UpdateOpts App -> Path Abs Dir -> App ()
+updateDarwin :: (HasCallStack) => UpdateOpts App -> Path Abs Dir -> App ()
 updateDarwin opts trilbyDir = inDir trilbyDir do
     cmd_ ["darwin-rebuild", "build", "--flake", fromPath trilbyDir]
     let result = $(mkRelDir "./result")

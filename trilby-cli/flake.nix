@@ -12,6 +12,10 @@
       url = "github:ners/terminal-widgets";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    path-io-effectful = {
+      url = "github:Lugendre/path-io-effectful";
+      flake = false;
+    };
   };
 
   outputs = inputs:
@@ -52,7 +56,9 @@
           haskell = prev.haskell // {
             packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
-              (hfinal: hprev: {
+              (hfinal: hprev: with prev.haskell.lib.compose; {
+                typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
+                path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
                 "${pname}" = hfinal.callCabal2nix pname src { };
               })
             ];
