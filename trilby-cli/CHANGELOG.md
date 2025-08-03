@@ -14,6 +14,7 @@
 * Migrate from turtle to typed-process
 * Migrate from monad-logger to log-base with full callstacks
 * Better locale and keyboard layout selection during Install
+* Move Prelude to Trilby.Prelude to unbreak autogen modules
 
 ## 25.7.0 -- 2025-07-26
 

@@ -3,8 +3,8 @@ module Trilby.Install.Flake where
 import Data.Text qualified as Text
 import Trilby.HNix hiding (Flake)
 import Trilby.Install.Config.Release
+import Trilby.Prelude
 import Trilby.System
-import Prelude
 
 data InputOverride = Follows Text Text
     deriving stock (Generic)

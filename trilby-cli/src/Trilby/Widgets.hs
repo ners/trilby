@@ -7,7 +7,7 @@ import System.Terminal.Widgets.Common (runWidgetIO)
 import System.Terminal.Widgets.SearchSelect
 import System.Terminal.Widgets.Select
 import System.Terminal.Widgets.TextInput
-import Prelude
+import Trilby.Prelude
 
 textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do

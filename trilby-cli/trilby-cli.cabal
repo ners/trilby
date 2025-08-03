@@ -71,7 +71,6 @@ executable trilby
         data-fix,
         effectful,
         extra,
-        file-embed,
         filepath,
         generic-lens,
         hnix,
@@ -94,9 +93,11 @@ executable trilby
         unix,
         unordered-containers,
         xml,
+    autogen-modules:
+        Paths_trilby_cli
     other-modules:
         Effectful.Path
-        Prelude
+        Paths_trilby_cli
         Trilby.App
         Trilby.BootloaderEntry
         Trilby.Clean
@@ -123,6 +124,7 @@ executable trilby
         Trilby.Install.Options
         Trilby.Log
         Trilby.Options
+        Trilby.Prelude
         Trilby.Process
         Trilby.Setup
         Trilby.System

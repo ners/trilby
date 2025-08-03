@@ -4,8 +4,8 @@ import Data.Either.Extra (eitherToMaybe)
 import Effectful.Environment (runEnvironment)
 import Options.Applicative hiding (command)
 import Trilby.Command (Command, parseCommand)
+import Trilby.Prelude
 import Trilby.Version qualified as Trilby
-import Prelude
 
 data Options m = Options
     { verbosity :: m LogLevel
