@@ -8,9 +8,9 @@ import Trilby.Infect (infect)
 import Trilby.Install (install)
 import Trilby.Install.Options (validateParsedInstallOpts)
 import Trilby.Options
+import Trilby.Prelude
 import Trilby.Setup (setup)
 import Trilby.Update (update)
-import Prelude
 
 main :: IO ()
 main = do

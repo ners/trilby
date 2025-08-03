@@ -8,9 +8,9 @@ import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
+import Trilby.Prelude
 import Trilby.System
 import Trilby.Widgets
-import Prelude
 
 rootMount :: Kernel -> Path Abs Dir
 rootMount Linux = $(mkAbsDir "/mnt")
@@ -56,8 +56,8 @@ formatDisk f d = whenM f do
 mountRoot :: (HasCallStack) => FileOrFlake -> App ()
 mountRoot d = unlessM rootIsMounted do
     logAttention_ "Partitions are not mounted"
-    unlessM (yesNoButtons "Attempt to mount the partitions?" True) $
-        errorExit "Cannot install without mounted partitions"
+    unlessM (yesNoButtons "Attempt to mount the partitions?" True)
+        $ errorExit "Cannot install without mounted partitions"
     disko $ Mount d
   where
     rootIsMounted = (ExitSuccess ==) <$> cmdCode ["mountpoint", "-q", fromPath $ rootMount Linux]
@@ -129,11 +129,12 @@ setupHost kernel opts actions = do
                             , "--root"
                             , fromPath $ rootMount kernel
                             ]
-                    cmd_ . sconcat $
-                        [ ["nix", "flake", "lock"]
-                        , ["--accept-flake-config"]
-                        , ["--override-input", "trilby", "trilby"]
-                        ]
+                    cmd_
+                        . sconcat
+                        $ [ ["nix", "flake", "lock"]
+                          , ["--accept-flake-config"]
+                          , ["--override-input", "trilby", "trilby"]
+                          ]
                 Darwin -> pure ()
         actions hostDir userDir
         whenM opts.edit do
@@ -152,20 +153,22 @@ nixosInstall :: (HasCallStack) => FlakeRef -> App ()
 nixosInstall flakeRef = do
     logAttention_ "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
-    (withTrace . asRoot) cmd_ . sconcat $
-        [ ["nix", "build"]
-        , ["--store", "/mnt"]
-        , ["--impure"]
-        , ["--accept-flake-config"]
-        , ["trilby#nix-monitored"]
-        ]
-    (withTrace . asRoot) cmd_ . sconcat $
-        [ ["nixos-install"]
-        , ["--flake", ishow flakeRef]
-        , ["--option", "accept-flake-config", "true"]
-        , ["--no-root-password"]
-        , ["--impure"]
-        ]
+    (withTrace . asRoot) cmd_
+        . sconcat
+        $ [ ["nix", "build"]
+          , ["--store", "/mnt"]
+          , ["--impure"]
+          , ["--accept-flake-config"]
+          , ["trilby#nix-monitored"]
+          ]
+    (withTrace . asRoot) cmd_
+        . sconcat
+        $ [ ["nixos-install"]
+          , ["--flake", ishow flakeRef]
+          , ["--option", "accept-flake-config", "true"]
+          , ["--no-root-password"]
+          , ["--impure"]
+          ]
 
 installDarwin :: (HasCallStack) => InstallOpts App -> App ()
 -- installDarwin opts | Just FlakeOpts{..} <- opts.flake = pure ()

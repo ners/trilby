@@ -1,6 +1,6 @@
 module Trilby.Disko.Filesystem where
 
-import Prelude
+import Trilby.Prelude
 
 data Format
     = Btrfs

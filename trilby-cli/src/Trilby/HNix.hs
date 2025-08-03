@@ -15,8 +15,8 @@ import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
 import Trilby.Host
+import Trilby.Prelude
 import Trilby.Process
-import Prelude
 
 instance IsString (NAttrPath NExpr) where
     fromString = fromListSafe "" . fmap (StaticKey . fromString) . List.splitOn "."
@@ -76,7 +76,10 @@ data FileOrFlake
 
 nixBuild :: (HasCallStack) => FileOrFlake -> App [Path Abs Dir]
 nixBuild f =
-    mapM (parseAbsDir . fromText) . Text.lines . Text.decodeUtf8 . LazyByteString.toStrict
+    mapM (parseAbsDir . fromText)
+        . Text.lines
+        . Text.decodeUtf8
+        . LazyByteString.toStrict
         =<< withTrace
             (readProcessStdout_ . proc)
             ( sconcat
@@ -93,44 +96,46 @@ copyClosure Localhost _ = pure ()
 copyClosure host@Host{} path = do
     ssh host cmdCode ["command", "-v", "nix-store"] >>= \case
         ExitSuccess ->
-            cmd_ . sconcat $
-                [ ["nix-copy-closure"]
-                , ["--use-substitutes"]
-                , ["--gzip"]
-                , ["--to", ishow host]
-                , [fromPath path]
-                ]
+            cmd_
+                . sconcat
+                $ [ ["nix-copy-closure"]
+                  , ["--use-substitutes"]
+                  , ["--gzip"]
+                  , ["--to", ishow host]
+                  , [fromPath path]
+                  ]
         _ -> do
             flags <- sshFlags
             ssh host shell_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
-            shell_ . sconcat $
-                [
-                    [ "nix-store"
-                    , "--query"
-                    , "--requisites"
-                    , fromPath path
-                    ]
-                , ["|"]
-                ,
-                    [ "tar"
-                    , "--create"
-                    , "--gzip"
-                    , "--file=-"
-                    , "--files-from=-"
-                    , "--mode='u+rw'"
-                    ]
-                , ["|"]
-                , sconcat
-                    [ "ssh" :| NonEmpty.toList flags <> [ishow host]
-                    ,
-                        [ "tar"
-                        , "--extract"
-                        , "--gzip"
-                        , "--file=-"
-                        , "--directory=/"
+            shell_
+                . sconcat
+                $ [
+                      [ "nix-store"
+                      , "--query"
+                      , "--requisites"
+                      , fromPath path
+                      ]
+                  , ["|"]
+                  ,
+                      [ "tar"
+                      , "--create"
+                      , "--gzip"
+                      , "--file=-"
+                      , "--files-from=-"
+                      , "--mode='u+rw'"
+                      ]
+                  , ["|"]
+                  , sconcat
+                        [ "ssh" :| NonEmpty.toList flags <> [ishow host]
+                        ,
+                            [ "tar"
+                            , "--extract"
+                            , "--gzip"
+                            , "--file=-"
+                            , "--directory=/"
+                            ]
                         ]
-                    ]
-                ]
+                  ]
 
 trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
 trilbyFlake output = do

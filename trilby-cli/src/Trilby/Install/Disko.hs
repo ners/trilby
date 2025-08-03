@@ -17,7 +17,7 @@ import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
 import Trilby.HNix (FileOrFlake (..))
 import Trilby.Install.Options
-import Prelude
+import Trilby.Prelude
 
 luksPasswordFile :: Path Abs File
 luksPasswordFile = $(mkAbsFile "/tmp/luksPassword")

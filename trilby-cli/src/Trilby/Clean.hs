@@ -7,8 +7,8 @@ import Trilby.Clean.Options
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.Host
+import Trilby.Prelude
 import Trilby.System
-import Prelude
 
 clean :: CleanOpts Maybe -> App ()
 clean (askOpts -> opts) = do
@@ -25,7 +25,7 @@ clean (askOpts -> opts) = do
 boot :: Host -> System -> App ()
 boot host System{kernel = Linux} = do
     getBootloaderEntries host >>= mapM_ \BootloaderEntry{..} ->
-        when (type' == Type1 && not isDefault && not isSelected) $
-            ssh host cmd_ ["sudo", "bootctl", "unlink", id]
+        when (type' == Type1 && not isDefault && not isSelected)
+            $ ssh host cmd_ ["sudo", "bootctl", "unlink", id]
     ssh host cmd_ ["sudo", "bootctl", "cleanup"]
 boot _ system = errorExit $ "Cleaning the boot partition is not supported on " <> ishow system.kernel
