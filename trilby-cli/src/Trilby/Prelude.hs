@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Prelude
+module Trilby.Prelude
     ( module Control.Applicative
     , module Control.Arrow
     , module Control.Lens.Combinators
@@ -40,6 +40,7 @@ module Prelude
     , module Trilby.App
     , module Trilby.FlakeRef
     , module Trilby.Log
+    , module Trilby.Prelude
     )
 where
 
@@ -136,7 +137,7 @@ import Trilby.App (App, AppState (..))
 import Trilby.FlakeRef
 import Trilby.Log
 import Trilby.Process
-import "base" Prelude hiding (unzip, writeFile)
+import Prelude hiding (unzip, writeFile)
 
 rootDir :: Path Abs Dir
 rootDir = $(mkAbsDir "/")

@@ -2,7 +2,7 @@ module Trilby.Disko.Partition where
 
 import Trilby.Disko.Filesystem (Filesystem)
 import Trilby.HNix
-import Prelude
+import Trilby.Prelude
 
 data Size = MiB !Int | GiB !Int | Whole
     deriving stock (Generic, Eq, Show)

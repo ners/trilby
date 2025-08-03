@@ -6,8 +6,8 @@ import Effectful.Reader.Static qualified as Reader
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
+import Trilby.Prelude
 import Trilby.System (System)
-import Prelude
 
 data Host
     = Localhost
@@ -38,12 +38,13 @@ canonicalHost host = do
 sshFlags :: (HasCallStack) => App (NonEmpty Text)
 sshFlags = do
     tmpDir <- Reader.asks tmpDir
-    pure . sconcat $
-        [ ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromPath (tmpDir </> $(mkRelFile "ssh-%n"))]
-        , ["-o", "ControlPersist=60"]
-        , ["-t"]
-        ]
+    pure
+        . sconcat
+        $ [ ["-o", "ControlMaster=auto"]
+          , ["-o", "ControlPath=" <> fromPath (tmpDir </> $(mkRelFile "ssh-%n"))]
+          , ["-o", "ControlPersist=60"]
+          , ["-t"]
+          ]
 
 -- | Execute a command over SSH, if given a remote host.
 ssh :: (HasCallStack) => Host -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
@@ -58,12 +59,13 @@ reboot r host = whenM r $ ssh host cmd_ ["sudo", "systemctl", "reboot"]
 hostSystem :: (HasCallStack) => Host -> App System
 hostSystem host = do
     Just systemText <-
-        ssh host cmdOutTextFirstLine . sconcat $
-            [ ["nix", "eval"]
-            , ["--impure"]
-            , ["--raw"]
-            , ["--expr", "builtins.currentSystem"]
-            ]
+        ssh host cmdOutTextFirstLine
+            . sconcat
+            $ [ ["nix", "eval"]
+              , ["--impure"]
+              , ["--raw"]
+              , ["--expr", "builtins.currentSystem"]
+              ]
     pure . read . Text.unpack $ systemText
 
 parseHosts :: Mod ArgumentFields String -> Parser (NonEmpty Host)

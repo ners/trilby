@@ -8,8 +8,8 @@ import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (File), copyClosure, nixBuild, trilbyFlake, writeNixFile)
 import Trilby.Host
 import Trilby.Infect.Options
+import Trilby.Prelude
 import Trilby.System
-import Prelude
 
 infect :: (HasCallStack) => InfectOpts Maybe -> App ()
 infect (askOpts -> opts) = do

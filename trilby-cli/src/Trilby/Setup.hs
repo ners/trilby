@@ -4,7 +4,7 @@ import Data.List qualified as List
 import Data.Text.IO qualified as Text
 import Effectful.Path (findBinary)
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
-import Prelude
+import Trilby.Prelude
 
 appendToPath :: [Path Abs Dir] -> App ()
 appendToPath fs = do
@@ -49,10 +49,11 @@ ensureDeps = do
                 Nothing -> Just <$> trilbyFlake o
                 Just _ -> pure Nothing
     flakes <-
-        fmap catMaybes . sequence $
-            [ ensure "nvd" ["nvd"]
-            , ensure "unbuffer" ["expect"]
-            ]
+        fmap catMaybes
+            . sequence
+            $ [ ensure "nvd" ["nvd"]
+              , ensure "unbuffer" ["expect"]
+              ]
     appendNixBinsToPath $ Flake <$> flakes
 
 setup :: (HasCallStack) => App ()
