@@ -4,8 +4,8 @@ import Data.Set (Set)
 import Data.Set qualified as Set
 import Options.Applicative
 import Trilby.Host
+import Trilby.Prelude
 import Trilby.Widgets
-import Prelude
 
 data WhatToClean
     = Boot

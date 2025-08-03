@@ -5,7 +5,7 @@ import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Keyboard
 import Trilby.Install.Config.Release
 import Trilby.Install.Config.User
-import Prelude
+import Trilby.Prelude
 
 data Host = Host
     { hostname :: Text
