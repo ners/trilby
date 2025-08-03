@@ -132,18 +132,43 @@ askKeyboard :: App Keyboard
 askKeyboard = do
     allKeyboards <- getAllKeyboards
     let findKeyboard layout variant = find (\k -> k.layout == layout && k.variant == variant) allKeyboards
-        exampleKeyboards = mapMaybe (uncurry findKeyboard) [("us", Nothing), ("de", Nothing), ("us", Just "dvorak")]
+        exampleKeyboards = mapMaybe (uncurry findKeyboard) [("us", Nothing), ("us", Just "dvorak"), ("de", Nothing)]
     currentKeyboard <- getCurrentKeyboard <&> (>>= \Keyboard{..} -> findKeyboard layout variant)
-    NonEmpty.head <$> searchSelect1 "Choose keyboard layout:" allKeyboards exampleKeyboards (maybeToList currentKeyboard) ishow 1 1
+    searchSelect1
+        "Choose keyboard layout:"
+        allKeyboards
+        exampleKeyboards
+        (maybeToList currentKeyboard)
+        ishow
+        1
+        1
+        <&> NonEmpty.head
 
 askLocale :: App Text
 askLocale = do
-    currentLocale <- firstLine <$> shell "localectl status | sed '/Locale/!d; s/.*LANG=\\(\\S*\\).*/\\1/'" empty
-    textInput "Choose locale:" currentLocale
+    currentLocale <- (dropSuffix . fromString =<<) <$> lookupEnv "LC_ALL"
+    allLocales <- mapMaybe dropSuffix . Text.lines <$> cmd ["locale", "--all-locales"]
+    searchSelect1
+        "Choose locale:"
+        allLocales
+        exampleLocales
+        (maybeToList currentLocale)
+        id
+        1
+        1
+        <&> addSuffix
+        . NonEmpty.head
+  where
+    exampleLocales :: [Text]
+    exampleLocales = ["en-GB", "de-DE", "es-ES", "fr-FR", "zh-CN"]
+    dropSuffix :: Text -> Maybe Text
+    dropSuffix t = Text.stripSuffix ".utf8" t <|> Text.stripSuffix ".UTF-8" t
+    addSuffix :: Text -> Text
+    addSuffix = (<> ".UTF-8")
 
 askTimezone :: App Text
 askTimezone = do
-    currentTz <- firstLine <$> shell "timedatectl show --property=Timezone --value" empty
+    currentTz <- firstLine <$> cmd ["timedatectl", "show", "--property=Timezone", "--value"]
     allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
     NonEmpty.head <$> searchSelect1 "Choose time zone:" allTimezones exampleTimezones [currentTz] id 1 1
   where

@@ -2,7 +2,7 @@
 
 ## 25.8.0 -- 2025-08-02
 
-* Better keyboard layout selection during Install
+* Better locale and keyboard layout selection during Install
 
 ## 25.7.0 -- 2025-07-26
 
