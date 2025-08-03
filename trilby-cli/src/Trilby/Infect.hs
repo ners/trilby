@@ -11,7 +11,7 @@ import Trilby.Infect.Options
 import Trilby.System
 import Prelude
 
-infect :: InfectOpts Maybe -> App ()
+infect :: (HasCallStack) => InfectOpts Maybe -> App ()
 infect (askOpts -> opts) = do
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     for_ configurations \Configuration{..} -> do
@@ -21,7 +21,7 @@ infect (askOpts -> opts) = do
                 [kexec] <- buildKexec opts
                 copyClosure host kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ ssh host rawCmd_ ["sudo", fromPath bin]
+                whenM opts.reboot $ ssh host cmd_ ["sudo", fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec :: (HasCallStack) => InfectOpts App -> App [Path Abs Dir]

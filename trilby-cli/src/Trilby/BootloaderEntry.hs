@@ -4,14 +4,11 @@ import Data.Aeson
     ( FromJSON
     , Options (..)
     , defaultOptions
-    , eitherDecodeStrict'
     , withText
     )
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (genericParseJSON)
 import Data.List.Extra qualified as List
-import Data.Text qualified as Text
-import System.Process qualified as Process
 import Trilby.Host (Host (..), ssh)
 import Prelude
 
@@ -41,7 +38,4 @@ instance FromJSON BootloaderEntry where
     parseJSON = genericParseJSON defaultOptions{fieldLabelModifier = \s -> fromMaybe s $ List.stripSuffix "'" s}
 
 getBootloaderEntries :: Host -> App [BootloaderEntry]
-getBootloaderEntries host = flip (ssh host) ["bootctl", "list", "--json=short", "--no-pager"] $
-    \(fmap Text.unpack -> (cmd :| args)) ->
-        either (errorExit . fromString) pure . eitherDecodeStrict' . fromString
-            =<< liftIO (Process.readProcess cmd args "")
+getBootloaderEntries host = ssh host cmdOutJson ["bootctl", "list", "--json=short", "--no-pager"]

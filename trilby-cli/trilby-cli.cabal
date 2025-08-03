@@ -60,36 +60,42 @@ executable trilby
     main-is: Main.hs
     hs-source-dirs: src
     build-depends:
+        Glob,
         aeson,
+        aeson-pretty,
         ansi-terminal,
         base,
         bytestring,
         containers,
         data-default,
         data-fix,
-        exceptions,
+        effectful,
         extra,
         file-embed,
+        filepath,
         generic-lens,
         hnix,
         lens,
         lens-family-th,
-        monad-logger,
-        mtl,
+        log-base,
+        log-effectful,
+        monad-time-effectful,
         optparse-applicative,
         optparse-applicative,
         path,
-        path-io,
-        process,
+        path-io-effectful,
+        scientific,
         terminal-widgets,
         text,
         text-rope-zipper,
-        turtle,
+        time,
+        typed-process,
+        typed-process-effectful,
         unix,
-        unliftio,
         unordered-containers,
         xml,
     other-modules:
+        Effectful.Path
         Prelude
         Trilby.App
         Trilby.BootloaderEntry
@@ -117,6 +123,7 @@ executable trilby
         Trilby.Install.Options
         Trilby.Log
         Trilby.Options
+        Trilby.Process
         Trilby.Setup
         Trilby.System
         Trilby.Update
