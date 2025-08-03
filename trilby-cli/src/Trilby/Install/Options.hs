@@ -1,7 +1,6 @@
 module Trilby.Install.Options where
 
 import Data.Generics.Labels ()
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
@@ -102,12 +101,12 @@ validateDisk f = do
     if isBlockDevice status
         then pure $ Just f
         else do
-            logError $ "Cannot find disk " <> fromPath f
+            logAttention_ $ "Cannot find disk " <> fromPath f
             pure Nothing
 
 askDisk :: App (Path Abs File)
 askDisk = do
-    disks <- mapM (parseAbsFile . fromText) . Text.lines =<< shell "lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'" empty
+    disks <- mapM (parseAbsFile . fromText) =<< shellOutTextLines ["lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'"]
     when (null disks) $ errorExit "No disks found"
     fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
@@ -134,30 +133,14 @@ askKeyboard = do
     let findKeyboard layout variant = find (\k -> k.layout == layout && k.variant == variant) allKeyboards
         exampleKeyboards = mapMaybe (uncurry findKeyboard) [("us", Nothing), ("us", Just "dvorak"), ("de", Nothing)]
     currentKeyboard <- getCurrentKeyboard <&> (>>= \Keyboard{..} -> findKeyboard layout variant)
-    searchSelect1
-        "Choose keyboard layout:"
-        allKeyboards
-        exampleKeyboards
-        (maybeToList currentKeyboard)
-        ishow
-        1
-        1
-        <&> NonEmpty.head
+    searchSelect1 "Choose keyboard layout:" allKeyboards exampleKeyboards (maybeToList currentKeyboard) ishow
 
 askLocale :: App Text
 askLocale = do
     currentLocale <- (dropSuffix . fromString =<<) <$> lookupEnv "LC_ALL"
-    allLocales <- mapMaybe dropSuffix . Text.lines <$> cmd ["locale", "--all-locales"]
-    searchSelect1
-        "Choose locale:"
-        allLocales
-        exampleLocales
-        (maybeToList currentLocale)
-        id
-        1
-        1
+    allLocales <- mapMaybe dropSuffix <$> cmdOutTextLines ["locale", "--all-locales"]
+    searchSelect1 "Choose locale:" allLocales exampleLocales (maybeToList currentLocale) id
         <&> addSuffix
-        . NonEmpty.head
   where
     exampleLocales :: [Text]
     exampleLocales = ["en_GB", "de_DE", "es_ES", "fr_FR", "zh_CN"]
@@ -168,9 +151,9 @@ askLocale = do
 
 askTimezone :: App Text
 askTimezone = do
-    currentTz <- firstLine <$> cmd ["timedatectl", "show", "--property=Timezone", "--value"]
-    allTimezones <- Text.lines <$> shell "timedatectl list-timezones" empty
-    NonEmpty.head <$> searchSelect1 "Choose time zone:" allTimezones exampleTimezones [currentTz] id 1 1
+    currentTz <- cmdOutTextFirstLine ["timedatectl", "show", "--property=Timezone", "--value"]
+    allTimezones <- cmdOutTextLines ["timedatectl", "list-timezones"]
+    searchSelect1 "Choose time zone:" allTimezones exampleTimezones (maybeToList currentTz) id
   where
     exampleTimezones :: [Text]
     exampleTimezones = ["UTC", "CET", "Europe/Amsterdam", "Asia/Singapore", "Japan"]

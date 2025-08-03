@@ -1,7 +1,10 @@
 # Revision history for trilby-cli
 
-## 25.8.0 -- 2025-08-02
+## 25.8.0 -- 2025-08-03
 
+* Migrate from mtl to effectful
+* Migrate from turtle to typed-process
+* Migrate from monad-logger to log-base with full callstacks
 * Better locale and keyboard layout selection during Install
 
 ## 25.7.0 -- 2025-07-26
