@@ -6,10 +6,10 @@ import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
+import Trilby.Prelude
 import Trilby.Process
 import Trilby.System
 import Trilby.Update.Options
-import Prelude
 
 update :: (HasCallStack) => UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
@@ -92,32 +92,34 @@ switchToConfiguration host path action = do
         ConfigBoot -> setProfile host path
         ConfigSwitch -> setProfile host path
         _ -> pure ()
-    ssh host (runProcess_ . proc) . sconcat $
-        [ ["sudo"]
-        , ["systemd-run"]
-        , ["-E", "LOCALE_ARCHIVE"]
-        , ["-E", "NIXOS_INSTALL_BOOTLOADER=1"]
-        , ["--collect"]
-        , ["--no-ask-password"]
-        , ["--pty"]
-        , ["--quiet"]
-        , ["--same-dir"]
-        , ["--service-type=exec"]
-        , ["--unit=trilby-switch-to-configuration"]
-        , ["--wait"]
-        , [fromPath activationScript, ishow action]
-        ]
+    ssh host (runProcess_ . proc)
+        . sconcat
+        $ [ ["sudo"]
+          , ["systemd-run"]
+          , ["-E", "LOCALE_ARCHIVE"]
+          , ["-E", "NIXOS_INSTALL_BOOTLOADER=1"]
+          , ["--collect"]
+          , ["--no-ask-password"]
+          , ["--pty"]
+          , ["--quiet"]
+          , ["--same-dir"]
+          , ["--service-type=exec"]
+          , ["--unit=trilby-switch-to-configuration"]
+          , ["--wait"]
+          , [fromPath activationScript, ishow action]
+          ]
   where
     activationScript = path </> $(mkRelFile "bin/switch-to-configuration")
 
 setProfile :: (HasCallStack) => Host -> Path Abs t -> App ()
 setProfile host path =
-    ssh host cmd_ . sconcat $
-        [ ["sudo"]
-        , ["nix-env"]
-        , ["--profile", "/nix/var/nix/profiles/system"]
-        , ["--set", fromPath path]
-        ]
+    ssh host cmd_
+        . sconcat
+        $ [ ["sudo"]
+          , ["nix-env"]
+          , ["--profile", "/nix/var/nix/profiles/system"]
+          , ["--set", fromPath path]
+          ]
 
 updateDarwin :: (HasCallStack) => UpdateOpts App -> Path Abs Dir -> App ()
 updateDarwin opts trilbyDir = inDir trilbyDir do

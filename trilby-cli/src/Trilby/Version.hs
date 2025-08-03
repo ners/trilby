@@ -1,31 +1,16 @@
 module Trilby.Version where
 
-import Data.FileEmbed
 import Data.List qualified as List
 import Data.String (IsString (fromString))
-import Data.Text (Text)
-import Data.Text qualified as Text
 import Data.Version (Version, showVersion)
-import Data.Version.Extra (readVersion)
-import "base" Prelude
-
-cabalFile :: (IsString s) => s
-cabalFile = $(embedStringFile "trilby-cli.cabal")
-
-cabalField :: (IsString s) => Text -> s
-cabalField ((<> ":") -> field) =
-    fromString
-        . Text.unpack
-        . (!! 1)
-        . List.dropWhile (/= field)
-        . Text.words
-        $ cabalFile
+import Paths_trilby_cli qualified
+import Prelude
 
 name :: (IsString s) => s
-name = cabalField "name"
+name = "trilby-cli"
 
 version :: Version
-version = readVersion $ cabalField "version"
+version = Paths_trilby_cli.version
 
 fullVersionString :: (IsString s) => s
-fullVersionString = fromString $ unwords [name, showVersion version]
+fullVersionString = fromString . List.unwords $ [name, showVersion version]

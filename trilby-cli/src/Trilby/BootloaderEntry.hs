@@ -10,7 +10,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (genericParseJSON)
 import Data.List.Extra qualified as List
 import Trilby.Host (Host (..), ssh)
-import Prelude
+import Trilby.Prelude
 
 data BootloaderEntryType
     = Auto

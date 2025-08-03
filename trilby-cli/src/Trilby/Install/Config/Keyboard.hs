@@ -10,7 +10,7 @@ import Text.XML.Light qualified as XML
 import Text.XML.Light.Cursor qualified as XML (Cursor)
 import Text.XML.Light.Cursor qualified as XML.Cursor
 import Trilby.HNix
-import Prelude
+import Trilby.Prelude
 
 data Keyboard = Keyboard
     { layout :: Text

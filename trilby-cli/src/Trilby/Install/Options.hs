@@ -9,8 +9,8 @@ import Trilby.Host
 import Trilby.Install.Config.Edition
 import Trilby.Install.Config.Keyboard (Keyboard (..), getAllKeyboards, getCurrentKeyboard)
 import Trilby.Install.Config.Release
+import Trilby.Prelude
 import Trilby.Widgets
-import Prelude
 
 data LuksOpts m
     = NoLuks
@@ -23,12 +23,12 @@ deriving stock instance Show (LuksOpts Maybe)
 
 parseLuks :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m (LuksOpts m))
 parseLuks f = do
-    f $
-        flag' NoLuks (long "no-luks")
-            <|> do
-                flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
-                luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
-                pure UseLuks{..}
+    f
+        $ flag' NoLuks (long "no-luks")
+        <|> do
+            flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
+            luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
+            pure UseLuks{..}
 
 parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
 parseKeyboard f = f do

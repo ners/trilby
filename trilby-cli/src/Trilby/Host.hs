@@ -6,8 +6,8 @@ import Effectful.Reader.Static qualified as Reader
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
+import Trilby.Prelude
 import Trilby.System (System)
-import Prelude
 
 data Host
     = Localhost
@@ -46,12 +46,13 @@ reboot r host = whenM r $ ssh host cmd_ ["sudo", "systemctl", "reboot"]
 hostSystem :: (HasCallStack) => Host -> App System
 hostSystem host = do
     Just systemText <-
-        ssh host cmdOutTextFirstLine . sconcat $
-            [ ["nix", "eval"]
-            , ["--impure"]
-            , ["--raw"]
-            , ["--expr", "builtins.currentSystem"]
-            ]
+        ssh host cmdOutTextFirstLine
+            . sconcat
+            $ [ ["nix", "eval"]
+              , ["--impure"]
+              , ["--raw"]
+              , ["--expr", "builtins.currentSystem"]
+              ]
     pure . read . Text.unpack $ systemText
 
 parseHosts :: Mod ArgumentFields String -> Parser (NonEmpty Host)

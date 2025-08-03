@@ -4,7 +4,7 @@ import Data.String (IsString (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
-import "base" Prelude
+import Prelude
 
 data FlakeRef = FlakeRef
     { url :: Text
