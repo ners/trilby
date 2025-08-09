@@ -8,7 +8,7 @@ in
   # Prefer our base config. This also prevents adding ZFS to `boot.supportedFilesystems` without forcing it.
   disabledModules = [ trilby.nixpkgs.nixosModules.profiles.base ];
 
-  environment.pathsToLink = ["/share/X11"];
+  environment.pathsToLink = [ "/share/X11" ];
 
   environment.systemPackages = with pkgs; [
     expect
@@ -21,7 +21,7 @@ in
     trilby-cli
     unzip
     wget
-    xkeyboard-config
+    xkeyboard_config
     zip
   ];
 }
