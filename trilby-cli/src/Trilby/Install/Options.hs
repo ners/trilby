@@ -160,7 +160,7 @@ askLocale = do
         . NonEmpty.head
   where
     exampleLocales :: [Text]
-    exampleLocales = ["en-GB", "de-DE", "es-ES", "fr-FR", "zh-CN"]
+    exampleLocales = ["en_GB", "de_DE", "es_ES", "fr_FR", "zh_CN"]
     dropSuffix :: Text -> Maybe Text
     dropSuffix t = Text.stripSuffix ".utf8" t <|> Text.stripSuffix ".UTF-8" t
     addSuffix :: Text -> Text
