@@ -32,6 +32,7 @@ import Data.Ord (Ord ((<), (>=)))
 import Data.String (String, unwords)
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Text.IO qualified as Text
 import Data.Time.Format.ISO8601 (iso8601Show)
 import Effectful (Eff, IOE, MonadUnliftIO, liftIO, runEff, withRunInIO, (:>))
 import Effectful.Concurrent.STM
@@ -100,7 +101,9 @@ withLogger logLevel act = do
             Aeson.Success LogData{..} -> do
                 forM_ value \value -> liftIO do
                     setSGR [SetColor Foreground Dull Yellow]
-                    LazyByteString.putStrLn . encodePretty $ value
+                    case value of
+                        Aeson.String t -> Text.putStrLn t
+                        _ -> LazyByteString.putStrLn . encodePretty $ value
                 when (logLevel >= LogTrace) . forM_ callStack $ \callStack -> liftIO do
                     setSGR [Reset]
                     setSGR [SetConsoleIntensity FaintIntensity]

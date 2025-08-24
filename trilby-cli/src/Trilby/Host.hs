@@ -7,6 +7,7 @@ import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
 import Trilby.Prelude
+import Trilby.Process (proc, runProcess_)
 import Trilby.System (System)
 
 data Host
@@ -54,12 +55,12 @@ ssh host c t = do
     c $ sconcat [["ssh"], flags, [ishow host], t]
 
 reboot :: (HasCallStack) => App Bool -> Host -> App ()
-reboot r host = whenM r $ ssh host cmd_ ["sudo", "systemctl", "reboot"]
+reboot r host = whenM r $ ssh host (asRoot $ runProcess_ . proc) ["systemctl", "reboot"]
 
 hostSystem :: (HasCallStack) => Host -> App System
 hostSystem host = do
-    Just systemText <-
-        ssh host cmdOutTextFirstLine
+    systemText <-
+        cached (maybe (fail "hostSystem failed") pure <=< ssh host cmdOutTextFirstLine)
             . sconcat
             $ [ ["nix", "eval"]
               , ["--impure"]

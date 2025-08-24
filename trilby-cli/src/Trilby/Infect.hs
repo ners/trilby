@@ -9,6 +9,7 @@ import Trilby.HNix (FileOrFlake (File), copyClosure, nixBuild, trilbyFlake, writ
 import Trilby.Host
 import Trilby.Infect.Options
 import Trilby.Prelude
+import Trilby.Process (proc, runProcess_)
 import Trilby.System
 
 infect :: (HasCallStack) => InfectOpts Maybe -> App ()
@@ -21,7 +22,7 @@ infect (askOpts -> opts) = do
                 [kexec] <- buildKexec opts
                 copyClosure host kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ ssh host cmd_ ["sudo", fromPath bin]
+                whenM opts.reboot $ ssh host (asRoot $ runProcess_ . proc) [fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec :: (HasCallStack) => InfectOpts App -> App [Path Abs Dir]

@@ -9,6 +9,7 @@ import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Prelude
+import Trilby.Process (proc, runProcess_)
 import Trilby.System
 import Trilby.Widgets
 
@@ -139,7 +140,7 @@ setupHost kernel opts actions = do
         actions hostDir userDir
         whenM opts.edit do
             editor <- fromMaybe "nano" <$> lookupEnv "EDITOR"
-            cmd_
+            (runProcess_ . proc)
                 [ fromString editor
                 , "flake.nix"
                 , fromPath $ hostDir </> configurationNix
