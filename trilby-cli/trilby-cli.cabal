@@ -69,7 +69,7 @@ executable trilby
         containers,
         data-default,
         data-fix,
-        effectful,
+        effectful >= 2.4,
         extra,
         filepath,
         generic-lens,
