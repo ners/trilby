@@ -14,6 +14,7 @@
     profiles.network
     profiles.nix
     profiles.nixpkgs
+    profiles.polkit
     profiles.ssh
     profiles.users
     profiles.xfs
