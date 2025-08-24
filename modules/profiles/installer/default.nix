@@ -8,7 +8,14 @@
     })
   ];
 
-  users.users.nixos.enable = false;
+  users.users.nixos = {
+    isNormalUser = lib.mkForce false;
+    isSystemUser = true;
+    group = "nogroup";
+  } //
+  lib.optionalAttrs (lib.versionAtLeast trilby.release "25.05") {
+    enable = false;
+  };
 
   environment.systemPackages = with pkgs; [
     cryptsetup
