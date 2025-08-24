@@ -16,6 +16,4 @@
     enable = true;
     wlr.enable = true;
   };
-
-  security.polkit.enable = true;
 }
