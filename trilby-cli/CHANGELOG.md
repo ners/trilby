@@ -15,6 +15,7 @@
 * Migrate from monad-logger to log-base with full callstacks
 * Better locale and keyboard layout selection during Install
 * Move Prelude to Trilby.Prelude to unbreak autogen modules
+* Use Polkit instead of sudo
 
 ## 25.7.0 -- 2025-07-26
 
