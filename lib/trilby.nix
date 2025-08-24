@@ -28,14 +28,20 @@ rec {
       buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
       variant = null;
       format = null;
-      inherit inputs;
     } // t)
+    (t: t // {
+      inputs = inputs // t.inputs or { };
+    })
     (t: t // rec {
       name = toLower t.name;
       edition = toLower t.edition;
       hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
       nixpkgs = t.inputs.nixpkgs // {
         nixosModules = findModules "${t.inputs.nixpkgs}/nixos/modules";
+      };
+      lib = import ../lib {
+        inherit (t) inputs;
+        inherit (nixpkgs) lib;
       };
       release = nixpkgs.lib.trivial.release;
       configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
@@ -52,10 +58,7 @@ rec {
   trilbySystem = attrs:
     let
       trilby = trilbyConfig (attrs.trilby or { });
-      lib = import ../lib {
-        inherit (trilby) inputs;
-        inherit (trilby.nixpkgs) lib;
-      };
+      inherit (trilby) lib;
       kernelName = trilby.hostSystem.kernel.name;
       systemAttrs = traceVerbose "trilbySystem: ${toJSON trilby}" {
         modules = with trilby.inputs.self.nixosModules; [
@@ -63,7 +66,7 @@ rec {
         ]
         ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
         ++ attrs.modules or [ ];
-        specialArgs = { inherit lib trilby; inputs = attrs.inputs or trilby.inputs; } // attrs.specialArgs or { };
+        specialArgs = { inherit lib trilby; inputs = trilby.inputs // attrs.inputs or { }; } // attrs.specialArgs or { };
       };
     in
     (
