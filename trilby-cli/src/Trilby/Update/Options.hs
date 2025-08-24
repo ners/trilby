@@ -51,7 +51,7 @@ askAction Nothing = do
         _ -> pure NoAction
 
 askReboot :: Maybe Bool -> App Bool
-askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (sudo)" False
+askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (root)" False
 
 askOpts :: UpdateOpts Maybe -> UpdateOpts App
 askOpts opts =

@@ -46,5 +46,5 @@ runApp verbosity action = do
         $ do
             logInfo_ Trilby.fullVersionString
             commandCache <- newTVarIO mempty
-            withSystemTempDir "trilby-XXXXX" \tmpDir ->
+            withSystemTempDir "trilby" \tmpDir ->
                 runReader AppState{..} . inject $ action

@@ -92,10 +92,9 @@ switchToConfiguration host path action = do
         ConfigBoot -> setProfile host path
         ConfigSwitch -> setProfile host path
         _ -> pure ()
-    ssh host (runProcess_ . proc)
+    ssh host (asRoot $ runProcess_ . proc)
         . sconcat
-        $ [ ["sudo"]
-          , ["systemd-run"]
+        $ [ ["systemd-run"]
           , ["-E", "LOCALE_ARCHIVE"]
           , ["-E", "NIXOS_INSTALL_BOOTLOADER=1"]
           , ["--collect"]
@@ -113,10 +112,9 @@ switchToConfiguration host path action = do
 
 setProfile :: (HasCallStack) => Host -> Path Abs t -> App ()
 setProfile host path =
-    ssh host cmd_
+    ssh host (asRoot $ runProcess_ . proc)
         . sconcat
-        $ [ ["sudo"]
-          , ["nix-env"]
+        $ [ ["nix-env"]
           , ["--profile", "/nix/var/nix/profiles/system"]
           , ["--set", fromPath path]
           ]
