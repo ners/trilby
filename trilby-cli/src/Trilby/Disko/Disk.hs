@@ -2,7 +2,7 @@ module Trilby.Disko.Disk where
 
 import Trilby.Disko.Partition
 import Trilby.HNix
-import Prelude
+import Trilby.Prelude
 
 newtype DiskContent = Gpt {partitions :: [Partition]}
     deriving stock (Generic)

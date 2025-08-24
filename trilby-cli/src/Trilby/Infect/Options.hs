@@ -4,8 +4,8 @@ import Data.Text qualified as Text
 import Options.Applicative
 import Trilby.Host
 import Trilby.Install.Config.Edition (Edition)
+import Trilby.Prelude
 import Trilby.Widgets
-import Prelude
 
 data AuthorisedKeys
     = AuthorisedKeys [Text]

@@ -1,6 +1,6 @@
 module Trilby.Install.Config.Release where
 
-import Prelude
+import Trilby.Prelude
 
 data Release
     = Unstable
