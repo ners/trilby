@@ -16,6 +16,7 @@
 * Better locale and keyboard layout selection during Install
 * Move Prelude to Trilby.Prelude to unbreak autogen modules
 * Use Polkit instead of sudo
+* Use correct kexec format in Infect
 
 ## 25.7.0 -- 2025-07-26
 
