@@ -8,6 +8,7 @@ import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.Host
 import Trilby.Prelude
+import Trilby.Process (proc, runProcess_)
 import Trilby.System
 
 clean :: CleanOpts Maybe -> App ()
@@ -19,13 +20,13 @@ clean (askOpts -> opts) = do
         for_ whats \case
             Boot -> boot host system
             Podman -> ssh host cmd_ ["podman", "system", "reset", "--force"]
-            Profiles -> ssh host cmd_ ["sudo", "nix-collect-garbage", "--delete-old"]
+            Profiles -> ssh host (asRoot $ runProcess_ . proc) ["nix-collect-garbage", "--delete-old"]
             Store -> unless (Profiles `Set.member` whats) $ ssh host cmd_ ["nix-collect-garbage"]
 
 boot :: Host -> System -> App ()
 boot host System{kernel = Linux} = do
     getBootloaderEntries host >>= mapM_ \BootloaderEntry{..} ->
         when (type' == Type1 && not isDefault && not isSelected)
-            $ ssh host cmd_ ["sudo", "bootctl", "unlink", id]
-    ssh host cmd_ ["sudo", "bootctl", "cleanup"]
+            $ ssh host (asRoot $ runProcess_ . proc) ["bootctl", "unlink", id]
+    ssh host (asRoot $ runProcess_ . proc) ["bootctl", "cleanup"]
 boot _ system = errorExit $ "Cleaning the boot partition is not supported on " <> ishow system.kernel

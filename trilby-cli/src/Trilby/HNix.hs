@@ -106,7 +106,7 @@ copyClosure host@Host{} path = do
                   ]
         _ -> do
             flags <- sshFlags
-            ssh host shell_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
+            ssh host (asRoot $ runProcess_ . proc) ["sh", "-c", "mkdir -p /nix && chown -R $(whoami) /nix"]
             shell_
                 . sconcat
                 $ [

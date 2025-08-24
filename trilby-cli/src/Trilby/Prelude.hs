@@ -126,7 +126,6 @@ import Path
     , (</>)
     )
 import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
-import System.IO.Unsafe (unsafePerformIO)
 import System.Posix (changeWorkingDirectory, getEffectiveUserID, getWorkingDirectory, readSymbolicLink)
 import System.Process.Typed qualified as Process
 import Text.ParserCombinators.ReadP (ReadP)
@@ -212,22 +211,33 @@ prepend x xs = pure x <> xs
 append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
 append x xs = xs <> pure x
 
-isRoot :: Bool
-isRoot = unsafePerformIO getEffectiveUserID == 0
+isRoot :: (HasCallStack) => App Bool
+isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
-asUser :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asUser :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asUser = id
 
-asRoot :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-asRoot c t = if isRoot then c t else c $ prepend "sudo" t
+asRoot :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRoot c t = ifM isRoot (c t) (c t')
+  where
+    t'
+        | "ssh" :| (sshArgs -> (args, xs)) <- t = "ssh" :| (args <> run0 xs)
+        | otherwise = run0 t
+    sshArgs :: [Text] -> ([Text], [Text])
+    sshArgs ("-t" : xs) = first ("-t" :) $ sshArgs xs
+    sshArgs ("-o" : x : xs) = first (["-o", x] <>) $ sshArgs xs
+    sshArgs (x : xs) = ([x], xs)
+    sshArgs [] = ([], [])
+    run0 :: (Semigroup (f Text), Applicative f) => f Text -> f Text
+    run0 = prepend "run0" . prepend "--background="
 
-asRootIf :: Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootIf :: (HasCallStack) => Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRootIf b = if b then asRoot else id
 
-asRootWhen :: App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootWhen :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRootWhen b c t = b >>= \b -> asRootIf b c t
 
-asRootUnless :: App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootUnless :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRootUnless b = asRootWhen (not <$> b)
 
 cached :: (HasCallStack, ToJSON a, FromJSON a) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
@@ -257,76 +267,67 @@ isAbsolute p = Just '/' == listToMaybe (toFilePath p)
 isRelative :: Path b t -> Bool
 isRelative = not . isAbsolute
 
+defaultProc :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App (ProcessConfig () () ())
+defaultProc p = do
+    verbose <- verbosityAtLeast LogInfo
+    let output = if verbose then Process.inherit else Process.nullStream
+    pure . setStdin Process.nullStream . setStdout output . setStderr output $ p
+
 process_ :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App ()
-process_ p = withFrozenCallStack do
-    isTrace <- verbosityAtLeast LogInfo
-    let output = if isTrace then Process.inherit else Process.nullStream
-    runProcess_ . setStdin Process.nullStream . setStdout output . setStderr output $ p
+process_ = withFrozenCallStack $ runProcess_ <=< defaultProc
 
 processCode :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App ExitCode
-processCode p = withFrozenCallStack do
-    isTrace <- verbosityAtLeast LogInfo
-    let output = if isTrace then Process.inherit else Process.nullStream
-    runProcess . setStdin Process.nullStream . setStdout output . setStderr output $ p
+processCode = withFrozenCallStack $ runProcess <=< defaultProc
 
 processOutText :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App Text
-processOutText p = withFrozenCallStack do
-    isTrace <- verbosityAtLeast LogInfo
-    let stderr = if isTrace then Process.inherit else Process.nullStream
-    Text.decodeUtf8 . LazyByteString.toStrict <$> (readProcessStdout_ . setStdin Process.nullStream . setStderr stderr) p
+processOutText = withFrozenCallStack $ fmap (Text.decodeUtf8 . LazyByteString.toStrict) . readProcessStdout_ <=< defaultProc
 
 processOutTextLines :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App [Text]
-processOutTextLines = fmap (fmap Text.strip . Text.lines) . withFrozenCallStack processOutText
+processOutTextLines = withFrozenCallStack $ fmap (fmap Text.strip . Text.lines . Text.strip) . processOutText
 
 processOutTextFirstLine :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App (Maybe Text)
-processOutTextFirstLine = fmap listToMaybe . withFrozenCallStack processOutTextLines
+processOutTextFirstLine = withFrozenCallStack $ fmap listToMaybe . processOutTextLines
 
 processCodeOutText :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App (ExitCode, Text)
-processCodeOutText p = withFrozenCallStack do
-    isTrace <- verbosityAtLeast LogInfo
-    let stderr = if isTrace then Process.inherit else Process.nullStream
-    second (Text.decodeUtf8 . LazyByteString.toStrict) <$> (readProcessStdout . setStdin Process.nullStream . setStderr stderr) p
+processCodeOutText = withFrozenCallStack $ fmap (second (Text.decodeUtf8 . LazyByteString.toStrict)) . readProcessStdout <=< defaultProc
 
 processOutJson :: (HasCallStack, FromJSON a) => ProcessConfig stdin stdoutIgnored stderr -> App a
-processOutJson p = withFrozenCallStack do
-    isTrace <- verbosityAtLeast LogInfo
-    let stderr = if isTrace then setStderr Process.inherit else setStderr Process.nullStream
-    either fail pure . Aeson.eitherDecode =<< (readProcessStdout_ . setStdin Process.nullStream . stderr) p
+processOutJson = withFrozenCallStack $ either fail pure . Aeson.eitherDecode <=< readProcessStdout_ <=< defaultProc
 
 shell_ :: (HasCallStack) => NonEmpty Text -> App ()
-shell_ = withFrozenCallStack process_ . shell . Text.unwords . NonEmpty.toList
+shell_ = withFrozenCallStack $ process_ . shell . Text.unwords . NonEmpty.toList
 
 shellOutText :: (HasCallStack) => NonEmpty Text -> App Text
-shellOutText = withFrozenCallStack processOutText . shell . Text.unwords . NonEmpty.toList
+shellOutText = withFrozenCallStack $ processOutText . shell . Text.unwords . NonEmpty.toList
 
 shellOutTextFirstLine :: (HasCallStack) => NonEmpty Text -> App (Maybe Text)
-shellOutTextFirstLine = withFrozenCallStack processOutTextFirstLine . shell . Text.unwords . NonEmpty.toList
+shellOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . shell . Text.unwords . NonEmpty.toList
 
 shellOutTextLines :: (HasCallStack) => NonEmpty Text -> App [Text]
-shellOutTextLines = withFrozenCallStack processOutTextLines . shell . Text.unwords . NonEmpty.toList
+shellOutTextLines = withFrozenCallStack $ processOutTextLines . shell . Text.unwords . NonEmpty.toList
 
 cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
-cmd_ = withFrozenCallStack process_ . proc
+cmd_ = withFrozenCallStack $ process_ . proc
 
 cmdCode :: (HasCallStack) => NonEmpty Text -> App ExitCode
-cmdCode = withFrozenCallStack processCode . proc
+cmdCode = withFrozenCallStack $ processCode . proc
 
 cmdOutText :: (HasCallStack) => NonEmpty Text -> App Text
-cmdOutText = withFrozenCallStack processOutText . proc
+cmdOutText = withFrozenCallStack $ processOutText . proc
 
 cmdCodeOutText :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
-cmdCodeOutText = withFrozenCallStack processCodeOutText . proc
+cmdCodeOutText = withFrozenCallStack $ processCodeOutText . proc
 
 cmdOutTextLines :: (HasCallStack) => NonEmpty Text -> App [Text]
-cmdOutTextLines = withFrozenCallStack processOutTextLines . proc
+cmdOutTextLines = withFrozenCallStack $ processOutTextLines . proc
 
 cmdOutTextFirstLine :: (HasCallStack) => NonEmpty Text -> App (Maybe Text)
-cmdOutTextFirstLine = withFrozenCallStack processOutTextFirstLine . proc
+cmdOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . proc
 
 cmdOutJson :: (HasCallStack, FromJSON a) => NonEmpty Text -> App a
-cmdOutJson = processOutJson . proc
+cmdOutJson = withFrozenCallStack $ processOutJson . proc
 
-createDir :: Path b Dir -> App ()
+createDir :: (HasCallStack) => Path b Dir -> App ()
 createDir dir = do
     logTrace_ $ "createDir " <> fromPath dir
     asRootUnless parentWritable cmd_ ["mkdir", "-p", fromPath dir]
@@ -338,16 +339,16 @@ data Owner = Owner {uid :: Int, gid :: Int}
 instance Show Owner where
     show Owner{..} = show uid <> ":" <> show gid
 
-currentOwner :: App Owner
+currentOwner :: (HasCallStack) => App Owner
 currentOwner = do
-    uid <- cmdOutJson ["id", "-u"]
-    gid <- cmdOutJson ["id", "-g"]
+    uid <- cached cmdOutJson ["id", "-u"]
+    gid <- cached cmdOutJson ["id", "-g"]
     pure Owner{..}
 
-changeOwner :: Owner -> Path b t -> App ()
+changeOwner :: (HasCallStack) => Owner -> Path b t -> App ()
 changeOwner owner dir = asRoot cmd_ ["chown", "-R", ishow owner, fromPath dir]
 
-ensureDir :: Path b Dir -> App ()
+ensureDir :: (HasCallStack) => Path b Dir -> App ()
 ensureDir dir = do
     logTrace_ $ "ensureDir " <> fromPath dir
     owner <- currentOwner
@@ -355,7 +356,7 @@ ensureDir dir = do
         createDir dir
         changeOwner owner dir
 
-inDir :: Path b Dir -> App a -> App a
+inDir :: (HasCallStack) => Path b Dir -> App a -> App a
 inDir d a = do
     d' <- liftIO $ parseAbsDir =<< getWorkingDirectory
     ensureDir d
@@ -370,21 +371,21 @@ writeFile f t = do
     ensureDir $ parent f
     liftIO $ Text.writeFile (fromPath f) t
 
-withTempFile :: Path Rel File -> (Path Abs File -> App a) -> App a
+withTempFile :: (HasCallStack) => Path Rel File -> (Path Abs File -> App a) -> App a
 withTempFile file action = do
     tmpDir <- Reader.asks tmpDir
     action $ tmpDir </> file
 
-getSymlinkTarget :: (MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
+getSymlinkTarget :: (HasCallStack, MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
 getSymlinkTarget = (liftIO . readSymbolicLink . fromSomeBase >=>)
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
-verbosityAtLeast :: LogLevel -> App Bool
+verbosityAtLeast :: (HasCallStack) => LogLevel -> App Bool
 verbosityAtLeast v = Reader.asks $ (v <) . verbosity
 
-withTrace :: (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+withTrace :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 withTrace f (x :| xs) =
     verbosityAtLeast LogTrace
         >>= f
