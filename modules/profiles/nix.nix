@@ -1,4 +1,11 @@
-{ config, trilby, inputs, lib, pkgs, ... }:
+{
+  config,
+  trilby,
+  inputs,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -9,14 +16,23 @@
     {
       monitored = {
         enable = lib.mkDefault true;
-        package = lib.mkDefault (pkgs.unstable.nix-monitored.override {
-          nix = pkgs.unstable.nixVersions.latest;
-        });
+        package = lib.mkDefault (
+          pkgs.unstable.nix-monitored.override {
+            nix = pkgs.unstable.nixVersions.latest;
+          }
+        );
       };
       optimise.automatic = true;
       settings = {
-        experimental-features = [ "nix-command" "flakes" ];
-        trusted-users = [ "root" "@wheel" "@admin" ];
+        experimental-features = [
+          "nix-command"
+          "flakes"
+        ];
+        trusted-users = [
+          "root"
+          "@wheel"
+          "@admin"
+        ];
         nix-path = config.nix.nixPath;
       };
       gc = {

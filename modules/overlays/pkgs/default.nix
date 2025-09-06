@@ -1,3 +1,5 @@
 { inputs, lib, ... }:
 
-final: prev: with lib; flip mapAttrs (findModules ./.) (_: module: prev.callPackage module { inherit inputs; })
+final: prev:
+with lib;
+flip mapAttrs (findModules ./.) (_: module: prev.callPackage module { inherit inputs; })

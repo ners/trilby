@@ -1,4 +1,9 @@
-{ trilby, lib, pkgs, ... }:
+{
+  trilby,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   imports = lib.findModulesList ./.;
@@ -15,22 +20,26 @@
       };
       dbus.enable = true;
       gvfs.enable = true;
-      udev.packages = with pkgs.gnome; with pkgs; [
-        gnome-settings-daemon
-      ];
+      udev.packages =
+        with pkgs.gnome;
+        with pkgs;
+        [
+          gnome-settings-daemon
+        ];
     }
     (
-      if (lib.versionAtLeast trilby.release "25.11")
-      then {
-        displayManager.gdm.enable = true;
-        desktopManager.gnome.enable = true;
-      }
-      else {
-        xserver = {
+      if (lib.versionAtLeast trilby.release "25.11") then
+        {
           displayManager.gdm.enable = true;
           desktopManager.gnome.enable = true;
-        };
-      }
+        }
+      else
+        {
+          xserver = {
+            displayManager.gdm.enable = true;
+            desktopManager.gnome.enable = true;
+          };
+        }
     )
   ];
 
@@ -46,14 +55,18 @@
     gdm.enableGnomeKeyring = true;
   };
 
-  environment.systemPackages = with pkgs.gnome; with pkgs; with gnomeExtensions; [
-    adwaita-icon-theme
-    appindicator
-    gnome-connections
-    gnome-tweaks
-    gnome-usage
-    nautilus
-  ];
+  environment.systemPackages =
+    with pkgs.gnome;
+    with pkgs;
+    with gnomeExtensions;
+    [
+      adwaita-icon-theme
+      appindicator
+      gnome-connections
+      gnome-tweaks
+      gnome-usage
+      nautilus
+    ];
 
   xdg.mime.inverted.defaultApplications = {
     "org.gnome.Nautilus.desktop" = [ "inode/directory" ];

@@ -14,8 +14,12 @@
   };
   files =
     let
-      tabs = { opts.expandtab = false; };
-      spaces = { opts.expandtab = true; };
+      tabs = {
+        opts.expandtab = false;
+      };
+      spaces = {
+        opts.expandtab = true;
+      };
       tabstop = tabstop: {
         opts = {
           inherit tabstop;
@@ -33,9 +37,12 @@
         python = spaces // tabstop 4;
         yaml = spaces // tabstop 2;
       }
-      (lang: attrs: {
-        "ftplugin/${lang}.lua" = {
-          extraConfigLua = lib.mkBefore "vim.treesitter.start()";
-        } // attrs;
-      });
+      (
+        lang: attrs: {
+          "ftplugin/${lang}.lua" = {
+            extraConfigLua = lib.mkBefore "vim.treesitter.start()";
+          }
+          // attrs;
+        }
+      );
 }

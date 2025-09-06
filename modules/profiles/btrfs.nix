@@ -1,14 +1,21 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   boot = {
     supportedFilesystems = [ "btrfs" ];
     initrd.supportedFilesystems = [ "btrfs" ];
   };
-  environment.systemPackages = with pkgs; [ btrfs-progs compsize ];
+  environment.systemPackages = with pkgs; [
+    btrfs-progs
+    compsize
+  ];
 }
-  //
-lib.mkIf (config.fileSystems."/".fsType == "btrfs") {
+// lib.mkIf (config.fileSystems."/".fsType == "btrfs") {
   services.btrfs.autoScrub = {
     enable = true;
     fileSystems = [ "/" ];
@@ -19,7 +26,10 @@ lib.mkIf (config.fileSystems."/".fsType == "btrfs") {
       spec = "LABEL=Trilby";
       hashTableSizeMB = 1024;
       verbosity = "crit";
-      extraOptions = [ "--loadavg-target" "4.0" ];
+      extraOptions = [
+        "--loadavg-target"
+        "4.0"
+      ];
     };
   };
 }

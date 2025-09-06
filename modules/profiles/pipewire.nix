@@ -11,9 +11,14 @@
     pulse.enable = true;
     wireplumber.enable = true;
   };
-} //
-(if (lib.versionAtLeast trilby.release "25.05") then {
-  services.pulseaudio.enable = false;
-} else {
-  hardware.pulseaudio.enable = false;
-})
+}
+// (
+  if (lib.versionAtLeast trilby.release "25.05") then
+    {
+      services.pulseaudio.enable = false;
+    }
+  else
+    {
+      hardware.pulseaudio.enable = false;
+    }
+)

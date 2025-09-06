@@ -1,4 +1,9 @@
-{ trilby, lib, pkgs, ... }:
+{
+  trilby,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -32,9 +37,10 @@
       };
     }
     (
-      if (lib.versionAtLeast trilby.release "25.11")
-      then { displayManager.gdm.autoSuspend = false; }
-      else { xserver.displayManager.gdm.autoSuspend = false; }
+      if (lib.versionAtLeast trilby.release "25.11") then
+        { displayManager.gdm.autoSuspend = false; }
+      else
+        { xserver.displayManager.gdm.autoSuspend = false; }
     )
   ];
 

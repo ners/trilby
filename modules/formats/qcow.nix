@@ -1,4 +1,12 @@
-{ inputs, trilby, config, lib, pkgs, modulesPath, ... }:
+{
+  inputs,
+  trilby,
+  config,
+  lib,
+  pkgs,
+  modulesPath,
+  ...
+}:
 
 {
   disabledModules = [
@@ -19,13 +27,16 @@
     loader = {
       timeout = 0;
       grub =
-        if (trilby.hostPlatform == "x86_64-linux") then {
-          device = "/dev/vda";
-        } else {
-          device = "nodev";
-          efiSupport = lib.mkDefault true;
-          efiInstallAsRemovable = lib.mkDefault true;
-        };
+        if (trilby.hostPlatform == "x86_64-linux") then
+          {
+            device = "/dev/vda";
+          }
+        else
+          {
+            device = "nodev";
+            efiSupport = lib.mkDefault true;
+            efiInstallAsRemovable = lib.mkDefault true;
+          };
     };
   };
 

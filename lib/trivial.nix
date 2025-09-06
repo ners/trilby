@@ -13,11 +13,16 @@ with lib;
   for = flip map;
 
   # Map each element of a list or attrset to an attrset, then flatten the attrsets.
-  foreach = xs: f: recursiveConcat (
-    if isList xs then map f xs
-    else if isAttrs xs then mapAttrsToList f xs
-    else throw "lib.foreach: First argument is of type ${builtins.typeOf xs}, but a list or attrset was expected."
-  );
+  foreach =
+    xs: f:
+    recursiveConcat (
+      if isList xs then
+        map f xs
+      else if isAttrs xs then
+        mapAttrsToList f xs
+      else
+        throw "lib.foreach: First argument is of type ${builtins.typeOf xs}, but a list or attrset was expected."
+    );
 
   isEmpty = x: x == null || x == "" || x == [ ] || x == { };
 
