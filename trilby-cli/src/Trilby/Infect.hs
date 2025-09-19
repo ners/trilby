@@ -45,7 +45,7 @@ buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
             hostPlatform = builtins.currentSystem;
           };
           modules = [
-            trilby.nixosModules.formats.kexec
+            trilby.nixosModules.formats.kexecScript
             {
               users.users.trilby.openssh.authorizedKeys.keys = authorisedKeys;
             }

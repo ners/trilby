@@ -6,7 +6,7 @@
     wrapperFeatures.gtk = true;
     extraPackages = with pkgs; [
       foot
-      rofi-wayland
+      rofi
       swayidle
       swaylock
     ];
