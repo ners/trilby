@@ -2,12 +2,13 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
+import Effectful.Reader.Static qualified as Reader
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
+import Trilby.Prelude
+import Trilby.Process (proc, runProcess_)
 import Trilby.System (System)
-import Turtle qualified
-import Prelude
 
 data Host
     = Localhost
@@ -25,45 +26,47 @@ instance Show Host where
     show Host{username = Nothing, ..} = Text.unpack hostname
     show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
 
-hostname :: Host -> App Text
-hostname Localhost = Turtle.hostname
+hostname :: (HasCallStack) => Host -> App Text
+hostname Localhost = cached (maybe (fail "hostname failed") pure <=< cmdOutTextFirstLine) ["hostnamectl", "hostname"]
 hostname Host{..} = pure hostname
 
-canonicalHost :: Host -> App Host
+canonicalHost :: (HasCallStack) => Host -> App Host
 canonicalHost host = do
     localhostHostnames <- hostname Localhost <&> (: ["localhost", "127.0.0.1", "::1"])
     isLocalhost <- hostname host <&> (`elem` localhostHostnames)
     pure $ if isLocalhost then Localhost else host
 
-sshFlags :: App (NonEmpty Text)
+sshFlags :: (HasCallStack) => App (NonEmpty Text)
 sshFlags = do
-    tmpDir <- view #tmpDir
-    pure . sconcat $
-        [ ["-o", "ControlMaster=auto"]
-        , ["-o", "ControlPath=" <> fromPath (tmpDir </> $(mkRelFile "ssh-%n"))]
-        , ["-o", "ControlPersist=60"]
-        , ["-t"]
-        ]
+    tmpDir <- Reader.asks tmpDir
+    pure
+        . sconcat
+        $ [ ["-o", "ControlMaster=auto"]
+          , ["-o", "ControlPath=" <> fromPath (tmpDir </> $(mkRelFile "ssh-%n"))]
+          , ["-o", "ControlPersist=60"]
+          , ["-t"]
+          ]
 
 -- | Execute a command over SSH, if given a remote host.
-ssh :: Host -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+ssh :: (HasCallStack) => Host -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 ssh Localhost c t = c t
 ssh host c t = do
     flags <- sshFlags
     c $ sconcat [["ssh"], flags, [ishow host], t]
 
-reboot :: App Bool -> Host -> App ()
-reboot r host = whenM r $ ssh host rawCmd_ ["sudo", "systemctl", "reboot"]
+reboot :: (HasCallStack) => App Bool -> Host -> App ()
+reboot r host = whenM r $ ssh host (asRoot $ runProcess_ . proc) ["systemctl", "reboot"]
 
 hostSystem :: (HasCallStack) => Host -> App System
 hostSystem host = do
     systemText <-
-        fmap firstLine . ssh host cmd . sconcat $
-            [ ["nix", "eval"]
-            , ["--impure"]
-            , ["--raw"]
-            , ["--expr", "builtins.currentSystem"]
-            ]
+        cached (maybe (fail "hostSystem failed") pure <=< ssh host cmdOutTextFirstLine)
+            . sconcat
+            $ [ ["nix", "eval"]
+              , ["--impure"]
+              , ["--raw"]
+              , ["--expr", "builtins.currentSystem"]
+              ]
     pure . read . Text.unpack $ systemText
 
 parseHosts :: Mod ArgumentFields String -> Parser (NonEmpty Host)

@@ -17,7 +17,7 @@ let
     }:
     lib.pipe { inherit name edition format buildPlatform hostPlatform variant release; } [
       lib.cartesianProduct
-      (map (c: c // releases.${c.release}))
+      (map (c: c // { inputs = releases.${c.release}; }))
       (map lib.trilbyConfig)
       (filter (trilby: trilby.hostSystem.kernel.name != "darwin"))
     ];
@@ -36,10 +36,11 @@ let
       }
     );
 in
-packages // { trilby-all = pkgs.linkFarm "trilby-all" packages; } // lib.foreach allFormats (format: {
-  "trilby-all-${format}" = lib.pipe format [
-    (format: configurations { format = [ format ]; })
-    (map (trilby: packages.${trilby.configurationName}))
-    (pkgs.linkFarmFromDrvs "trilby-all-${format}")
-  ];
-})
+packages // { trilby-all = pkgs.linkFarm "trilby-all" packages; } // lib.foreach allFormats (format:
+  let name = "trilby-all-${format}"; in {
+    ${name} = lib.pipe format [
+      (format: configurations { format = [ format ]; })
+      (map (trilby: packages.${trilby.configurationName}))
+      (pkgs.linkFarmFromDrvs name)
+    ];
+  })

@@ -5,16 +5,18 @@
 
 module Trilby.HNix where
 
+import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Fix
 import Data.List.Extra qualified as List
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Text
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
 import Trilby.Host
-import Turtle qualified
-import Prelude
+import Trilby.Prelude
+import Trilby.Process
 
 instance IsString (NAttrPath NExpr) where
     fromString = fromListSafe "" . fmap (StaticKey . fromString) . List.splitOn "."
@@ -74,9 +76,12 @@ data FileOrFlake
 
 nixBuild :: (HasCallStack) => FileOrFlake -> App [Path Abs Dir]
 nixBuild f =
-    mapM (parseAbsDir . Text.unpack) . Text.lines
+    mapM (parseAbsDir . fromText)
+        . Text.lines
+        . Text.decodeUtf8
+        . LazyByteString.toStrict
         =<< withTrace
-            cmd
+            (readProcessStdout_ . proc)
             ( sconcat
                 [ ["nix", "build"]
                 , ["--no-link", "--print-out-paths"]
@@ -89,49 +94,50 @@ nixBuild f =
 copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
 copyClosure Localhost _ = pure ()
 copyClosure host@Host{} path = do
-    (code, _) <- ssh host cmd' ["command", "-v", "nix-store"]
-    case code of
+    ssh host cmdCode ["command", "-v", "nix-store"] >>= \case
         ExitSuccess ->
-            cmd_ . sconcat $
-                [ ["nix-copy-closure"]
-                , ["--use-substitutes"]
-                , ["--gzip"]
-                , ["--to", ishow host]
-                , [fromPath path]
-                ]
+            cmd_
+                . sconcat
+                $ [ ["nix-copy-closure"]
+                  , ["--use-substitutes"]
+                  , ["--gzip"]
+                  , ["--to", ishow host]
+                  , [fromPath path]
+                  ]
         _ -> do
             flags <- sshFlags
-            ssh host rawCmd_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
-            flip shell_ Turtle.stdin . Text.intercalate " " . sconcat $
-                [
-                    [ "nix-store"
-                    , "--query"
-                    , "--requisites"
-                    , fromPath path
-                    ]
-                , ["|"]
-                ,
-                    [ "tar"
-                    , "--create"
-                    , "--gzip"
-                    , "--file=-"
-                    , "--files-from=-"
-                    , "--mode='u+rw'"
-                    ]
-                , ["|"]
-                , sconcat
-                    [ "ssh" : NonEmpty.toList flags <> [ishow host]
-                    ,
-                        [ "tar"
-                        , "--extract"
-                        , "--gzip"
-                        , "--file=-"
-                        , "--directory=/"
+            ssh host (asRoot $ runProcess_ . proc) ["sh", "-c", "mkdir -p /nix && chown -R $(whoami) /nix"]
+            shell_
+                . sconcat
+                $ [
+                      [ "nix-store"
+                      , "--query"
+                      , "--requisites"
+                      , fromPath path
+                      ]
+                  , ["|"]
+                  ,
+                      [ "tar"
+                      , "--create"
+                      , "--gzip"
+                      , "--file=-"
+                      , "--files-from=-"
+                      , "--mode='u+rw'"
+                      ]
+                  , ["|"]
+                  , sconcat
+                        [ "ssh" :| NonEmpty.toList flags <> [ishow host]
+                        ,
+                            [ "tar"
+                            , "--extract"
+                            , "--gzip"
+                            , "--file=-"
+                            , "--directory=/"
+                            ]
                         ]
-                    ]
-                ]
+                  ]
 
 trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
 trilbyFlake output = do
-    hasTrilby <- (ExitSuccess ==) . fst <$> cached quietCmd' ["nix", "flake", "metadata", "trilby"]
+    hasTrilby <- (ExitSuccess ==) <$> cached cmdCode ["nix", "flake", "metadata", "trilby"]
     pure FlakeRef{url = if hasTrilby then "trilby" else "github:ners/trilby", output}
