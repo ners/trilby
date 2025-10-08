@@ -56,7 +56,7 @@
             packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
               (hfinal: hprev: with prev.haskell.lib.compose; {
-                typed-process-effectful = dontCheck (unmarkBroken hprev.typed-process-effectful);
+                typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
                 path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
                 "${pname}" = hfinal.callCabal2nix pname src { };
               })
