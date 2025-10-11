@@ -11,7 +11,7 @@ lib.recursiveConcat [
     inherit (trilby) buildPlatform format;
     system = lib.trilbySystem {
       inherit trilby;
-      modules = [{ isoImage = { inherit squashfsCompression; }; }];
+      modules = [ { isoImage = { inherit squashfsCompression; }; } ];
     };
   })
   (import ./qemu.nix (attrs // { inherit name; }))

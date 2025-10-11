@@ -1,7 +1,10 @@
 { inputs, trilby, ... }@attrs:
 
 let
-  lib = import ../../lib { inherit inputs; inherit (trilby.nixpkgs) lib; };
+  lib = import ../../lib {
+    inherit inputs;
+    inherit (trilby.nixpkgs) lib;
+  };
   pkgs = lib.pkgsFor trilby;
 in
 lib.recursiveConcat [

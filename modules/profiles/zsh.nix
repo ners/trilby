@@ -1,4 +1,9 @@
-{ trilby, lib, pkgs, ... }:
+{
+  trilby,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   programs = {
@@ -6,7 +11,7 @@
   };
 
   environment.shells = [ pkgs.zsh ];
-} //
-lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") {
+}
+// lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") {
   users.defaultUserShell = pkgs.zsh;
 }

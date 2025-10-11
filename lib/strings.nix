@@ -16,10 +16,12 @@ with lib;
   unwords = concatStringsSep " ";
 
   # Read the list of files and concatenate their contents by the given separator
-  concatFilesSep = sep: pipef [
-    (map readFile)
-    (concatStringsSep sep)
-  ];
+  concatFilesSep =
+    sep:
+    pipef [
+      (map readFile)
+      (concatStringsSep sep)
+    ];
 
   # Read the list of files and concatenate their contents by newline
   concatFiles = concatFilesSep "\n";

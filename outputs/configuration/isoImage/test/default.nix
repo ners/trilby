@@ -20,7 +20,11 @@ let
           device = "nix-store";
           fsType = "9p";
           neededForBoot = true;
-          options = [ "trans=virtio" "version=9p2000.L" "cache=loose" ];
+          options = [
+            "trans=virtio"
+            "version=9p2000.L"
+            "cache=loose"
+          ];
         };
       }
     ];
@@ -28,20 +32,24 @@ let
 
   mkTest = attrs: lib.trilbyTest (defaultTest // attrs);
 
-  tests = with builtins; with lib; pipe ./. [
-    readDir
-    (filterAttrs (_: type: type == "directory"))
-    (mapAttrs (name: _: ./${name}))
-  ];
+  tests =
+    with builtins;
+    with lib;
+    pipe ./. [
+      readDir
+      (filterAttrs (_: type: type == "directory"))
+      (mapAttrs (name: _: ./${name}))
+    ];
 
 in
-lib.foreach tests (testName: testDir:
-let
-  name = "${trilby.configurationName}-${testName}";
-in
-{
-  checks.${trilby.buildPlatform}."${name}-test" = mkTest {
-    testScript = builtins.readFile "${testDir}/script.py";
-  };
-}
+lib.foreach tests (
+  testName: testDir:
+  let
+    name = "${trilby.configurationName}-${testName}";
+  in
+  {
+    checks.${trilby.buildPlatform}."${name}-test" = mkTest {
+      testScript = builtins.readFile "${testDir}/script.py";
+    };
+  }
 )

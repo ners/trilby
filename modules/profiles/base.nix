@@ -15,6 +15,7 @@ in
     file
     git
     jq
+    nixfmt-tree
     nvd
     rsync
     tmux

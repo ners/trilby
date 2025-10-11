@@ -4,15 +4,18 @@ with builtins;
 with lib;
 let
   cfg = config.xdg.mimeApps.inverted;
-  addMime = desktopNames: mime: attrs: attrs // {
-    ${mime} = (attrs.${mime} or [ ]) ++ lib.splitString ";" desktopNames;
-  };
-  invert = with lib; foldlAttrs
-    (acc: desktopNames: mimes:
-      if isList mimes then foldr (addMime desktopNames) acc mimes
-      else addMime desktopName mimes acc
-    )
-    { };
+  addMime =
+    desktopNames: mime: attrs:
+    attrs
+    // {
+      ${mime} = (attrs.${mime} or [ ]) ++ lib.splitString ";" desktopNames;
+    };
+  invert =
+    with lib;
+    foldlAttrs (
+      acc: desktopNames: mimes:
+      if isList mimes then foldr (addMime desktopNames) acc mimes else addMime desktopName mimes acc
+    ) { };
 in
 {
   options.xdg.mimeApps.inverted = {

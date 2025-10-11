@@ -3,16 +3,18 @@
 with builtins;
 with lib;
 rec {
-  pkgsFor = t:
+  pkgsFor =
+    t:
     let
       trilby = trilbyConfig t;
       overlaySrcs = attrValues trilby.inputs.self.nixosModules.overlays;
-      overlays = map
-        (o: import o {
+      overlays = map (
+        o:
+        import o {
           inherit inputs lib;
           overlays = overlaySrcs;
-        })
-        overlaySrcs;
+        }
+      ) overlaySrcs;
     in
     traceVerbose "pkgsFor ${toJSON t}" import trilby.nixpkgs {
       inherit overlays;
@@ -21,35 +23,46 @@ rec {
 
   trilbyConfig = pipef [
     (t: traceVerbose "trilbyConfig: ${toJSON t}" t)
-    (t: {
-      name = "trilby";
-      edition = "workstation";
-      hostPlatform = t.hostPlatform;
-      buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
-      variant = null;
-      format = null;
-      inherit inputs;
-    } // t)
-    (t: t // rec {
-      name = toLower t.name;
-      edition = toLower t.edition;
-      hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
-      nixpkgs = t.inputs.nixpkgs // {
-        nixosModules = findModules "${t.inputs.nixpkgs}/nixos/modules";
-      };
-      release = nixpkgs.lib.trivial.release;
-      configurationName = concatStringsSep "-" (filter (s: s != null && s != "") [
-        name
-        edition
-        (concatStringsSep "_" (splitString "." release))
-        hostSystem.cpu.name
-        t.variant
-        t.format
-      ]);
-    })
+    (
+      t:
+      {
+        name = "trilby";
+        edition = "workstation";
+        hostPlatform = t.hostPlatform;
+        buildPlatform = t.buildPlatform or builtins.currentSystem or t.hostPlatform;
+        variant = null;
+        format = null;
+        inherit inputs;
+      }
+      // t
+    )
+    (
+      t:
+      t
+      // rec {
+        name = toLower t.name;
+        edition = toLower t.edition;
+        hostSystem = { inherit (systems.parse.mkSystemFromString t.hostPlatform) kernel cpu; };
+        nixpkgs = t.inputs.nixpkgs // {
+          nixosModules = findModules "${t.inputs.nixpkgs}/nixos/modules";
+        };
+        release = nixpkgs.lib.trivial.release;
+        configurationName = concatStringsSep "-" (
+          filter (s: s != null && s != "") [
+            name
+            edition
+            (concatStringsSep "_" (splitString "." release))
+            hostSystem.cpu.name
+            t.variant
+            t.format
+          ]
+        );
+      }
+    )
   ];
 
-  trilbySystem = attrs:
+  trilbySystem =
+    attrs:
     let
       trilby = trilbyConfig (attrs.trilby or { });
       lib = import ../lib {
@@ -58,20 +71,32 @@ rec {
       };
       kernelName = trilby.hostSystem.kernel.name;
       systemAttrs = traceVerbose "trilbySystem: ${toJSON trilby}" {
-        modules = with trilby.inputs.self.nixosModules; [
-          hostPlatforms.${trilby.hostPlatform}
-        ]
-        ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
-        ++ attrs.modules or [ ];
-        specialArgs = { inherit lib trilby; inputs = attrs.inputs or trilby.inputs; } // attrs.specialArgs or { };
+        modules =
+          with trilby.inputs.self.nixosModules;
+          [
+            hostPlatforms.${trilby.hostPlatform}
+          ]
+          ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
+          ++ attrs.modules or [ ];
+        specialArgs = {
+          inherit lib trilby;
+          inputs = attrs.inputs or trilby.inputs;
+        }
+        // attrs.specialArgs or { };
       };
     in
     (
-      if kernelName == "darwin" then trilby.inputs.nix-darwin.lib.darwinSystem systemAttrs
-      else lib.nixosSystem systemAttrs
-    ) // { inherit trilby; };
+      if kernelName == "darwin" then
+        trilby.inputs.nix-darwin.lib.darwinSystem systemAttrs
+      else
+        lib.nixosSystem systemAttrs
+    )
+    // {
+      inherit trilby;
+    };
 
-  trilbyTest = attrs:
+  trilbyTest =
+    attrs:
     let
       trilby = trilbyConfig (attrs.trilby or { });
       lib = import ../lib {
@@ -97,18 +122,21 @@ rec {
 
       nodes = (attrs.nodes or { }) // {
         trilby = {
-          imports = with trilby.inputs.self.nixosModules; [
-            editions.${trilby.edition}
-            hostPlatforms.${trilby.hostPlatform}
-            trilby.nixpkgs.nixosModules.testing.test-instrumentation
-          ]
-          ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
-          ++ attrs.modules or [ ];
+          imports =
+            with trilby.inputs.self.nixosModules;
+            [
+              editions.${trilby.edition}
+              hostPlatforms.${trilby.hostPlatform}
+              trilby.nixpkgs.nixosModules.testing.test-instrumentation
+            ]
+            ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
+            ++ attrs.modules or [ ];
         };
       };
     };
 
-  trilbyUser = trilby: u:
+  trilbyUser =
+    trilby: u:
     let
       isDarwin = trilby.hostSystem.kernel.name == "darwin";
       isNixos = not isDarwin;
@@ -119,12 +147,12 @@ rec {
           home = u.home or (if isDarwin then "/Users/${u.name}" else "/home/${u.name}");
         }
         (lib.optionalAttrs isNixos (
-          if (u ? initialPassword && u ? initialHashedPassword)
-          then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
-          else if (u ? initialPassword)
-          then { inherit (u) initialPassword; }
-          else if (u ? initialHashedPassword)
-          then { inherit (u) initialHashedPassword; }
+          if (u ? initialPassword && u ? initialHashedPassword) then
+            error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
+          else if (u ? initialPassword) then
+            { inherit (u) initialPassword; }
+          else if (u ? initialHashedPassword) then
+            { inherit (u) initialHashedPassword; }
           else
             throw "trilbyUser: required attribute `initialPassword` or `initialHashedPassword` missing"
         ))
@@ -132,12 +160,13 @@ rec {
           isNormalUser = u.isNormalUser or true;
           createHome = u.createHome or true;
           group = u.group or u.name;
-          extraGroups = u.extraGroups or [
-            "audio"
-            "networkmanager"
-            "video"
-            "wheel"
-          ];
+          extraGroups =
+            u.extraGroups or [
+              "audio"
+              "networkmanager"
+              "video"
+              "wheel"
+            ];
         })
       ];
       group.gid = u.gid or user.uid;
@@ -148,7 +177,8 @@ rec {
         };
         imports = [
           trilby.inputs.self.nixosModules.home
-        ] ++ (u.imports or [ ]);
+        ]
+        ++ (u.imports or [ ]);
       };
     in
     lib.recursiveConcat [
@@ -156,9 +186,11 @@ rec {
         users.users.${user.name} = user;
         home-manager = {
           users.${user.name} = home;
-          extraSpecialArgs = u.extraSpecialArgs or { } // lib.optionalAttrs (u ? inputs) {
-            inherit (u) inputs;
-          };
+          extraSpecialArgs =
+            u.extraSpecialArgs or { }
+            // lib.optionalAttrs (u ? inputs) {
+              inherit (u) inputs;
+            };
         };
       }
       (lib.optionalAttrs isNixos {

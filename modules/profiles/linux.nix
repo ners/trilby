@@ -1,4 +1,9 @@
-{ trilby, lib, config, ... }:
+{
+  trilby,
+  lib,
+  config,
+  ...
+}:
 
 {
   imports = with trilby.inputs.self.nixosModules; [
@@ -26,12 +31,10 @@
       label = trilby.release;
       inherit (lib.trivial) version;
     }
-    (
-      lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
-        distroId = "${trilby.name}-${trilby.edition}";
-        distroName = lib.capitaliseWords "${trilby.name} ${trilby.edition}";
-      }
-    )
+    (lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
+      distroId = "${trilby.name}-${trilby.edition}";
+      distroName = lib.capitaliseWords "${trilby.name} ${trilby.edition}";
+    })
   ];
 
   system = {

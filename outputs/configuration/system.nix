@@ -1,9 +1,10 @@
-{ lib
-, buildPlatform
-, format
-, name
-, system
-, ...
+{
+  lib,
+  buildPlatform,
+  format,
+  name,
+  system,
+  ...
 }:
 
 {

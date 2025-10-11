@@ -1,16 +1,19 @@
-{ lib
-, inputs
-, overlays
-, ...
+{
+  lib,
+  inputs,
+  overlays,
+  ...
 }@args:
 
 self: super: {
   unstable = import inputs.nixpkgs-unstable {
     inherit (super) system;
     config.allowUnfree = true;
-    overlays = with builtins; lib.pipe overlays [
-      (filter (o: o != ./unstable.nix))
-      (map (o: import o (args // { unstable = true; })))
-    ];
+    overlays =
+      with builtins;
+      lib.pipe overlays [
+        (filter (o: o != ./unstable.nix))
+        (map (o: import o (args // { unstable = true; })))
+      ];
   };
 }
