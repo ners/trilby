@@ -100,7 +100,6 @@ copyClosure host@Host{} path = do
                 , [fromPath path]
                 ]
         _ -> do
-            flags <- sshFlags
             ssh host rawCmd_ ["sudo mkdir -p /nix && sudo chown -R $(whoami) /nix"]
             flip shell_ Turtle.stdin . Text.intercalate " " . sconcat $
                 [
@@ -120,7 +119,7 @@ copyClosure host@Host{} path = do
                     ]
                 , ["|"]
                 , sconcat
-                    [ "ssh" : NonEmpty.toList flags <> [ishow host]
+                    [ "ssh" : ["-t", ishow host]
                     ,
                         [ "tar"
                         , "--extract"

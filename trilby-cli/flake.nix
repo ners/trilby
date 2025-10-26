@@ -32,14 +32,15 @@
       };
       src = sourceFilter ./.;
       ghcsFor = pkgs: with lib; foldlAttrs
-        (acc: name: hp:
+        (acc: name: hp':
           let
-            version = getVersion hp.ghc;
+            hp = tryEval hp';
+            version = getVersion hp.value.ghc;
             majorMinor = versions.majorMinor version;
             ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
           in
-          if hp ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.2" && versionOlder version "9.11"
-          then acc // { ${ghcName} = hp; }
+          if hp.value ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.4" && versionOlder version "9.13"
+          then acc // { ${ghcName} = hp.value; }
           else acc
         )
         { }
@@ -77,8 +78,7 @@
                 nativeBuildInputs = with pkgs'; with haskellPackages; [
                   cabal-install
                   fourmolu
-                  haskell-debug-adapter
-                ] ++ lib.optionals (lib.versionAtLeast (lib.getVersion hp.ghc) "9.2") [
+                ] ++ lib.optionals (lib.versionAtLeast (lib.getVersion hp.ghc) "9.4") [
                   hp.haskell-language-server
                 ];
               };

@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 25.10.0 -- 2025-10-26
+
+* Remove broken SSH ControlPersist
+
 ## 25.8.0 -- 2025-08-02
 
 * Better locale and keyboard layout selection during Install
