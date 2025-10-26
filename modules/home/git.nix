@@ -1,9 +1,16 @@
 { lib, ... }:
 
 {
+  programs.difftastic = {
+    enable = lib.mkDefault true;
+    git = {
+      enable = lib.mkDefault true;
+      diffToolMode = lib.mkDefault true;
+    };
+  };
+
   programs.git = {
     enable = lib.mkDefault true;
-    difftastic.enable = lib.mkDefault true;
-    extraConfig.log.date = lib.mkDefault "iso";
+    settings.log.date = lib.mkDefault "iso";
   };
 }
