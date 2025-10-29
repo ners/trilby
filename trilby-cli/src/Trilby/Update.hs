@@ -14,8 +14,12 @@ update :: (HasCallStack) => UpdateOpts Maybe -> App ()
 update (askOpts -> opts) = do
     trilbyPath <- canonicalizePath $ trilbyHome rootDir
     whenM opts.flakeUpdate do
+        isGit <- doesDirExist $ trilbyPath </> $(mkRelDir ".git")
+        let filterGitTracked
+                | isGit = filterM $ isGitTracked trilbyPath
+                | otherwise = pure
         flakes <- Turtle.sort $ parseAbsFile =<< Turtle.find (Turtle.suffix "/flake.lock") (toFilePath trilbyPath)
-        mapM_ updateFlake flakes
+        mapM_ updateFlake =<< filterGitTracked flakes
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     hostSystem Localhost >>= \case
         System{kernel = Linux} -> do

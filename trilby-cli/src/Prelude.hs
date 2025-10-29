@@ -399,6 +399,19 @@ containsAnyOf = anyOf each . flip elem
 containsNoneOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsNoneOf = noneOf each . flip elem
 
+isGitTracked :: Path b1 Dir -> Path b2 t2 -> App Bool
+isGitTracked gitDir path =
+    (ExitSuccess ==) . fst
+        <$> cmd'
+            ( sconcat
+                [ ["git"]
+                , ["-C", fromPath gitDir]
+                , ["ls-files"]
+                , ["--error-unmatch"]
+                , [fromPath path]
+                ]
+            )
+
 infixl 4 <$$>
 
 (<$$>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)

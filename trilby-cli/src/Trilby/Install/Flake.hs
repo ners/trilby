@@ -78,17 +78,17 @@ flake kernel release =
         , inputs =
             mconcat
                 [ [ InputFlake
-                    { name = "nixpkgs-unstable"
-                    , url = "github:nixos/nixpkgs/nixos-unstable"
-                    , inputs = []
-                    }
+                        { name = "nixpkgs-unstable"
+                        , url = "github:nixos/nixpkgs/nixos-unstable"
+                        , inputs = []
+                        }
                   | release /= Unstable
                   ]
                 , [ InputFlake
-                    { name = "nix-darwin"
-                    , url = "github:LnL7/nix-darwin"
-                    , inputs = ["nixpkgs" `Follows` "nixpkgs"]
-                    }
+                        { name = "nix-darwin"
+                        , url = "github:LnL7/nix-darwin"
+                        , inputs = ["nixpkgs" `Follows` "nixpkgs"]
+                        }
                   | kernel == Darwin
                   ]
                 ,

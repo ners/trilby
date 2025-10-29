@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 25.10.1 -- 2025-10-29
+
+* Only update git-tracked flake locks
+
 ## 25.10.0 -- 2025-10-26
 
 * Remove broken SSH ControlPersist
