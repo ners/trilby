@@ -11,8 +11,6 @@ let
     inter
     libertinus
     noto-fonts
-    noto-fonts-emoji
-    noto-fonts-extra
     roboto
     roboto-mono
     source-code-pro
@@ -37,6 +35,12 @@ let
           "SourceCodePro"
         ];
       })
+    ]
+  ) ++ (
+    if (lib.versionAtLeast trilby.release "25.11") then [
+      noto-fonts-color-emoji
+    ] else [
+      noto-fonts-emoji
     ]
   );
 in
