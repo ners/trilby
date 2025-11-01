@@ -1,7 +1,7 @@
 module Trilby.Configuration where
 
 import Trilby.Host
-import Prelude
+import Trilby.Prelude
 
 data Configuration = Configuration
     { name :: Text
