@@ -19,11 +19,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1761672384,
-        "narHash": "sha256-o9KF3DJL7g7iYMZq9SWgfS1BFlNbsm6xplRjVlOCkXI=",
+        "lastModified": 1762977756,
+        "narHash": "sha256-4PqRErxfe+2toFJFgcRKZ0UI9NSIOJa+7RXVtBhy4KE=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "08dacfca559e1d7da38f3cf05f1f45ee9bfd213c",
+        "rev": "c5ae371f1a6a7fd27823bc500d9390b38c05fa55",
         "type": "github"
       },
       "original": {
@@ -33,9 +33,26 @@
         "type": "github"
       }
     },
+    "path-io-effectful": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1708630274,
+        "narHash": "sha256-YcrseFzmgYCvkAFlnXXbnINn+hALAz6dGZ7I0GGp40A=",
+        "owner": "Lugendre",
+        "repo": "path-io-effectful",
+        "rev": "fd384dfe1d5573f7e431ff101991f1f777bbf7ae",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lugendre",
+        "repo": "path-io-effectful",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "path-io-effectful": "path-io-effectful",
         "terminal-widgets": "terminal-widgets"
       }
     },

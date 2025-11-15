@@ -10,7 +10,13 @@
 
 ## 25.8.0 -- 2025-08-02
 
+* Migrate from mtl to effectful
+* Migrate from turtle to typed-process
+* Migrate from monad-logger to log-base with full callstacks
 * Better locale and keyboard layout selection during Install
+* Move Prelude to Trilby.Prelude to unbreak autogen modules
+* Use Polkit instead of sudo
+* Use correct kexec format in Infect
 
 ## 25.7.0 -- 2025-07-26
 

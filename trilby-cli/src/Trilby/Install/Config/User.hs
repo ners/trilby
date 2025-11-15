@@ -1,7 +1,7 @@
 module Trilby.Install.Config.User where
 
 import Trilby.HNix
-import Prelude
+import Trilby.Prelude
 
 type Username = Text
 

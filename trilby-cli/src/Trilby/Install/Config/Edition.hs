@@ -1,6 +1,6 @@
 module Trilby.Install.Config.Edition where
 
-import Prelude
+import Trilby.Prelude
 
 data Edition = Workstation | Server
     deriving stock (Generic, Show, Eq, Bounded, Enum)

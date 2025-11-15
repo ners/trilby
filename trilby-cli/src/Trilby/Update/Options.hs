@@ -2,8 +2,8 @@ module Trilby.Update.Options where
 
 import Options.Applicative
 import Trilby.Host
+import Trilby.Prelude
 import Trilby.Widgets
-import Prelude
 
 data UpdateAction m
     = Switch
@@ -25,14 +25,14 @@ parseOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (UpdateOpt
 parseOpts f = do
     flakeUpdate <- f $ flag' False (long "no-flake-update" <> help "Do not update the flake lock")
     action <-
-        f $
-            flag' Switch (long "switch" <> help "Switch to the new configuration")
-                <|> do
-                    boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
-                    reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
-                    pure $ boot reboot
-                <|> flag' Test (long "test" <> help "Test the new configuration without switching to it")
-                <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
+        f
+            $ flag' Switch (long "switch" <> help "Switch to the new configuration")
+            <|> do
+                boot <- flag' Boot (long "boot" <> help "Apply the new configuration at boot")
+                reboot <- f $ parseYesNo "reboot" "Reboot to the new configuration"
+                pure $ boot reboot
+            <|> flag' Test (long "test" <> help "Test the new configuration without switching to it")
+            <|> flag' NoAction (long "no-action" <> help "Do not apply new configuration")
     hosts <- f . parseHosts $ help "Hosts to update, default: localhost"
     pure UpdateOpts{..}
 
@@ -51,7 +51,7 @@ askAction Nothing = do
         _ -> pure NoAction
 
 askReboot :: Maybe Bool -> App Bool
-askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (sudo)" False
+askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (root)" False
 
 askOpts :: UpdateOpts Maybe -> UpdateOpts App
 askOpts opts =
