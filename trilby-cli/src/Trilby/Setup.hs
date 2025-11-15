@@ -51,8 +51,10 @@ ensureDeps = do
     flakes <-
         fmap catMaybes
             . sequence
-            $ [ ensure "nvd" ["nvd"]
+            $ [ ensure "mkpasswd" ["mkpasswd"]
+              , ensure "nvd" ["nvd"]
               , ensure "unbuffer" ["expect"]
+              , ensure "disko" ["disko"]
               ]
     appendNixBinsToPath $ Flake <$> flakes
 
