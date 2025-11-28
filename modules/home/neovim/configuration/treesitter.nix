@@ -24,7 +24,13 @@
         };
       };
     in
-    lib.foreach
+    lib.mapAttrs'
+      (lang: attrs: {
+        name = "ftplugin/${lang}.lua";
+        value = {
+          extraConfigLua = lib.mkBefore "vim.treesitter.start()";
+        } // attrs;
+      })
       {
         bash = tabs // tabstop 4;
         json = tabs // tabstop 4;
@@ -32,10 +38,5 @@
         markdown = spaces // tabstop 2;
         python = spaces // tabstop 4;
         yaml = spaces // tabstop 2;
-      }
-      (lang: attrs: {
-        "ftplugin/${lang}.lua" = {
-          extraConfigLua = lib.mkBefore "vim.treesitter.start()";
-        } // attrs;
-      });
+      };
 }

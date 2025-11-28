@@ -1,1 +1,1 @@
-{ lib, system, ... }: lib.systems.parse.mkSystemFromString system
+{ lib, stdenv, ... }: lib.systems.parse.mkSystemFromString stdenv.hostPlatform.system
