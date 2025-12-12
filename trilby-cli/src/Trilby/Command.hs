@@ -7,6 +7,8 @@ import Trilby.Infect.Options (InfectOpts)
 import Trilby.Infect.Options qualified as Infect
 import Trilby.Install.Options (InstallOpts)
 import Trilby.Install.Options qualified as Install
+import Trilby.Media.Options (MediaOpts)
+import Trilby.Media.Options qualified as Media
 import Trilby.Prelude
 import Trilby.Update.Options (UpdateOpts)
 import Trilby.Update.Options qualified as Update
@@ -15,6 +17,7 @@ data Command m
     = Clean (CleanOpts m)
     | Infect (InfectOpts m)
     | Install (InstallOpts m)
+    | Media (MediaOpts m)
     | Update (UpdateOpts m)
     deriving stock (Generic)
 
@@ -26,4 +29,5 @@ parseCommand =
           , command "infect" $ info (Infect <$> Infect.parseOpts optional) (progDesc "Infect with Trilby")
           , command "install" $ info (Install <$> Install.parseOpts optional) (progDesc "Install Trilby")
           , command "update" $ info (Update <$> Update.parseOpts optional) (progDesc "Update Trilby")
+          , command "media" $ info (Media <$> Media.parseOpts optional) (progDesc "Build Trilby media")
           ]

@@ -2,7 +2,6 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
-import Effectful.Reader.Static qualified as Reader
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()

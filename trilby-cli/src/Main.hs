@@ -7,6 +7,7 @@ import Trilby.Command
 import Trilby.Infect (infect)
 import Trilby.Install (install)
 import Trilby.Install.Options (validateParsedInstallOpts)
+import Trilby.Media (media)
 import Trilby.Options
 import Trilby.Prelude
 import Trilby.Setup (ensureNix)
@@ -22,4 +23,5 @@ main = do
             Clean o -> clean o
             Infect o -> infect o
             Install o -> install =<< validateParsedInstallOpts o
+            Media o -> media o
             Update o -> update o
