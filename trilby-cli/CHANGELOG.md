@@ -2,6 +2,7 @@
 
 ## 25.12 -- 2025-12-02
 
+* Add Media command
 * Read optional TRILBY env var to locate Trilby flake
 * Relax searching for keyboards
 

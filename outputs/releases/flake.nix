@@ -15,15 +15,15 @@
 
   outputs = inputs: {
     releases = {
-      "24.11" = {
+      "24_11" = {
         nixpkgs = inputs.nixpkgs-24_11;
         home-manager = inputs.home-manager-24_11;
       };
-      "25.05" = {
+      "25_05" = {
         nixpkgs = inputs.nixpkgs-25_05;
         home-manager = inputs.home-manager-25_05;
       };
-      "25.11" = {
+      "25_11" = {
         nixpkgs = inputs.nixpkgs-25_11;
         home-manager = inputs.home-manager-25_11;
       };
