@@ -8,7 +8,6 @@ module Trilby.HNix where
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Fix
 import Data.List.Extra qualified as List
-import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Lens.Family.TH (makeTraversals)
@@ -138,5 +137,14 @@ copyClosure host@Host{} path = do
 
 trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
 trilbyFlake output = do
-    hasTrilby <- (ExitSuccess ==) <$> cached cmdCode ["nix", "flake", "metadata", "trilby"]
-    pure FlakeRef{url = if hasTrilby then "trilby" else "github:ners/trilby", output}
+    url <- fromMaybeM (pure fallbackUrl) $ firstJustM id [urlFromEnv, urlFromRegistry]
+    pure FlakeRef{..}
+  where
+    urlFromEnv, urlFromRegistry :: App (Maybe Text)
+    urlFromEnv = fromString <$$> lookupEnv "TRILBY"
+    urlFromRegistry =
+        cached cmdCode ["nix", "flake", "metadata", "trilby"] <&> \case
+            ExitSuccess -> Just "trilby"
+            _ -> Nothing
+    fallbackUrl :: Text
+    fallbackUrl = "github:ners/trilby"

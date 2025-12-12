@@ -2,6 +2,7 @@
 
 ## 25.12 -- 2025-12-02
 
+* Read optional TRILBY env var to locate Trilby flake
 * Relax searching for keyboards
 
 ## 25.10.1 -- 2025-10-29
