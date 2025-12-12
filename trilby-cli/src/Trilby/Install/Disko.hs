@@ -65,11 +65,12 @@ getDisko opts = do
             <$> cmdOutTextLines ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
     diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
     logAttention_ $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
-    luks <- opts.luks
-    case luks of
-        UseLuks{luksPassword} -> writeFile luksPasswordFile =<< luksPassword
-        NoLuks -> pure ()
-    let useLuks = luks `is` #_UseLuks
+    useLuks <-
+        opts.luks >>= \case
+            NoLuks -> pure False
+            UseLuks luksPassword -> do
+                writeFile luksPasswordFile =<< luksPassword
+                pure True
     filesystem <- opts.filesystem
     let mbrPartition =
             Partition
