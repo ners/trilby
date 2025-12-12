@@ -18,13 +18,21 @@
   };
 
   environment.systemPackages = with pkgs; [
+    acpi
+    bench
     cryptsetup
     disko
     efibootmgr
     efivar
     gptfdisk
+    hwinfo
+    iperf
+    ipmitool
+    lm_sensors
     parted
     pciutils
+    s-tui
+    stress-ng
     usbutils
   ];
 
