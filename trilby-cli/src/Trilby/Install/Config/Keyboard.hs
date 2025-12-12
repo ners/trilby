@@ -1,11 +1,12 @@
 module Trilby.Install.Config.Keyboard where
 
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
-import Data.Either (fromRight)
 import Data.List qualified as List
 import Data.Ord (comparing)
 import Data.Text qualified as Text
 import Effectful.Fail (runFail)
+import Effectful.FileSystem.Path.IO (doesFileExist)
 import Text.XML.Light qualified as XML
 import Text.XML.Light.Cursor qualified as XML (Cursor)
 import Text.XML.Light.Cursor qualified as XML.Cursor
@@ -53,20 +54,37 @@ getCurrentKeyboard = do
     forM layout \layout -> pure $ Keyboard{layout, variant, description = Nothing}
 
 getAllKeyboards :: (HasCallStack) => App [Keyboard]
-getAllKeyboards =
-    fromRight [] <$> runFail do
-        Just cursor <- liftIO $ XML.Cursor.fromForest . XML.parseXML <$> ByteString.readFile "/usr/share/X11/xkb/rules/base.xml"
-        Just layoutList <- pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
+getAllKeyboards = do
+    eitherM (\e -> logAttention_ (fromString e) >> pure []) pure $ runFail do
+        baseFile <- fromMaybeM (fail "could not find base.xml file") $ inject readBaseFile
+        cursor <- maybe (fail "could not parse base.xml file") pure . XML.Cursor.fromForest . XML.parseXML $ baseFile
+        layoutList <- maybe (fail "could not find layoutList") pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
         let layouts = findChildrenByName "layout" layoutList
-        pure . List.sort . flip concatMap layouts $ \layout ->
-            let (baseName, baseDescription) = fromMaybe (error $ "Could not find name and description in " <> show layout) $ nameAndDescription layout
-                baseKeyboard = Keyboard{layout = baseName, variant = Nothing, description = Just baseDescription}
-                variants = maybe [] (findChildrenByName "variant") $ findChildByName "variantList" layout
-             in baseKeyboard
-                    : [ Keyboard{layout = baseName, variant = Just name, description = Just description}
-                      | Just (name, description) <- nameAndDescription <$> variants
-                      ]
+        fmap List.sort . flip concatMapM layouts $ \layout -> eitherM (\e -> logAttention_ (fromString e) >> pure []) pure $ runFail do
+            (baseName, baseDescription) <- fromMaybeM (fail $ "Could not find name and description in " <> show layout) . pure . nameAndDescription $ layout
+            pure $ Keyboard{layout = baseName, variant = Nothing, description = Just baseDescription}
+                : [ Keyboard{layout = baseName, variant = Just name, description = Just description}
+                  | Just (name, description) <- nameAndDescription <$> maybe [] (findChildrenByName "variant") (findChildByName "variantList" layout)
+                  ]
   where
+    baseFile :: Path Rel File
+    baseFile = $(mkRelFile "share/X11/xkb/rules/base.xml")
+
+    usrBaseFile :: Path Abs File
+    usrBaseFile = $(mkAbsDir "/usr") </> baseFile
+
+    runCurrentSystemBaseFile :: Path Abs File
+    runCurrentSystemBaseFile = $(mkAbsDir "/run/current-system/sw") </> baseFile
+
+    findBaseFile :: App (Maybe (Path Abs File))
+    findBaseFile = findM doesFileExist [runCurrentSystemBaseFile, usrBaseFile]
+
+    readBaseFile :: App (Maybe ByteString)
+    readBaseFile =
+        findBaseFile >>= mapM \baseFile -> do
+            logTrace_ $ "reading base file: " <> fromPath baseFile
+            liftIO . ByteString.readFile . fromPath $ baseFile
+
     findChildByName :: String -> XML.Element -> Maybe XML.Element
     findChildByName qName = XML.findChild XML.blank_name{XML.qName}
 

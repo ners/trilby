@@ -30,11 +30,6 @@ parseLuks f = do
             luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
             pure UseLuks{..}
 
-parseKeyboard :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (m Keyboard)
-parseKeyboard f = f do
-    layout <- strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
-    pure Keyboard{layout, variant = Nothing, description = Nothing}
-
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
     deriving stock (Generic)
 
@@ -76,9 +71,12 @@ parseOpts f = do
     format <- f $ parseYesNo "format" "Format the installation disk"
     filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
     edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
-    release <- f $ parseEnum (long "release" <> metavar "CHANNEL" <> help "The nixpkgs release to use")
+    release <- f $ parseEnum (long "release" <> metavar "RELEASE" <> help "The Nixpkgs release to use")
     hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "The hostname to install")
-    keyboard <- parseKeyboard f
+    keyboard <-
+        f
+            $ strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
+            <&> \layout -> Keyboard{layout, variant = Nothing, description = Nothing}
     locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "The locale of this system")
     timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
     username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
