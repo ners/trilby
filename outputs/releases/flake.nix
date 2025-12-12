@@ -19,15 +19,15 @@
         nixpkgs = inputs.nixpkgs-unstable;
         home-manager = inputs.home-manager-unstable;
       };
-      "26.05" = {
+      "26_05" = {
         nixpkgs = inputs.nixpkgs-26_05;
         home-manager = inputs.home-manager-26_05;
       };
-      "25.11" = {
+      "25_11" = {
         nixpkgs = inputs.nixpkgs-25_11;
         home-manager = inputs.home-manager-25_11;
       };
-      "25.05" = {
+      "25_05" = {
         nixpkgs = inputs.nixpkgs-25_05;
         home-manager = inputs.home-manager-25_05;
       };

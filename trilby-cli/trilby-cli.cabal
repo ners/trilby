@@ -126,6 +126,9 @@ library
     Trilby.Install.Flake
     Trilby.Install.Options
     Trilby.Log
+    Trilby.Media
+    Trilby.Media.Format
+    Trilby.Media.Options
     Trilby.Options
     Trilby.Prelude
     Trilby.Process

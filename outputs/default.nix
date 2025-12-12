@@ -9,6 +9,7 @@ in
 lib.recursiveConcat [
   {
     inherit lib nixosModules;
+    inherit ((lib.loadFlake { src = ./releases; }).defaultNix.outputs) releases;
     overlays.default = lib.composeManyExtensions (
       let overlays = attrValues nixosModules.overlays;
       in map (o: import o { inherit inputs lib overlays; }) overlays
