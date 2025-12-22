@@ -10,8 +10,9 @@ appendToPath :: [Path Abs Dir] -> App ()
 appendToPath fs = do
     logInfo "Appending to PATH" fs
     currentPath <- lookupEnv "PATH"
-    let newPath = List.intercalate ":" $ maybeToList currentPath <> (toFilePath <$> fs)
-    setEnv "PATH" newPath
+    let newPath = maybeToList currentPath <> (toFilePath <$> fs)
+    logInfo "New PATH:" fs
+    setEnv "PATH" $ List.intercalate ":" newPath
 
 appendNixBinsToPath :: (HasCallStack) => [FileOrFlake] -> App ()
 appendNixBinsToPath fs = do

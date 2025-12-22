@@ -79,6 +79,7 @@ executable trilby
         log-base,
         log-effectful,
         monad-time-effectful,
+        transformers,
         optparse-applicative,
         optparse-applicative,
         path,

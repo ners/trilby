@@ -1,5 +1,6 @@
 module Trilby.Install.Config.Keyboard where
 
+import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as ByteString
 import Data.List qualified as List
@@ -56,7 +57,7 @@ getCurrentKeyboard = do
 getAllKeyboards :: (HasCallStack) => App [Keyboard]
 getAllKeyboards = do
     eitherM (\e -> logAttention_ (fromString e) >> pure []) pure $ runFail do
-        baseFile <- fromMaybeM (fail "could not find base.xml file") $ inject readBaseFile
+        baseFile <- inject readBaseFile
         cursor <- maybe (fail "could not parse base.xml file") pure . XML.Cursor.fromForest . XML.parseXML $ baseFile
         layoutList <- maybe (fail "could not find layoutList") pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
         let layouts = findChildrenByName "layout" layoutList
@@ -73,17 +74,27 @@ getAllKeyboards = do
     usrBaseFile :: Path Abs File
     usrBaseFile = $(mkAbsDir "/usr") </> baseFile
 
+    nixBaseFile :: App [Path Abs File]
+    nixBaseFile = fmap (fmap (</> baseFile)) . nixBuild . Flake =<< trilbyFlake ["xkeyboard-config"]
+
     runCurrentSystemBaseFile :: Path Abs File
     runCurrentSystemBaseFile = $(mkAbsDir "/run/current-system/sw") </> baseFile
 
-    findBaseFile :: App (Maybe (Path Abs File))
-    findBaseFile = findM doesFileExist [runCurrentSystemBaseFile, usrBaseFile]
+    findBaseFile :: App (Path Abs File)
+    findBaseFile =
+        fromMaybeM (errorExit "could not find base.xml")
+            . runMaybeT
+            . foldr1 @[] (<|>)
+            . fmap MaybeT
+            $ [ findM doesFileExist [runCurrentSystemBaseFile, usrBaseFile]
+              , findM doesFileExist =<< nixBaseFile
+              ]
 
-    readBaseFile :: App (Maybe ByteString)
-    readBaseFile =
-        findBaseFile >>= mapM \baseFile -> do
-            logTrace_ $ "reading base file: " <> fromPath baseFile
-            liftIO . ByteString.readFile . fromPath $ baseFile
+    readBaseFile :: App ByteString
+    readBaseFile = do
+        baseFile <- findBaseFile
+        logTrace_ $ "reading base file: " <> fromPath baseFile
+        liftIO . ByteString.readFile . fromPath $ baseFile
 
     findChildByName :: String -> XML.Element -> Maybe XML.Element
     findChildByName qName = XML.findChild XML.blank_name{XML.qName}
