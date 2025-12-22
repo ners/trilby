@@ -2,14 +2,15 @@ module Trilby.Setup (setup) where
 
 import Data.List qualified as List
 import Data.Text.IO qualified as Text
-import Effectful.Path (findBinary)
+import Effectful.Path qualified as Path
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
 import Trilby.Prelude
 
 appendToPath :: [Path Abs Dir] -> App ()
 appendToPath fs = do
+    logInfo "Appending to PATH" fs
     currentPath <- lookupEnv "PATH"
-    let newPath = List.intercalate ":" $ (toFilePath <$> fs) <> maybeToList currentPath
+    let newPath = List.intercalate ":" $ maybeToList currentPath <> (toFilePath <$> fs)
     setEnv "PATH" newPath
 
 appendNixBinsToPath :: (HasCallStack) => [FileOrFlake] -> App ()
@@ -30,6 +31,12 @@ ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata"
 
 setupNixMonitored :: (HasCallStack) => App ()
 setupNixMonitored = appendNixBinsToPath . pure . Flake =<< trilbyFlake ["nix-monitored"]
+
+findBinary :: String -> App (Maybe FilePath)
+findBinary c = do
+    mp <- Path.findBinary c
+    logTrace ("findBinary " <> fromString c) mp
+    pure mp
 
 ensureNix :: (HasCallStack) => App ()
 ensureNix =
