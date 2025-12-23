@@ -10,6 +10,7 @@ import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Prelude
 import Trilby.Process (proc, runProcess_)
+import Trilby.Setup (ensureDeps)
 import Trilby.System
 import Trilby.Widgets
 
@@ -29,6 +30,10 @@ install (askOpts -> opts) = do
 
 installLinux :: (HasCallStack) => InstallOpts App -> App ()
 installLinux opts | Just FlakeOpts{..} <- opts.flake = do
+    ensureDeps
+        [ ("disko", "disko")
+        , ("mkpasswd", "mkpasswd")
+        ]
     let diskoRef = Disko.Flake flakeRef
     formatDisk opts.format diskoRef
     mountRoot diskoRef

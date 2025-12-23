@@ -1,27 +1,21 @@
-module Trilby.Setup (setup) where
+module Trilby.Setup (ensureNix, ensureDeps) where
 
-import Data.List qualified as List
 import Data.Text.IO qualified as Text
+import Effectful.Path (overPath)
 import Effectful.Path qualified as Path
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
 import Trilby.Prelude
 
-appendToPath :: [Path Abs Dir] -> App ()
-appendToPath fs = do
-    logInfo "Appending to PATH" fs
-    currentPath <- lookupEnv "PATH"
-    let newPath = maybeToList currentPath <> (toFilePath <$> fs)
-    logInfo "New PATH:" fs
-    setEnv "PATH" $ List.intercalate ":" newPath
-
-appendNixBinsToPath :: (HasCallStack) => [FileOrFlake] -> App ()
-appendNixBinsToPath fs = do
+nixBins :: (HasCallStack) => [FileOrFlake] -> App [Path Abs Dir]
+nixBins fs = do
     outs <- concatMapM nixBuild fs
-    bins <- filterM doesDirExist $ outs <&> (</> $(mkRelDir "bin"))
-    appendToPath bins
+    filterM doesDirExist $ outs <&> (</> $(mkRelDir "bin"))
+
+prependToPath :: [Path Abs Dir] -> App ()
+prependToPath = overPath . (<>) . fmap toFilePath
 
 installNix :: (HasCallStack) => App ()
-installNix = shell_ ["curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm"]
+installNix = shell_ ["curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install | sh"]
 
 ensureFlakes :: (HasCallStack) => App ()
 ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata", "nixpkgs"]) do
@@ -31,7 +25,7 @@ ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata"
     liftIO . Text.appendFile (toFilePath confFile) $ "experimental-features = nix-command flakes"
 
 setupNixMonitored :: (HasCallStack) => App ()
-setupNixMonitored = appendNixBinsToPath . pure . Flake =<< trilbyFlake ["nix-monitored"]
+setupNixMonitored = prependToPath =<< nixBins . pure . Flake =<< trilbyFlake ["nix-monitored"]
 
 findBinary :: String -> App (Maybe FilePath)
 findBinary c = do
@@ -49,24 +43,12 @@ ensureNix =
             Just "nix" -> ensureFlakes >> setupNixMonitored
             _ -> installNix >> ensureFlakes >> setupNixMonitored
 
-ensureDeps :: (HasCallStack) => App ()
-ensureDeps = do
-    let ensure :: (HasCallStack) => String -> [Text] -> App (Maybe FlakeRef)
-        ensure c o =
-            findBinary c >>= \case
-                Nothing -> Just <$> trilbyFlake o
+ensureDeps :: (HasCallStack) => [(Text, Text)] -> App ()
+ensureDeps deps = do
+    let ensure :: (HasCallStack) => (Text, Text) -> App (Maybe FlakeRef)
+        ensure (c, o) =
+            findBinary (fromText c) >>= \case
+                Nothing -> Just <$> trilbyFlake [o]
                 Just _ -> pure Nothing
-    flakes <-
-        fmap catMaybes
-            . sequence
-            $ [ ensure "mkpasswd" ["mkpasswd"]
-              , ensure "nvd" ["nvd"]
-              , ensure "unbuffer" ["expect"]
-              , ensure "disko" ["disko"]
-              ]
-    appendNixBinsToPath $ Flake <$> flakes
-
-setup :: (HasCallStack) => App ()
-setup = do
-    ensureNix
-    ensureDeps
+    flakes <- fmap Flake . catMaybes <$> mapM ensure deps
+    prependToPath =<< nixBins flakes

@@ -26,7 +26,7 @@ update (askOpts -> opts) = do
         System{kernel = Linux} -> do
             buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
                 copyClosure host resultPath
-                ssh host (runProcess_ . proc) ["unbuffer", "nvd", "diff", "/run/current-system", fromPath resultPath]
+                ssh host (runProcess_ . proc) ["nvd", "--color", "always", "diff", "/run/current-system", fromPath resultPath]
                 unless (host == Localhost && length configurations == 1) . logAttention_ $ "Choosing action for host " <> ishow host
                 let perform = switchToConfiguration host resultPath
                 opts.action >>= \case
@@ -123,7 +123,7 @@ updateDarwin :: (HasCallStack) => UpdateOpts App -> Path Abs Dir -> App ()
 updateDarwin opts trilbyDir = inDir trilbyDir do
     cmd_ ["darwin-rebuild", "build", "--flake", fromPath trilbyDir]
     let result = $(mkRelDir "./result")
-    cmd_ ["unbuffer", "nvd", "diff", "/run/current-system", fromPath result]
+    cmd_ ["nvd", "--color", "always", "diff", "/run/current-system", fromPath result]
     systemConfig <- canonicalizePath result
     let perform action = do
             case action of
