@@ -19,6 +19,6 @@ instance Read Release where
     readPrec = readPrecBoundedEnum
 
 instance ToExpr Release where
-    toExpr = toExpr . show
+    toExpr = toExpr . fmap (\c -> if c == '.' then '_' else c) . show
 
 instance Default Release where def = Unstable

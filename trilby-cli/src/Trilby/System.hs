@@ -18,6 +18,9 @@ instance Read Architecture where
         allowed :: Char -> Bool
         allowed c = or @[] [isLetter c, isDigit c, c == '_']
 
+instance ToExpr Architecture where
+    toExpr = toExpr . show
+
 data Kernel
     = Linux
     | Darwin
@@ -41,3 +44,6 @@ instance Read System where
         ReadPrec.lift $ ReadP.char '-'
         kernel <- readPrec
         pure System{..}
+
+instance ToExpr System where
+    toExpr = toExpr . show
