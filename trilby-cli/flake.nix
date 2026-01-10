@@ -35,32 +35,23 @@
           root;
       };
       src = sourceFilter ./.;
-      ghcsFor = pkgs: with lib; foldlAttrs
-        (acc: name: hp':
-          let
-            hp = tryEval hp';
-            version = getVersion hp.value.ghc;
-            majorMinor = versions.majorMinor version;
-            ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
-          in
-          if hp.value ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.4" && versionOlder version "9.13"
-          then acc // { ${ghcName} = hp.value; }
-          else acc
-        )
-        { }
-        pkgs.haskell.packages;
-      hpsFor = pkgs: { default = pkgs.haskellPackages; } // ghcsFor pkgs;
+      haskell-overlay = final: prev: with lib; with prev.haskell.lib.compose; composeManyExtensions [
+        (hfinal: hprev: {
+        typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
+        path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
+        "${pname}" = hfinal.callCabal2nix pname src { };
+        })
+        (hfinal: hprev: optionalAttrs (versionAtLeast (getVersion hprev.ghc) "9.12") {
+          cryptonite = dontCheck hprev.cryptonite;
+        })
+      ];
       overlay = lib.composeManyExtensions [
         inputs.terminal-widgets.overlays.default
         (final: prev: {
           haskell = prev.haskell // {
             packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
-              (hfinal: hprev: with prev.haskell.lib.compose; {
-                typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
-                path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
-                "${pname}" = hfinal.callCabal2nix pname src { };
-              })
+              (haskell-overlay final prev)
             ];
           };
           ${pname} = final.haskellPackages.${pname};
@@ -71,7 +62,20 @@
       (system: pkgs':
         let
           pkgs = pkgs'.extend overlay;
-          hps = hpsFor pkgs;
+          hps = with lib; foldlAttrs
+            (acc: name: hp':
+              let
+                hp = tryEval hp';
+                version = getVersion hp.value.ghc;
+                majorMinor = versions.majorMinor version;
+                ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
+              in
+              if hp.value ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.4" && versionOlder version "9.13"
+              then acc // { ${ghcName} = hp.value; }
+              else acc
+            )
+            { default = pkgs.haskellPackages; }
+            pkgs.haskell.packages;
         in
         {
           formatter.${system} = pkgs.nixpkgs-fmt;
@@ -84,13 +88,15 @@
                 nativeBuildInputs = with pkgs'; with haskellPackages; [
                   cabal-install
                   fourmolu
-                ] ++ lib.optionals (lib.versionAtLeast (lib.getVersion hp.ghc) "9.4") [
                   hp.haskell-language-server
                 ];
               };
             });
         }
       ) // {
-      overlays.default = overlay;
+      overlays = {
+        default = overlay;
+        haskell = haskell-overlay;
+      };
     };
 }
