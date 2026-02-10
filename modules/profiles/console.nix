@@ -7,7 +7,6 @@
     # Enable setting virtual console options as early as possible (in initrd).
     earlySetup = true;
     useXkbConfig = true;
-
-    font = "${pkgs.unstable.console-setup}/share/consolefonts/Uni3-Fixed16.psf.gz";
+    font = "${pkgs.console-fonts-zap}/share/consolefonts/zap-light20.psf";
   };
 }

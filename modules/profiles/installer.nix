@@ -55,7 +55,7 @@
     )
   ];
 
-  users.motd = builtins.readFile ./motd.txt;
+  users.motdFile = pkgs.trilby-motd;
 
   networking.hostName = "trilby";
 
