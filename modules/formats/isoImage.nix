@@ -10,15 +10,10 @@ in
   ];
 
   isoImage = lib.mkMerge [
-    {
+    rec {
       volumeID = config.system.nixos.distroId;
       grubTheme = pkgs.trilby-grub2-theme;
-      splashImage = pkgs.runCommand "bios-boot.png"
-        {
-          buildInputs = with pkgs; [ imagemagick ];
-        } ''
-        convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
-      '';
+      splashImage = "${grubTheme}/bios-boot.png";
       storeContents = builtins.attrValues inputs;
     }
     (lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {

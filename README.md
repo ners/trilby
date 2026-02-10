@@ -1,5 +1,5 @@
 <p align="center">
-	<img height="125" src="assets/Trilby-minimal.svg" alt="Trilby logo">
+	<img height="125" src="assets/logo.svg" alt="Trilby logo">
 </p>
 
 Trilby is a NixOS-based operating system that is modeled after Fedora Linux.
