@@ -10,10 +10,7 @@
     };
   };
 
-  services.resolved = {
-    enable = true;
-    dnssec = "false";
-  };
+  services.resolved.enable = true;
 
   systemd = {
     # use systemd networkd

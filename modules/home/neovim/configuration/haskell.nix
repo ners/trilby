@@ -1,11 +1,16 @@
 { pkgs, ... }:
 
 {
-  extraPlugins = [ pkgs.vimPlugins.haskell-tools-nvim ];
-  plugins.treesitter.grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
-    haskell
-    haskell_persistent
-  ];
+  plugins = {
+    haskell-tools = {
+      enable = true;
+      hlsPackage = null;
+    };
+    treesitter.grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+      haskell
+      haskell_persistent
+    ];
+  };
   files."ftplugin/haskell.lua" = {
     opts = rec {
       expandtab = true;

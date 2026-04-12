@@ -26,9 +26,22 @@ lib.recursiveConcat [
     in
     {
       inherit nixosModules;
-      formatter.${buildPlatform} = pkgs.nixpkgs-fmt;
       legacyPackages.${buildPlatform} = pkgs;
       packages.${buildPlatform} = allConfigs // { default = pkgs.trilby-cli; };
+      formatter.${buildPlatform} = pkgs.writeShellApplication {
+        name = "formatter";
+        runtimeInputs = with pkgs; with haskellPackages; [
+          cabal-gild
+          fd
+          fourmolu
+          nixpkgs-fmt
+        ];
+        text = ''
+          fd --extension=nix -X nixpkgs-fmt
+          fd --extension=hs -X fourmolu -i
+          fd --extension=cabal -x cabal-gild --io
+        '';
+      };
     }
   ))
 ]

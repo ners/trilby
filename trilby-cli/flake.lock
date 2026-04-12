@@ -17,13 +17,29 @@
         "type": "github"
       }
     },
+    "hnix": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1773729417,
+        "narHash": "sha256-I4Eem5hAthjxx/T6n7BAcmhcpNtCauHOYEDHtBI3YPw=",
+        "owner": "haskell-nix",
+        "repo": "hnix",
+        "rev": "b2ac3b41a3600cb0a2d8e9d6e9b04268ea0b7bdb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "haskell-nix",
+        "repo": "hnix",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1766902085,
-        "narHash": "sha256-coBu0ONtFzlwwVBzmjacUQwj3G+lybcZ1oeNSQkgC0M=",
+        "lastModified": 1775710090,
+        "narHash": "sha256-ar3rofg+awPB8QXDaFJhJ2jJhu+KqN/PRCXeyuXR76E=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "c0b0e0fddf73fd517c3471e546c0df87a42d53f4",
+        "rev": "4c1018dae018162ec878d42fec712642d214fdfa",
         "type": "github"
       },
       "original": {
@@ -51,6 +67,7 @@
     },
     "root": {
       "inputs": {
+        "hnix": "hnix",
         "nixpkgs": "nixpkgs",
         "path-io-effectful": "path-io-effectful",
         "terminal-widgets": "terminal-widgets"
