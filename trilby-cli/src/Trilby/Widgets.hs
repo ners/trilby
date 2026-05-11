@@ -2,11 +2,7 @@ module Trilby.Widgets where
 
 import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text.Rope.Zipper qualified as RopeZipper
-import System.Terminal.Widgets.Buttons
-import System.Terminal.Widgets.Common (runWidgetIO)
-import System.Terminal.Widgets.SearchSelect
-import System.Terminal.Widgets.Select
-import System.Terminal.Widgets.TextInput
+import System.Terminal.Widget
 import Trilby.Prelude
 
 textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
