@@ -5,8 +5,6 @@
     profiles.base
   ];
 
-  boot.vesa = false;
-
   # Since we can't manually respond to a panic, just reboot.
   boot.kernelParams = [
     "panic=1"
