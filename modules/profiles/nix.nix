@@ -46,7 +46,6 @@
 
     (lib.optionalAttrs (trilby.hostSystem.kernel.name == "darwin") {
       gc.interval.Day = 1;
-      useDaemon = true;
     })
   ];
 }
