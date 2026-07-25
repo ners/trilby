@@ -2,7 +2,6 @@ module Trilby.Host where
 
 import Data.List.Extra (split)
 import Data.Text qualified as Text
-import Effectful.Reader.Static qualified as Reader
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
 import Trilby.App ()
@@ -27,7 +26,10 @@ instance Show Host where
     show Host{username = Just username, ..} = Text.unpack $ username <> "@" <> hostname
 
 hostname :: (HasCallStack) => Host -> App Text
-hostname Localhost = cached (maybe (fail "hostname failed") pure <=< cmdOutTextFirstLine) ["hostnamectl", "hostname"]
+hostname Localhost =
+    cached
+        (maybe (fail "hostname failed") pure . (listToMaybe . Text.split (== '.') =<<) <=< cmdOutTextFirstLine)
+        ["hostname"]
 hostname Host{..} = pure hostname
 
 canonicalHost :: (HasCallStack) => Host -> App Host
