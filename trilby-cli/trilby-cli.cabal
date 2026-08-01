@@ -132,5 +132,6 @@ executable trilby
     Trilby.System
     Trilby.Update
     Trilby.Update.Options
+    Trilby.Util
     Trilby.Version
     Trilby.Widgets

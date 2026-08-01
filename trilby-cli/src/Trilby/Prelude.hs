@@ -40,7 +40,9 @@ module Trilby.Prelude
     , module Trilby.App
     , module Trilby.FlakeRef
     , module Trilby.Log
+    , module Trilby.System
     , module Trilby.Prelude
+    , module Trilby.Util
     )
 where
 
@@ -128,14 +130,13 @@ import Path
 import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
 import System.Posix (changeWorkingDirectory, getEffectiveUserID, getWorkingDirectory, readSymbolicLink)
 import System.Process.Typed qualified as Process
-import Text.ParserCombinators.ReadP (ReadP)
-import Text.ParserCombinators.ReadP qualified as ReadP
-import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..), ReadPrec, readMaybe)
 import Trilby.App (App, AppState (..))
 import Trilby.FlakeRef
 import Trilby.Log
 import Trilby.Process
+import Trilby.Util
+import Trilby.System
 import Prelude hiding (unzip, writeFile)
 
 rootDir :: Path Abs Dir
@@ -173,44 +174,6 @@ errorExit :: (HasCallStack) => Text -> App a
 errorExit msg = logAttention_ msg >> liftIO exitFailure
 {-# INLINE errorExit #-}
 
-ishow :: (Show a, IsString s) => a -> s
-ishow = fromString . show
-
-readPrecBoundedEnumOn
-    :: forall a
-     . (Show a, Bounded a, Enum a)
-    => (String -> String)
-    -> ReadPrec a
-readPrecBoundedEnumOn m = ReadPrec.lift . ReadP.choice $ tryChoose <$> [minBound .. maxBound]
-  where
-    tryChoose :: a -> ReadP a
-    tryChoose a = a <$ ReadP.string (m $ show a)
-
-readPrecBoundedEnum :: (Show a, Bounded a, Enum a) => ReadPrec a
-readPrecBoundedEnum = readPrecBoundedEnumOn id
-
-fromText :: (IsString s) => Text -> s
-fromText = fromString . Text.unpack
-
-fromPath :: (IsString s) => Path b t -> s
-fromPath = fromString . toFilePath
-
-fromSomeBase :: (IsString s) => SomeBase t -> s
-fromSomeBase (Abs f) = fromPath f
-fromSomeBase (Rel f) = fromPath f
-
-fromListSafe :: a -> [a] -> NonEmpty a
-fromListSafe x = fromMaybe (x :| []) . nonEmpty
-
-firstLine :: Text -> Text
-firstLine = headDef "" . Text.lines
-
-prepend :: (Semigroup (f a), Applicative f) => a -> f a -> f a
-prepend x xs = pure x <> xs
-
-append :: (Semigroup (f a), Applicative f) => a -> f a -> f a
-append x xs = xs <> pure x
-
 isRoot :: (HasCallStack) => App Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
@@ -221,24 +184,25 @@ asRoot :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRoot c t = ifM isRoot (c t) (c t')
   where
     t'
-        | "ssh" :| (sshArgs -> (args, xs)) <- t = "ssh" :| (args <> run0 xs)
+        | "ssh" :| (sshArgs -> (args, xs)) <- t = "ssh" :| (args <> sudo xs)
         | otherwise = run0 t
     sshArgs :: [Text] -> ([Text], [Text])
     sshArgs ("-t" : xs) = first ("-t" :) $ sshArgs xs
     sshArgs ("-o" : x : xs) = first (["-o", x] <>) $ sshArgs xs
     sshArgs (x : xs) = ([x], xs)
     sshArgs [] = ([], [])
-    run0 :: (Semigroup (f Text), Applicative f) => f Text -> f Text
+    run0, sudo :: (Semigroup (f Text), Applicative f) => f Text -> f Text
     run0 = prepend "run0" . prepend "--background="
+    sudo = prepend "sudo"
 
 asRootIf :: (HasCallStack) => Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 asRootIf b = if b then asRoot else id
 
-asRootWhen :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-asRootWhen b c t = b >>= \b -> asRootIf b c t
+asRootWhenM :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootWhenM b c t = b >>= \b -> asRootIf b c t
 
-asRootUnless :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-asRootUnless b = asRootWhen (not <$> b)
+asRootUnlessM :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootUnlessM b = asRootWhenM (not <$> b)
 
 cached :: (HasCallStack, ToJSON a, FromJSON a) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
 cached c t = do
@@ -248,24 +212,6 @@ cached c t = do
         atomically . modifyTVar var . HashMap.insert t $ o
         pure o
     either error pure $ Aeson.parseEither Aeson.parseJSON value
-
-singleQuoted :: Text -> Text
-singleQuoted t = d <> escape t <> d
-  where
-    d = "'" :: Text
-    escape = Text.replace d (d <> "\\" <> d <> d)
-
-doubleQuoted :: Text -> Text
-doubleQuoted t = d <> escape t <> d
-  where
-    d = "\"" :: Text
-    escape = Text.replace d (d <> "\\" <> d <> d)
-
-isAbsolute :: Path b t -> Bool
-isAbsolute p = Just '/' == listToMaybe (toFilePath p)
-
-isRelative :: Path b t -> Bool
-isRelative = not . isAbsolute
 
 defaultProc :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App (ProcessConfig () () ())
 defaultProc p = do
@@ -330,7 +276,7 @@ cmdOutJson = withFrozenCallStack $ processOutJson . proc
 createDir :: (HasCallStack) => Path b Dir -> App ()
 createDir dir = do
     logTrace_ $ "createDir " <> fromPath dir
-    asRootUnless parentWritable cmd_ ["mkdir", "-p", fromPath dir]
+    asRootUnlessM parentWritable cmd_ ["mkdir", "-p", fromPath dir]
   where
     parentWritable = handle (const @_ @SomeException $ pure False) $ writable <$> getPermissions (parent dir)
 

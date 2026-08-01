@@ -11,7 +11,6 @@ import Trilby.Install.Options
 import Trilby.Prelude
 import Trilby.Process (proc, runProcess_)
 import Trilby.Setup (ensureDeps)
-import Trilby.System
 import Trilby.Widgets
 
 rootMount :: Kernel -> Path Abs Dir
