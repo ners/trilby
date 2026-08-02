@@ -47,25 +47,47 @@ instance ToExpr Keyboard where
         |]
             & canonicalSet
 
-getCurrentKeyboard :: (HasCallStack) => App (Maybe Keyboard)
+getCurrentKeyboard
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Eff es (Maybe Keyboard)
 getCurrentKeyboard = do
     localeStatus <- cmdOutTextLines ["localectl", "status", "--full"]
     let layout = fmap Text.strip . listToMaybe $ mapMaybe (Text.stripPrefix "X11 Layout:") localeStatus
         variant = fmap Text.strip . listToMaybe $ mapMaybe (Text.stripPrefix "X11 Variant:") localeStatus
     forM layout \layout -> pure $ Keyboard{layout, variant, description = Nothing}
 
-getAllKeyboards :: (HasCallStack) => App [Keyboard]
+getAllKeyboards
+    :: ( HasCallStack
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Eff es [Keyboard]
 getAllKeyboards = do
     eitherM (\e -> logAttention_ (fromString e) >> pure []) pure $ runFail do
-        baseFile <- inject readBaseFile
-        cursor <- maybe (fail "could not parse base.xml file") pure . XML.Cursor.fromForest . XML.parseXML $ baseFile
-        layoutList <- maybe (fail "could not find layoutList") pure $ cursorToElement =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
+        baseFile <- readBaseFile
+        cursor <-
+            maybe (fail "could not parse base.xml file") pure . XML.Cursor.fromForest . XML.parseXML $ baseFile
+        layoutList <-
+            maybe (fail "could not find layoutList") pure
+                $ cursorToElement
+                =<< XML.Cursor.findRec ((Just "layoutList" ==) . fmap (XML.qName . XML.elName) . cursorToElement) cursor
         let layouts = findChildrenByName "layout" layoutList
         fmap List.sort . flip concatMapM layouts $ \layout -> eitherM (\e -> logAttention_ (fromString e) >> pure []) pure $ runFail do
-            (baseName, baseDescription) <- fromMaybeM (fail $ "Could not find name and description in " <> show layout) . pure . nameAndDescription $ layout
+            (baseName, baseDescription) <-
+                fromMaybeM (fail $ "Could not find name and description in " <> show layout)
+                    . pure
+                    . nameAndDescription
+                    $ layout
             pure $ Keyboard{layout = baseName, variant = Nothing, description = Just baseDescription}
                 : [ Keyboard{layout = baseName, variant = Just name, description = Just description}
-                  | Just (name, description) <- nameAndDescription <$> maybe [] (findChildrenByName "variant") (findChildByName "variantList" layout)
+                  | Just (name, description) <-
+                        nameAndDescription
+                            <$> maybe [] (findChildrenByName "variant") (findChildByName "variantList" layout)
                   ]
   where
     baseFile :: Path Rel File
@@ -74,13 +96,32 @@ getAllKeyboards = do
     usrBaseFile :: Path Abs File
     usrBaseFile = $(mkAbsDir "/usr") </> baseFile
 
-    nixBaseFile :: App [Path Abs File]
+    nixBaseFile
+        :: forall es
+         . ( Environment :> es
+           , IOE :> es
+           , Concurrent :> es
+           , Reader AppState :> es
+           , TypedProcess :> es
+           , Log :> es
+           )
+        => Eff es [Path Abs File]
     nixBaseFile = fmap (fmap (</> baseFile)) . nixBuild . Flake =<< trilbyFlake ["xkeyboard-config"]
 
     runCurrentSystemBaseFile :: Path Abs File
     runCurrentSystemBaseFile = $(mkAbsDir "/run/current-system/sw") </> baseFile
 
-    findBaseFile :: App (Path Abs File)
+    findBaseFile
+        :: forall es
+         . ( Environment :> es
+           , IOE :> es
+           , Concurrent :> es
+           , Reader AppState :> es
+           , TypedProcess :> es
+           , Log :> es
+           , FileSystem :> es
+           )
+        => Eff es (Path Abs File)
     findBaseFile =
         fromMaybeM (errorExit "could not find base.xml")
             . runMaybeT
@@ -90,7 +131,17 @@ getAllKeyboards = do
               , findM doesFileExist =<< nixBaseFile
               ]
 
-    readBaseFile :: App ByteString
+    readBaseFile
+        :: forall es
+         . ( Environment :> es
+           , IOE :> es
+           , Concurrent :> es
+           , Reader AppState :> es
+           , TypedProcess :> es
+           , Log :> es
+           , FileSystem :> es
+           )
+        => Eff es ByteString
     readBaseFile = do
         baseFile <- findBaseFile
         logTrace_ $ "reading base file: " <> fromPath baseFile

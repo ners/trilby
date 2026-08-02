@@ -30,7 +30,12 @@ parseOptionsInfo =
 
 getVerbosity :: (MonadIO m) => Options Maybe -> m LogLevel
 getVerbosity opts = do
-    envVerbosity <- liftIO . runEff . runEnvironment $ (eitherToMaybe . readLogLevelEither . fromString =<<) <$> lookupEnv "TRILBY_VERBOSITY"
+    envVerbosity <-
+        liftIO
+            . runEff
+            . runEnvironment
+            $ (eitherToMaybe . readLogLevelEither . fromString =<<)
+            <$> lookupEnv "TRILBY_VERBOSITY"
     pure $ fromMaybe defaultVerbosity $ opts.verbosity <|> envVerbosity
   where
     defaultVerbosity = LogAttention

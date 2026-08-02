@@ -4,7 +4,6 @@ import Data.Text qualified as Text
 import Trilby.HNix hiding (Flake)
 import Trilby.Install.Config.Release
 import Trilby.Prelude
-import Trilby.System
 
 data InputOverride = Follows Text Text
     deriving stock (Generic)

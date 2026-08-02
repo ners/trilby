@@ -9,7 +9,6 @@ import Trilby.Install.Disko qualified as Disko
 import Trilby.Install.Flake
 import Trilby.Install.Options
 import Trilby.Prelude
-import Trilby.Process (proc, runProcess_)
 import Trilby.Setup (ensureDeps)
 import Trilby.Widgets
 
@@ -20,14 +19,38 @@ rootMount Darwin = $(mkAbsDir "/")
 trilbyDir :: Kernel -> Path Abs Dir
 trilbyDir = trilbyHome . rootMount
 
-install :: (HasCallStack) => InstallOpts Maybe -> App ()
+install
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InstallOpts Maybe
+    -> Eff es ()
 install (askOpts -> opts) = do
     system <- hostSystem Localhost
     case system.kernel of
         Linux -> installLinux opts
         Darwin -> installDarwin opts
 
-installLinux :: (HasCallStack) => InstallOpts App -> App ()
+installLinux
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InstallOpts (Eff es)
+    -> Eff es ()
 installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     ensureDeps
         [ ("disko", "disko")
@@ -38,7 +61,8 @@ installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     mountRoot diskoRef
     nixosInstall flakeRef
     whenM copyFlake do
-        Just storePath <- shellOutTextFirstLine ["nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path"]
+        Just storePath <-
+            shellOutTextFirstLine ["nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path"]
         asRoot cmd_ ["cp", "-r", storePath, fromPath $ trilbyDir Linux]
         asRoot cmd_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
     reboot opts.reboot Localhost
@@ -53,18 +77,27 @@ installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     nixosInstall flakeRef
     reboot opts.reboot Localhost
 
-formatDisk :: (HasCallStack) => App Bool -> FileOrFlake -> App ()
+formatDisk
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Eff es Bool
+    -> FileOrFlake
+    -> Eff es ()
 formatDisk f d = whenM f do
     logAttention_ "Formatting disk ... "
     disko $ Format d
 
-mountRoot :: (HasCallStack) => FileOrFlake -> App ()
+mountRoot
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => FileOrFlake
+    -> Eff es ()
 mountRoot d = unlessM rootIsMounted do
     logAttention_ "Partitions are not mounted"
     unlessM (yesNoButtons "Attempt to mount the partitions?" True)
         $ errorExit "Cannot install without mounted partitions"
     disko $ Mount d
   where
+    rootIsMounted
+        :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es) => Eff es Bool
     rootIsMounted = (ExitSuccess ==) <$> cmdCode ["mountpoint", "-q", fromPath $ rootMount Linux]
 
 flakeNix, defaultNix, configurationNix :: Path Rel File
@@ -73,11 +106,20 @@ defaultNix = $(mkRelFile "default.nix")
 configurationNix = $(mkRelFile "configuration.nix")
 
 setupHost
-    :: (HasCallStack)
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
     => Kernel
-    -> InstallOpts App
-    -> (Path Rel Dir -> Path Rel Dir -> App ())
-    -> App FlakeRef
+    -> InstallOpts (Eff es)
+    -> (Path Rel Dir -> Path Rel Dir -> Eff es ())
+    -> Eff es FlakeRef
 setupHost kernel opts actions = do
     hostname <- opts.hostname
     edition <- opts.edition
@@ -151,10 +193,17 @@ setupHost kernel opts actions = do
                 ]
     pure FlakeRef{url = fromPath realTrilbyDir, output = pure hostname}
 
-hashedPassword :: (HasCallStack) => Text -> App Password
-hashedPassword plain = maybe (fail "mkpasswd failed") (pure . HashedPassword) =<< cmdOutTextFirstLine ["mkpasswd", plain]
+hashedPassword
+    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Text
+    -> Eff es Password
+hashedPassword plain =
+    maybe (fail "mkpasswd failed") (pure . HashedPassword) =<< cmdOutTextFirstLine ["mkpasswd", plain]
 
-nixosInstall :: (HasCallStack) => FlakeRef -> App ()
+nixosInstall
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => FlakeRef
+    -> Eff es ()
 nixosInstall flakeRef = do
     logAttention_ "Performing installation ... "
     -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
@@ -175,7 +224,19 @@ nixosInstall flakeRef = do
           , ["--impure"]
           ]
 
-installDarwin :: (HasCallStack) => InstallOpts App -> App ()
+installDarwin
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InstallOpts (Eff es)
+    -> Eff es ()
 -- installDarwin opts | Just FlakeOpts{..} <- opts.flake = pure ()
 installDarwin opts = do
     flakeRef <- setupHost Darwin opts \_ _ -> pure ()

@@ -15,7 +15,6 @@ import Nix
 import Nix.Atoms (NAtom (NNull))
 import Trilby.Host
 import Trilby.Prelude
-import Trilby.Process
 
 instance IsString (NAttrPath NExpr) where
     fromString = fromListSafe "" . fmap (StaticKey . fromString) . List.splitOn "."
@@ -65,7 +64,20 @@ listToSet f xs = Fix $ NSet NonRecursive $ (\x -> f x ~: toExpr x) <$> xs
 showNix :: (ToExpr e, IsString s) => e -> s
 showNix = fromString . show . prettyNix . toExpr
 
-writeNixFile :: (ToExpr a) => Path b File -> a -> App ()
+writeNixFile
+    :: ( ToExpr a
+       , HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Path b File
+    -> a
+    -> Eff es ()
 writeNixFile f = writeFile f . showNix
 
 data FileOrFlake
@@ -73,7 +85,10 @@ data FileOrFlake
     | Flake FlakeRef
     deriving stock (Generic)
 
-nixBuild :: (HasCallStack) => FileOrFlake -> App [Path Abs Dir]
+nixBuild
+    :: (HasCallStack, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => FileOrFlake
+    -> Eff es [Path Abs Dir]
 nixBuild f =
     mapM (parseAbsDir . fromText)
         . Text.lines
@@ -90,7 +105,11 @@ nixBuild f =
                 ]
             )
 
-copyClosure :: (HasCallStack) => Host -> Path Abs Dir -> App ()
+copyClosure
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> Path Abs Dir
+    -> Eff es ()
 copyClosure Localhost _ = pure ()
 copyClosure host@Host{} path = do
     ssh host cmdCode ["command", "-v", "nix-store"] >>= \case
@@ -135,13 +154,26 @@ copyClosure host@Host{} path = do
                         ]
                   ]
 
-trilbyFlake :: (HasCallStack) => [Text] -> App FlakeRef
+trilbyFlake
+    :: ( HasCallStack
+       , Environment :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => [Text]
+    -> Eff es FlakeRef
 trilbyFlake output = do
     url <- fromMaybeM (pure fallbackUrl) $ firstJustM id [urlFromEnv, urlFromRegistry]
     pure FlakeRef{..}
   where
-    urlFromEnv, urlFromRegistry :: App (Maybe Text)
+    urlFromEnv :: (Environment :> es) => Eff es (Maybe Text)
     urlFromEnv = fromString <$$> lookupEnv "TRILBY"
+    urlFromRegistry
+        :: (HasCallStack, IOE :> es, Concurrent :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+        => Eff es (Maybe Text)
     urlFromRegistry =
         cached cmdCode ["nix", "flake", "metadata", "trilby"] <&> \case
             ExitSuccess -> Just "trilby"

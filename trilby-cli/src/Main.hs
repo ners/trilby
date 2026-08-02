@@ -1,5 +1,13 @@
 module Main where
 
+import Effectful.Concurrent.STM (newTVarIO, runConcurrent)
+import Effectful.Environment (runEnvironment)
+import Effectful.Fail (runFailIO)
+import Effectful.FileSystem.Path.IO (runFileSystem)
+import Effectful.Process.Typed (runTypedProcess)
+import Effectful.Reader.Static (runReader)
+import Effectful.Temporary.Path.IO (runTemporary)
+import Effectful.Time (runTime)
 import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Clean (clean)
@@ -11,15 +19,29 @@ import Trilby.Options
 import Trilby.Prelude
 import Trilby.Setup (ensureNix)
 import Trilby.Update (update)
+import Trilby.Version qualified as Trilby
 
 main :: IO ()
 main = do
     opts <- execParser parseOptionsInfo
     verbosity <- getVerbosity opts
-    runApp verbosity do
-        ensureNix
-        case opts.command of
-            Clean o -> clean o
-            Infect o -> infect o
-            Install o -> install =<< validateParsedInstallOpts o
-            Update o -> update o
+    runEff
+        . runLog verbosity
+        . (logInfo_ Trilby.fullVersionString >>)
+        . runFileSystem
+        . runTemporary
+        . runTime
+        . runTypedProcess
+        . runConcurrent
+        . runEnvironment
+        . runFailIO
+        . withSystemTempDir "trilby"
+        $ \tmpDir -> do
+            commandCache <- newTVarIO mempty
+            runReader AppState{..} $ do
+                ensureNix
+                case opts.command of
+                    Clean o -> clean o
+                    Infect o -> infect o
+                    Install o -> install =<< validateParsedInstallOpts o
+                    Update o -> update o

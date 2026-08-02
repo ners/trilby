@@ -27,7 +27,10 @@ data DiskoAction
     | Mount !FileOrFlake
     deriving stock (Generic)
 
-disko :: DiskoAction -> App ()
+disko
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => DiskoAction
+    -> Eff es ()
 disko action =
     (withTrace . asRoot) cmd_ $ case action of
         Format (File f) -> ["disko", "-m", "disko", fromSomeBase f]
@@ -35,15 +38,30 @@ disko action =
         Mount (File f) -> ["disko", "-m", "mount", fromSomeBase f]
         Mount (Flake f) -> ["disko", "-m", "mount", "--flake", ishow f]
 
-getDisko :: InstallOpts App -> App Disko
+getDisko
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InstallOpts (Eff es)
+    -> Eff es Disko
 getDisko opts = do
     diskName :: Path Abs File <- opts.disk
-    diskLines <- sortOn Text.length <$> cmdOutTextLines ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
+    diskLines <-
+        sortOn Text.length
+            <$> cmdOutTextLines ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
     diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
     logAttention_ $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
     luks <- opts.luks
+    case luks of
+        UseLuks{luksPassword} -> writeFile luksPasswordFile =<< luksPassword
+        NoLuks -> pure ()
     let useLuks = luks `is` #_UseLuks
-    when useLuks $ writeFile luksPasswordFile =<< luks.luksPassword
     filesystem <- opts.filesystem
     let mbrPartition =
             Partition

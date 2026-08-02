@@ -8,10 +8,18 @@ import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.Host
 import Trilby.Prelude
-import Trilby.Process (proc, runProcess_)
-import Trilby.System
 
-clean :: CleanOpts Maybe -> App ()
+clean
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => CleanOpts Maybe
+    -> Eff es ()
 clean (askOpts -> opts) = do
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     for_ configurations \Configuration{..} -> do
@@ -23,7 +31,11 @@ clean (askOpts -> opts) = do
             Profiles -> ssh host (asRoot $ runProcess_ . proc) ["nix-collect-garbage", "--delete-old"]
             Store -> unless (Profiles `Set.member` whats) $ ssh host cmd_ ["nix-collect-garbage"]
 
-boot :: Host -> System -> App ()
+boot
+    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> System
+    -> Eff es ()
 boot host System{kernel = Linux} = do
     getBootloaderEntries host >>= mapM_ \BootloaderEntry{..} ->
         when (type' == Type1 && not isDefault && not isSelected)

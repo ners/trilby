@@ -1,15 +1,15 @@
 module Trilby.System where
 
 import Data.Char (isDigit, isLetter, toLower)
+import Data.String (IsString (..))
+import Data.Text (Text)
 import Data.Text qualified as Text
+import GHC.Generics (Generic)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
-import Prelude
-import Data.Text (Text)
-import Data.String (IsString(..))
-import Text.Read (Read(..))
-import GHC.Generics (Generic)
+import Text.Read (Read (..))
 import Trilby.Util (readPrecBoundedEnumOn)
+import Prelude
 
 newtype Architecture = Architecture Text
     deriving newtype (Eq, Ord, IsString)

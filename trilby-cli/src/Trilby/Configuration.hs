@@ -9,7 +9,17 @@ data Configuration = Configuration
     }
     deriving stock (Generic, Eq, Ord, Show)
 
-fromHost :: Host -> App Configuration
+fromHost
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Host
+    -> Eff es Configuration
 fromHost host' = do
     host <- canonicalHost host'
     name <- hostname host

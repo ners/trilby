@@ -24,9 +24,11 @@ module Trilby.Prelude
     , module Effectful.Concurrent.STM
     , module Effectful.Environment
     , module Effectful.Exception
+    , module Effectful.Fail
     , module Effectful.FileSystem.Path.IO
     , module Effectful.Reader.Static
     , module Effectful.Temporary.Path.IO
+    , module Trilby.Process
     , module GHC.Generics
     , module GHC.IsList
     , module GHC.Stack
@@ -52,9 +54,8 @@ import Control.Lens.Combinators
 import Control.Lens.Operators
 import Control.Monad
 import Control.Monad.Extra
-import Data.Aeson (FromJSON, ToJSON, toJSON)
+import Data.Aeson (FromJSON)
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Types qualified as Aeson
 import Data.Bifunctor qualified as Bifunctor
 import Data.Bool
 import Data.ByteString.Lazy qualified as LazyByteString
@@ -63,7 +64,6 @@ import Data.Default (Default (def))
 import Data.Foldable
 import Data.Functor
 import Data.Generics.Labels ()
-import Data.HashMap.Internal.Strict qualified as HashMap
 import Data.List.Extra (headDef, (!?))
 import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.List.NonEmpty qualified as NonEmpty
@@ -78,10 +78,20 @@ import Data.Text.IO qualified as Text
 import Data.Traversable
 import Debug.Trace
 import Effectful
-import Effectful.Concurrent.STM (atomically, modifyTVar, readTVarIO)
-import Effectful.Environment (getEnv, lookupEnv, setEnv)
+import Effectful.Concurrent.STM (Concurrent, atomically, modifyTVar, readTVarIO)
+import Effectful.Environment (Environment, getEnv, lookupEnv, setEnv)
 import Effectful.Exception (SomeException (SomeException), handle)
-import Effectful.FileSystem.Path.IO (AnyPath, Permissions (writable), XdgDirectory (XdgConfig), canonicalizePath, doesDirExist, getPermissions, getXdgDir)
+import Effectful.Fail (Fail)
+import Effectful.FileSystem.Path.IO
+    ( AnyPath
+    , FileSystem
+    , Permissions (writable)
+    , XdgDirectory (XdgConfig)
+    , canonicalizePath
+    , doesDirExist
+    , getPermissions
+    , getXdgDir
+    )
 import Effectful.Reader.Static (Reader)
 import Effectful.Reader.Static qualified as Reader
 import Effectful.Temporary.Path.IO (withSystemTempDir, withSystemTempFile)
@@ -128,15 +138,20 @@ import Path
     , (</>)
     )
 import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
-import System.Posix (changeWorkingDirectory, getEffectiveUserID, getWorkingDirectory, readSymbolicLink)
+import System.Posix
+    ( changeWorkingDirectory
+    , getEffectiveUserID
+    , getWorkingDirectory
+    , readSymbolicLink
+    )
 import System.Process.Typed qualified as Process
 import Text.Read (Read (..), ReadPrec, readMaybe)
-import Trilby.App (App, AppState (..))
+import Trilby.App
 import Trilby.FlakeRef
 import Trilby.Log
 import Trilby.Process
-import Trilby.Util
 import Trilby.System
+import Trilby.Util
 import Prelude hiding (unzip, writeFile)
 
 rootDir :: Path Abs Dir
@@ -157,7 +172,13 @@ parseYesNo yesLong yesHelp = flag' True (long yesLong <> help yesHelp) <|> flag'
   where
     noLong = "no-" <> yesLong
 
-parseChoiceWith :: forall a. (a -> String) -> (String -> Maybe a) -> Mod OptionFields a -> [a] -> Parser a
+parseChoiceWith
+    :: forall a
+     . (a -> String)
+    -> (String -> Maybe a)
+    -> Mod OptionFields a
+    -> [a]
+    -> Parser a
 parseChoiceWith show' read' m xs = option (maybeReader read') $ m <> showDefaultWith show' <> completeWith options
   where
     options = show' <$> xs
@@ -170,17 +191,17 @@ parseChoice m xs = option (maybeReader readMaybe) $ m <> showDefault <> complete
 parseEnum :: (Bounded a, Enum a, Show a, Read a) => Mod OptionFields a -> Parser a
 parseEnum = flip parseChoice [minBound .. maxBound]
 
-errorExit :: (HasCallStack) => Text -> App a
+errorExit :: (HasCallStack, IOE :> es, Log :> es) => Text -> Eff es a
 errorExit msg = logAttention_ msg >> liftIO exitFailure
 {-# INLINE errorExit #-}
 
-isRoot :: (HasCallStack) => App Bool
+isRoot :: (HasCallStack, IOE :> es) => Eff es Bool
 isRoot = (0 ==) <$> liftIO getEffectiveUserID
 
-asUser :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asUser :: (HasCallStack) => (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
 asUser = id
 
-asRoot :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRoot :: (HasCallStack, IOE :> es) => (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
 asRoot c t = ifM isRoot (c t) (c t')
   where
     t'
@@ -195,85 +216,170 @@ asRoot c t = ifM isRoot (c t) (c t')
     run0 = prepend "run0" . prepend "--background="
     sudo = prepend "sudo"
 
-asRootIf :: (HasCallStack) => Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootIf
+    :: (HasCallStack, IOE :> es)
+    => Bool
+    -> (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
 asRootIf b = if b then asRoot else id
 
-asRootWhenM :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootWhenM
+    :: (HasCallStack, IOE :> es)
+    => Eff es Bool
+    -> (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
 asRootWhenM b c t = b >>= \b -> asRootIf b c t
 
-asRootUnlessM :: (HasCallStack) => App Bool -> (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+asRootUnlessM
+    :: (HasCallStack, IOE :> es)
+    => Eff es Bool
+    -> (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
 asRootUnlessM b = asRootWhenM (not <$> b)
 
-cached :: (HasCallStack, ToJSON a, FromJSON a) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
-cached c t = do
-    var <- Reader.asks commandCache
-    value <- flip fromMaybeM (HashMap.lookup t <$> readTVarIO var) do
-        o <- toJSON <$> c t
-        atomically . modifyTVar var . HashMap.insert t $ o
-        pure o
-    either error pure $ Aeson.parseEither Aeson.parseJSON value
-
-defaultProc :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App (ProcessConfig () () ())
+defaultProc
+    :: (HasCallStack, IOE :> es, Reader AppState :> es)
+    => ProcessConfig stdin stdout stderr
+    -> Eff es (ProcessConfig () () ())
 defaultProc p = do
     verbose <- verbosityAtLeast LogInfo
     let output = if verbose then Process.inherit else Process.nullStream
     pure . setStdin Process.nullStream . setStdout output . setStderr output $ p
 
-process_ :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App ()
+process_
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdout stderr
+    -> Eff es ()
 process_ = withFrozenCallStack $ runProcess_ <=< defaultProc
 
-processCode :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App ExitCode
+processCode
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdout stderr
+    -> Eff es ExitCode
 processCode = withFrozenCallStack $ runProcess <=< defaultProc
 
-processOutText :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App Text
-processOutText = withFrozenCallStack $ fmap (Text.decodeUtf8 . LazyByteString.toStrict) . readProcessStdout_ <=< defaultProc
+processOutText
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdoutIgnored stderr
+    -> Eff es Text
+processOutText =
+    withFrozenCallStack $
+        fmap (Text.decodeUtf8 . LazyByteString.toStrict) . readProcessStdout_ <=< defaultProc
 
-processOutTextLines :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App [Text]
+processOutTextLines
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdoutIgnored stderr
+    -> Eff es [Text]
 processOutTextLines = withFrozenCallStack $ fmap (fmap Text.strip . Text.lines . Text.strip) . processOutText
 
-processOutTextFirstLine :: (HasCallStack) => ProcessConfig stdin stdoutIgnored stderr -> App (Maybe Text)
+processOutTextFirstLine
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdoutIgnored stderr
+    -> Eff es (Maybe Text)
 processOutTextFirstLine = withFrozenCallStack $ fmap listToMaybe . processOutTextLines
 
-processCodeOutText :: (HasCallStack) => ProcessConfig stdin stdout stderr -> App (ExitCode, Text)
-processCodeOutText = withFrozenCallStack $ fmap (second (Text.decodeUtf8 . LazyByteString.toStrict)) . readProcessStdout <=< defaultProc
+processCodeOutText
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => ProcessConfig stdin stdout stderr
+    -> Eff es (ExitCode, Text)
+processCodeOutText =
+    withFrozenCallStack $
+        fmap (second (Text.decodeUtf8 . LazyByteString.toStrict)) . readProcessStdout <=< defaultProc
 
-processOutJson :: (HasCallStack, FromJSON a) => ProcessConfig stdin stdoutIgnored stderr -> App a
-processOutJson = withFrozenCallStack $ either fail pure . Aeson.eitherDecode <=< readProcessStdout_ <=< defaultProc
+processOutJson
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FromJSON a
+       )
+    => ProcessConfig stdin stdoutIgnored stderr
+    -> Eff es a
+processOutJson =
+    withFrozenCallStack $ either fail pure . Aeson.eitherDecode <=< readProcessStdout_ <=< defaultProc
 
-shell_ :: (HasCallStack) => NonEmpty Text -> App ()
+shell_
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es ()
 shell_ = withFrozenCallStack $ process_ . shell . Text.unwords . NonEmpty.toList
 
-shellOutText :: (HasCallStack) => NonEmpty Text -> App Text
+shellOutText
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es Text
 shellOutText = withFrozenCallStack $ processOutText . shell . Text.unwords . NonEmpty.toList
 
-shellOutTextFirstLine :: (HasCallStack) => NonEmpty Text -> App (Maybe Text)
+shellOutTextFirstLine
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es (Maybe Text)
 shellOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . shell . Text.unwords . NonEmpty.toList
 
-shellOutTextLines :: (HasCallStack) => NonEmpty Text -> App [Text]
+shellOutTextLines
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es [Text]
 shellOutTextLines = withFrozenCallStack $ processOutTextLines . shell . Text.unwords . NonEmpty.toList
 
-cmd_ :: (HasCallStack) => NonEmpty Text -> App ()
+cmd_
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es ()
 cmd_ = withFrozenCallStack $ process_ . proc
 
-cmdCode :: (HasCallStack) => NonEmpty Text -> App ExitCode
+cmdCode
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es ExitCode
 cmdCode = withFrozenCallStack $ processCode . proc
 
-cmdOutText :: (HasCallStack) => NonEmpty Text -> App Text
+cmdOutText
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es Text
 cmdOutText = withFrozenCallStack $ processOutText . proc
 
-cmdCodeOutText :: (HasCallStack) => NonEmpty Text -> App (ExitCode, Text)
+cmdCodeOutText
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es (ExitCode, Text)
 cmdCodeOutText = withFrozenCallStack $ processCodeOutText . proc
 
-cmdOutTextLines :: (HasCallStack) => NonEmpty Text -> App [Text]
+cmdOutTextLines
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es [Text]
 cmdOutTextLines = withFrozenCallStack $ processOutTextLines . proc
 
-cmdOutTextFirstLine :: (HasCallStack) => NonEmpty Text -> App (Maybe Text)
+cmdOutTextFirstLine
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => NonEmpty Text
+    -> Eff es (Maybe Text)
 cmdOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . proc
 
-cmdOutJson :: (HasCallStack, FromJSON a) => NonEmpty Text -> App a
+cmdOutJson
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FromJSON a
+       )
+    => NonEmpty Text
+    -> Eff es a
 cmdOutJson = withFrozenCallStack $ processOutJson . proc
 
-createDir :: (HasCallStack) => Path b Dir -> App ()
+createDir
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es, FileSystem :> es)
+    => Path b Dir
+    -> Eff es ()
 createDir dir = do
     logTrace_ $ "createDir " <> fromPath dir
     asRootUnlessM parentWritable cmd_ ["mkdir", "-p", fromPath dir]
@@ -285,16 +391,40 @@ data Owner = Owner {uid :: Int, gid :: Int}
 instance Show Owner where
     show Owner{..} = show uid <> ":" <> show gid
 
-currentOwner :: (HasCallStack) => App Owner
+currentOwner
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Eff es Owner
 currentOwner = do
     uid <- cached cmdOutJson ["id", "-u"]
     gid <- cached cmdOutJson ["id", "-g"]
     pure Owner{..}
 
-changeOwner :: (HasCallStack) => Owner -> Path b t -> App ()
+changeOwner
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Owner
+    -> Path b t
+    -> Eff es ()
 changeOwner owner dir = asRoot cmd_ ["chown", "-R", ishow owner, fromPath dir]
 
-ensureDir :: (HasCallStack) => Path b Dir -> App ()
+ensureDir
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Path b Dir
+    -> Eff es ()
 ensureDir dir = do
     logTrace_ $ "ensureDir " <> fromPath dir
     owner <- currentOwner
@@ -302,7 +432,19 @@ ensureDir dir = do
         createDir dir
         changeOwner owner dir
 
-inDir :: (HasCallStack) => Path b Dir -> App a -> App a
+inDir
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Path b Dir
+    -> Eff es a
+    -> Eff es a
 inDir d a = do
     d' <- liftIO $ parseAbsDir =<< getWorkingDirectory
     ensureDir d
@@ -311,27 +453,51 @@ inDir d a = do
     liftIO $ changeWorkingDirectory (fromPath d')
     pure a
 
-writeFile :: (HasCallStack) => Path b File -> Text -> App ()
+writeFile
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Path b File
+    -> Text
+    -> Eff es ()
 writeFile f t = do
     logTrace ("writeFile " <> fromPath f) t
     ensureDir $ parent f
     liftIO $ Text.writeFile (fromPath f) t
 
-withTempFile :: (HasCallStack) => Path Rel File -> (Path Abs File -> App a) -> App a
+withTempFile
+    :: (HasCallStack, Reader AppState :> es)
+    => Path Rel File
+    -> (Path Abs File -> Eff es a)
+    -> Eff es a
 withTempFile file action = do
     tmpDir <- Reader.asks tmpDir
     action $ tmpDir </> file
 
-getSymlinkTarget :: (HasCallStack, MonadIO m) => (FilePath -> m (Path b2 t2)) -> SomeBase File -> m (Path b2 t2)
+getSymlinkTarget
+    :: (HasCallStack, MonadIO m)
+    => (FilePath -> m (Path b2 t2))
+    -> SomeBase File
+    -> m (Path b2 t2)
 getSymlinkTarget = (liftIO . readSymbolicLink . fromSomeBase >=>)
 
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
-verbosityAtLeast :: (HasCallStack) => LogLevel -> App Bool
+verbosityAtLeast :: (HasCallStack, Reader AppState :> es) => LogLevel -> Eff es Bool
 verbosityAtLeast v = Reader.asks $ (v <) . verbosity
 
-withTrace :: (HasCallStack) => (NonEmpty Text -> App a) -> NonEmpty Text -> App a
+withTrace
+    :: (HasCallStack, Reader AppState :> es)
+    => (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
 withTrace f (x :| xs) =
     verbosityAtLeast LogTrace
         >>= f
@@ -344,7 +510,11 @@ containsAnyOf = anyOf each . flip elem
 containsNoneOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsNoneOf = noneOf each . flip elem
 
-isGitTracked :: Path b1 Dir -> Path b2 t2 -> App Bool
+isGitTracked
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Path b1 Dir
+    -> Path b2 t2
+    -> Eff es Bool
 isGitTracked gitDir path =
     (ExitSuccess ==)
         <$> cmdCode

@@ -22,7 +22,8 @@ parseCommand :: Parser (Command Maybe)
 parseCommand =
     hsubparser
         . mconcat
-        $ [ command "clean" $ info (Clean <$> Clean.parseOpts optional) (progDesc "Free up disk space by deleting unused files")
+        $ [ command "clean"
+                $ info (Clean <$> Clean.parseOpts optional) (progDesc "Free up disk space by deleting unused files")
           , command "infect" $ info (Infect <$> Infect.parseOpts optional) (progDesc "Infect with Trilby")
           , command "install" $ info (Install <$> Install.parseOpts optional) (progDesc "Install Trilby")
           , command "update" $ info (Update <$> Update.parseOpts optional) (progDesc "Update Trilby")

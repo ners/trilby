@@ -27,7 +27,8 @@ parseLuks f = do
         $ flag' NoLuks (long "no-luks")
         <|> do
             flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
-            luksPassword <- f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
+            luksPassword <-
+                f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
             pure UseLuks{..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
@@ -38,7 +39,9 @@ deriving stock instance Show (FlakeOpts Maybe)
 parseFlake :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (Maybe (FlakeOpts m))
 parseFlake f = do
     optional do
-        flakeRef <- strOption (long "flake" <> metavar "FLAKE" <> help "Build the Trilby system from the specified flake")
+        flakeRef <-
+            strOption
+                (long "flake" <> metavar "FLAKE" <> help "Build the Trilby system from the specified flake")
         copyFlake <- f $ parseYesNo "copy-flake" "Copy the installation flake to /etc/trilby"
         pure FlakeOpts{..}
 
@@ -69,23 +72,32 @@ parseOpts f = do
     luks <- parseLuks f
     disk <- f $ parsePath parseAbsFile (long "disk" <> metavar "DISK" <> help "The disk to install to")
     format <- f $ parseYesNo "format" "Format the installation disk"
-    filesystem <- f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
-    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
+    filesystem <-
+        f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
+    edition <-
+        f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to install")
     release <- f $ parseEnum (long "release" <> metavar "RELEASE" <> help "The Nixpkgs release to use")
     hostname <- f $ strOption (long "hostname" <> metavar "HOSTNAME" <> help "The hostname to install")
     keyboard <-
         f
-            $ strOption (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
+            $ strOption
+                (long "keyboard" <> metavar "KEYBOARD" <> help "The keyboard layout to use on this system")
             <&> \layout -> Keyboard{layout, variant = Nothing, description = Nothing}
     locale <- f $ strOption (long "locale" <> metavar "LOCALE" <> help "The locale of this system")
-    timezone <- f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
-    username <- f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
-    password <- f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
+    timezone <-
+        f $ strOption (long "timezone" <> metavar "TIMEZONE" <> help "The time zone of this system")
+    username <-
+        f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
+    password <-
+        f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
     edit <- f $ parseYesNo "edit" "Edit the configuration before installing"
     reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
 
-validateParsedInstallOpts :: InstallOpts Maybe -> App (InstallOpts Maybe)
+validateParsedInstallOpts
+    :: (IOE :> es, Log :> es)
+    => InstallOpts Maybe
+    -> Eff es (InstallOpts Maybe)
 validateParsedInstallOpts opts =
     case opts.disk of
         Nothing -> pure opts
@@ -93,7 +105,7 @@ validateParsedInstallOpts opts =
             vd <- fromMaybeM (liftIO exitFailure) $ validateDisk d
             pure $ opts & #disk ?~ vd
 
-validateDisk :: Path Abs File -> App (Maybe (Path Abs File))
+validateDisk :: (IOE :> es, Log :> es) => Path Abs File -> Eff es (Maybe (Path Abs File))
 validateDisk f = do
     status <- liftIO . getFileStatus . toFilePath $ f
     if isBlockDevice status
@@ -102,38 +114,70 @@ validateDisk f = do
             logAttention_ $ "Cannot find disk " <> fromPath f
             pure Nothing
 
-askDisk :: App (Path Abs File)
+askDisk
+    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Eff es (Path Abs File)
 askDisk = do
-    disks <- mapM (parseAbsFile . fromText) =<< shellOutTextLines ["lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'"]
+    disks <-
+        mapM (parseAbsFile . fromText)
+            =<< shellOutTextLines ["lsblk --raw | grep '\\Wdisk\\W\\+$' | awk '{print \"/dev/\" $1}'"]
     when (null disks) $ errorExit "No disks found"
     fromMaybeM askDisk $ select "Choose installation disk:" disks Nothing fromPath >>= validateDisk
 
-askLuks :: Maybe (LuksOpts Maybe) -> App (LuksOpts App)
+askLuks
+    :: (HasCallStack, IOE :> es, Log :> es)
+    => Maybe (LuksOpts Maybe)
+    -> Eff es (LuksOpts (Eff es))
 askLuks opts =
     case opts of
         Nothing -> bool NoLuks UseLuks{luksPassword = askPassword} <$> askUseLuks
         Just NoLuks -> pure NoLuks
         Just UseLuks{..} -> pure UseLuks{luksPassword = maybe askPassword pure luksPassword}
   where
+    askUseLuks :: (HasCallStack, IOE :> es, Log :> es) => Eff es Bool
     askUseLuks = yesNoButtons "Encrypt the disk with LUKS2?" True
+    askPassword :: (HasCallStack, IOE :> es, Log :> es) => Eff es Text
     askPassword = passwordInput "Choose LUKS password:"
 
-askFlake :: FlakeOpts Maybe -> FlakeOpts App
+askFlake :: (HasCallStack, IOE :> es, Log :> es) => FlakeOpts Maybe -> FlakeOpts (Eff es)
 askFlake FlakeOpts{..} =
     FlakeOpts
         { flakeRef
         , copyFlake = maybe (yesNoButtons "Copy flake to /etc/trilby?" True) pure copyFlake
         }
 
-askKeyboard :: App Keyboard
+askKeyboard
+    :: ( HasCallStack
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Eff es Keyboard
 askKeyboard = do
     allKeyboards <- getAllKeyboards
     let findKeyboard layout variant = find (\k -> k.layout == layout && k.variant == variant) allKeyboards
         exampleKeyboards = mapMaybe (uncurry findKeyboard) [("us", Nothing), ("us", Just "dvorak"), ("de", Nothing)]
     currentKeyboard <- getCurrentKeyboard <&> (>>= \Keyboard{..} -> findKeyboard layout variant)
-    searchSelect1 "Choose keyboard layout:" allKeyboards exampleKeyboards (maybeToList currentKeyboard) ishow
+    searchSelect1
+        "Choose keyboard layout:"
+        allKeyboards
+        exampleKeyboards
+        (maybeToList currentKeyboard)
+        ishow
 
-askLocale :: App Text
+askLocale
+    :: ( HasCallStack
+       , IOE :> es
+       , Environment :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Eff es Text
 askLocale = do
     currentLocale <- (dropSuffix . fromString =<<) <$> lookupEnv "LC_ALL"
     allLocales <- mapMaybe dropSuffix <$> cmdOutTextLines ["locale", "--all-locales"]
@@ -147,7 +191,9 @@ askLocale = do
     addSuffix :: Text -> Text
     addSuffix = (<> ".UTF-8")
 
-askTimezone :: App Text
+askTimezone
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Eff es Text
 askTimezone = do
     currentTz <- cmdOutTextFirstLine ["timedatectl", "show", "--property=Timezone", "--value"]
     allTimezones <- cmdOutTextLines ["timedatectl", "list-timezones"]
@@ -156,7 +202,19 @@ askTimezone = do
     exampleTimezones :: [Text]
     exampleTimezones = ["UTC", "CET", "Europe/Amsterdam", "Asia/Singapore", "Japan"]
 
-askOpts :: InstallOpts Maybe -> InstallOpts App
+askOpts
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InstallOpts Maybe
+    -> InstallOpts (Eff es)
 askOpts opts =
     InstallOpts
         { flake = askFlake <$> opts.flake

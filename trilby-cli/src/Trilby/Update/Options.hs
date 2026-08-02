@@ -36,7 +36,10 @@ parseOpts f = do
     hosts <- f . parseHosts $ help "Hosts to update, default: localhost"
     pure UpdateOpts{..}
 
-askAction :: Maybe (UpdateAction Maybe) -> App (UpdateAction App)
+askAction
+    :: (HasCallStack, IOE :> es, Log :> es)
+    => Maybe (UpdateAction Maybe)
+    -> Eff es (UpdateAction (Eff es))
 askAction (Just Switch) = pure Switch
 askAction (Just Boot{reboot = askReboot -> reboot}) = pure Boot{..}
 askAction (Just Test) = pure Test
@@ -50,10 +53,16 @@ askAction Nothing = do
         "Test" -> pure Test
         _ -> pure NoAction
 
-askReboot :: Maybe Bool -> App Bool
+askReboot
+    :: (HasCallStack, IOE :> es, Log :> es)
+    => Maybe Bool
+    -> Eff es Bool
 askReboot = flip maybe pure $ yesNoButtons "Reboot to new configuration now? (root)" False
 
-askOpts :: UpdateOpts Maybe -> UpdateOpts App
+askOpts
+    :: (HasCallStack, IOE :> es, Log :> es)
+    => UpdateOpts Maybe
+    -> UpdateOpts (Eff es)
 askOpts opts =
     UpdateOpts
         { flakeUpdate = maybe (pure True) pure opts.flakeUpdate

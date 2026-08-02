@@ -5,20 +5,20 @@ import Data.Text.Rope.Zipper qualified as RopeZipper
 import System.Terminal.Widget
 import Trilby.Prelude
 
-textInputOpts :: Bool -> Bool -> Text -> Text -> App Text
+textInputOpts :: (IOE :> es) => Bool -> Bool -> Text -> Text -> Eff es Text
 textInputOpts multiline required ((<> " ") -> prompt) (RopeZipper.fromText -> value) = do
     text <- runWidgetIO TextInput{valueTransform = id, ..}
     pure $ RopeZipper.toText text.value
 
-textInput :: Text -> Text -> App Text
+textInput :: (IOE :> es) => Text -> Text -> Eff es Text
 textInput = textInputOpts False True
 
-multilineTextInput :: Text -> Text -> App Text
+multilineTextInput :: (IOE :> es) => Text -> Text -> Eff es Text
 multilineTextInput = textInputOpts True False
 
-passwordInput :: (HasCallStack) => Text -> App Text
+passwordInput :: (HasCallStack, IOE :> es, Log :> es) => Text -> Eff es Text
 passwordInput ((<> " ") -> prompt) = do
-    let getPw :: TextInput -> App Text
+    let getPw :: (IOE :> es) => TextInput -> Eff es Text
         getPw = fmap (RopeZipper.toText . (.value)) . runWidgetIO
     let input =
             TextInput
@@ -36,7 +36,13 @@ passwordInput ((<> " ") -> prompt) = do
             logAttention_ "Passwords do not match"
             passwordInput prompt
 
-buttons :: (HasCallStack, Eq a, Show a) => Text -> [(a, Char)] -> Int -> (a -> Text) -> App a
+buttons
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [(a, Char)]
+    -> Int
+    -> (a -> Text)
+    -> Eff es a
 buttons prompt values selected buttonText = do
     b <-
         runWidgetIO
@@ -51,13 +57,21 @@ buttons prompt values selected buttonText = do
             logAttention_ "Invalid selection"
             buttons prompt values selected buttonText
 
-yesNoButtons :: (HasCallStack) => Text -> Bool -> App Bool
+yesNoButtons :: (HasCallStack, IOE :> es, Log :> es) => Text -> Bool -> Eff es Bool
 yesNoButtons prompt defaultValue = do
     let values = [("Yes", 'Y'), ("No", 'N')] :: [(Text, Char)]
     let selected = if defaultValue then 0 else 1
     ("Yes" ==) <$> buttons prompt values selected id
 
-multiSelect :: (HasCallStack, Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
+multiSelect
+    :: (HasCallStack, Eq a, Show a, IOE :> es)
+    => Text
+    -> [a]
+    -> [a]
+    -> (a -> Text)
+    -> Int
+    -> Int
+    -> Eff es [a]
 multiSelect prompt options selections optionText minSelect maxSelect
     | minSelect > maxSelect = error "multiSelect: minSelect must be < maxSelect"
     | length options < minSelect = error "multiSelect: called with fewer options than minSelect"
@@ -76,28 +90,68 @@ multiSelect prompt options selections optionText minSelect maxSelect
                 }
             <&> (fmap (.value) . filter (.checked) . (.options))
 
-multiSelect1 :: (HasCallStack, Eq a, Show a) => Text -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
+multiSelect1
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> [a]
+    -> (a -> Text)
+    -> Int
+    -> Int
+    -> Eff es (NonEmpty a)
 multiSelect1 prompt options selections optionText minSelect maxSelect
     | minSelect < 1 = errorExit "multiSelect1: minSelect must be > 0"
-    | otherwise = NonEmpty.fromList <$> multiSelect prompt options selections optionText minSelect maxSelect
+    | otherwise =
+        NonEmpty.fromList <$> multiSelect prompt options selections optionText minSelect maxSelect
 
-multiSelectEnum :: (HasCallStack, Eq a, Bounded a, Enum a, Show a) => Text -> [a] -> Int -> Int -> App [a]
+multiSelectEnum
+    :: (HasCallStack, Eq a, Bounded a, Enum a, Show a, IOE :> es)
+    => Text
+    -> [a]
+    -> Int
+    -> Int
+    -> Eff es [a]
 multiSelectEnum prompt selections = multiSelect prompt [minBound .. maxBound] selections ishow
 
-multiSelectEnum1 :: (HasCallStack, Eq a, Bounded a, Enum a, Show a) => Text -> [a] -> Int -> Int -> App (NonEmpty a)
+multiSelectEnum1
+    :: (HasCallStack, Eq a, Bounded a, Enum a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> Int
+    -> Int
+    -> Eff es (NonEmpty a)
 multiSelectEnum1 prompt selections = multiSelect1 prompt [minBound .. maxBound] selections ishow
 
-select :: (HasCallStack, Eq a, Show a) => Text -> [a] -> Maybe a -> (a -> Text) -> App a
+select
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> Maybe a
+    -> (a -> Text)
+    -> Eff es a
 select prompt options selection optionText
     | [o] <- options = pure o
     | null options, Just o <- selection = pure o
     | null options = errorExit "select: called with no options and no default value"
     | otherwise = NonEmpty.head <$> multiSelect1 prompt options (maybeToList selection) optionText 1 1
 
-selectEnum :: (HasCallStack, Eq a, Bounded a, Enum a, Show a) => Text -> Maybe a -> App a
+selectEnum
+    :: (HasCallStack, Eq a, Bounded a, Enum a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> Maybe a
+    -> Eff es a
 selectEnum prompt defaultValues = select prompt [minBound .. maxBound] defaultValues ishow
 
-searchSelect :: (HasCallStack, Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App [a]
+searchSelect
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> [a]
+    -> [a]
+    -> (a -> Text)
+    -> Int
+    -> Int
+    -> Eff es [a]
 searchSelect prompt options visibleOptions selections optionText minSelect maxSelect
     | minSelect > maxSelect = error "searchSelect: minSelect must be < maxSelect"
     | length options < minSelect = errorExit "searchSelect: need at least as many options as minSelect"
@@ -120,11 +174,29 @@ searchSelect prompt options visibleOptions selections optionText minSelect maxSe
                 }
             <&> (.selections)
 
-searchSelectSome :: (HasCallStack, Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> Int -> Int -> App (NonEmpty a)
+searchSelectSome
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> [a]
+    -> [a]
+    -> (a -> Text)
+    -> Int
+    -> Int
+    -> Eff es (NonEmpty a)
 searchSelectSome ((<> " ") -> prompt) options visibleOptions selections optionText minSelect maxSelect
     | minSelect < 1 = errorExit "searchSelect1: minSelect must be > 0"
-    | otherwise = NonEmpty.fromList <$> searchSelect prompt options visibleOptions selections optionText minSelect maxSelect
+    | otherwise =
+        NonEmpty.fromList
+            <$> searchSelect prompt options visibleOptions selections optionText minSelect maxSelect
 
-searchSelect1 :: (HasCallStack, Eq a, Show a) => Text -> [a] -> [a] -> [a] -> (a -> Text) -> App a
+searchSelect1
+    :: (HasCallStack, Eq a, Show a, IOE :> es, Log :> es)
+    => Text
+    -> [a]
+    -> [a]
+    -> [a]
+    -> (a -> Text)
+    -> Eff es a
 searchSelect1 ((<> " ") -> prompt) options visibleOptions selections optionText =
     NonEmpty.head <$> searchSelectSome prompt options visibleOptions selections optionText 1 1

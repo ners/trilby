@@ -24,7 +24,10 @@ parseWhat :: Parser (Set WhatToClean)
 parseWhat = Set.fromList <$> (all <|> some one)
   where
     all :: Parser [WhatToClean]
-    all = flag' [minBound .. maxBound] $ long "all" <> help "Clean everything except what is explicitly excluded"
+    all =
+        flag' [minBound .. maxBound]
+            $ long "all"
+            <> help "Clean everything except what is explicitly excluded"
     one :: Parser WhatToClean
     one =
         foldr1 @[]
@@ -35,7 +38,10 @@ parseWhat = Set.fromList <$> (all <|> some one)
             , flag' Store $ long "store" <> help "Delete unreachable store objects"
             ]
 
-askWhat :: Maybe (Set WhatToClean) -> App (Set WhatToClean)
+askWhat
+    :: (HasCallStack, IOE :> es)
+    => Maybe (Set WhatToClean)
+    -> Eff es (Set WhatToClean)
 askWhat = flip maybe pure $ Set.fromList <$> multiSelectEnum "Select what to clean:" [Store] 0 maxBound
 
 parseOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (CleanOpts m)
@@ -44,7 +50,10 @@ parseOpts f = do
     what <- f parseWhat
     pure CleanOpts{..}
 
-askOpts :: CleanOpts Maybe -> CleanOpts App
+askOpts
+    :: (HasCallStack, IOE :> es)
+    => CleanOpts Maybe
+    -> CleanOpts (Eff es)
 askOpts opts =
     CleanOpts
         { hosts = askHosts opts.hosts

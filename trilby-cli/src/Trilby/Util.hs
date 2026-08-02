@@ -19,7 +19,9 @@ ishow = fromString . show
 readPrecBoundedEnumOn
     :: forall a
      . (Show a, Bounded a, Enum a)
-    => (String -> String)
+    => ( String
+         -> String
+       )
     -> ReadPrec a
 readPrecBoundedEnumOn m = ReadPrec.lift . ReadP.choice $ tryChoose <$> [minBound .. maxBound]
   where

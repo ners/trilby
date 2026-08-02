@@ -22,7 +22,8 @@ data InfectOpts m = InfectOpts
 parseOpts :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser (InfectOpts m)
 parseOpts f = do
     hosts <- f . parseHosts $ help "Hosts to infect, default: localhost"
-    edition <- f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to infect with")
+    edition <-
+        f $ parseEnum (long "edition" <> metavar "EDITION" <> help "The Trilby edition to infect with")
     reboot <- f $ parseYesNo "reboot" "Reboot when done infecting"
     authorisedKeys <- parseAuthorisedKeys f
     pure InfectOpts{..}
@@ -31,13 +32,26 @@ parseAuthorisedKeys :: forall m. (forall a. Parser a -> Parser (m a)) -> Parser 
 parseAuthorisedKeys f = f do
     flag' (AuthorisedKeys []) (long "no-authorised-keys")
         <|> do
-            key <- strOption (long "authorised-key" <> metavar "KEY" <> help "Allow access to the infected system with this SSH pubkey")
+            key <-
+                strOption
+                    ( long "authorised-key"
+                        <> metavar "KEY"
+                        <> help "Allow access to the infected system with this SSH pubkey"
+                    )
             pure $ AuthorisedKeys [key]
         <|> do
-            file <- strOption (long "authorised-keys-file" <> metavar "FILE" <> help "Allow access to the infected system with these SSH pubkeys")
+            file <-
+                strOption
+                    ( long "authorised-keys-file"
+                        <> metavar "FILE"
+                        <> help "Allow access to the infected system with these SSH pubkeys"
+                    )
             pure $ AuthorisedKeysFile file
 
-askOpts :: InfectOpts Maybe -> InfectOpts App
+askOpts
+    :: (HasCallStack, IOE :> es, Log :> es)
+    => InfectOpts Maybe
+    -> InfectOpts (Eff es)
 askOpts opts =
     InfectOpts
         { hosts = askHosts opts.hosts
@@ -46,5 +60,7 @@ askOpts opts =
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
         }
 
-askAuthorisedKeys :: App AuthorisedKeys
+askAuthorisedKeys
+    :: (IOE :> es)
+    => Eff es AuthorisedKeys
 askAuthorisedKeys = AuthorisedKeys . Text.lines <$> multilineTextInput "Authorised SSH keys:" ""

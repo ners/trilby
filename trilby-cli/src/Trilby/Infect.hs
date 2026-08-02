@@ -9,10 +9,20 @@ import Trilby.HNix (FileOrFlake (File), copyClosure, nixBuild, trilbyFlake, writ
 import Trilby.Host
 import Trilby.Infect.Options
 import Trilby.Prelude
-import Trilby.Process (proc, runProcess_)
-import Trilby.System
 
-infect :: (HasCallStack) => InfectOpts Maybe -> App ()
+infect
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InfectOpts Maybe
+    -> Eff es ()
 infect (askOpts -> opts) = do
     configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
     for_ configurations \Configuration{..} -> do
@@ -25,7 +35,19 @@ infect (askOpts -> opts) = do
                 whenM opts.reboot $ ssh host (asRoot $ runProcess_ . proc) [fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
-buildKexec :: (HasCallStack) => InfectOpts App -> App [Path Abs Dir]
+buildKexec
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Environment :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => InfectOpts (Eff es)
+    -> Eff es [Path Abs Dir]
 buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
     FlakeRef{url = trilbyUrl} <- trilbyFlake []
     edition <- opts.edition

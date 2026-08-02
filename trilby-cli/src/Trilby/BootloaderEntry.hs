@@ -37,5 +37,8 @@ data BootloaderEntry = BootloaderEntry
 instance FromJSON BootloaderEntry where
     parseJSON = genericParseJSON defaultOptions{fieldLabelModifier = \s -> fromMaybe s $ List.stripSuffix "'" s}
 
-getBootloaderEntries :: Host -> App [BootloaderEntry]
+getBootloaderEntries
+    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> Eff es [BootloaderEntry]
 getBootloaderEntries host = ssh host cmdOutJson ["bootctl", "list", "--json=short", "--no-pager"]

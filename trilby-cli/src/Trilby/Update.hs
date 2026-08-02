@@ -7,11 +7,20 @@ import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (..), copyClosure, nixBuild, writeNixFile)
 import Trilby.Host
 import Trilby.Prelude
-import Trilby.Process
-import Trilby.System
 import Trilby.Update.Options
 
-update :: (HasCallStack) => UpdateOpts Maybe -> App ()
+update
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => UpdateOpts Maybe
+    -> Eff es ()
 update (askOpts -> opts) = do
     trilbyPath <- canonicalizePath $ trilbyHome rootDir
     whenM opts.flakeUpdate do
@@ -26,8 +35,14 @@ update (askOpts -> opts) = do
         System{kernel = Linux} -> do
             buildConfigurations configurations >>= mapM_ \(Configuration{..}, resultPath) -> do
                 copyClosure host resultPath
-                ssh host (runProcess_ . proc) ["nvd", "--color", "always", "diff", "/run/current-system", fromPath resultPath]
-                unless (host == Localhost && length configurations == 1) . logAttention_ $ "Choosing action for host " <> ishow host
+                ssh
+                    host
+                    (runProcess_ . proc)
+                    ["nvd", "--color", "always", "diff", "/run/current-system", fromPath resultPath]
+                unless (host == Localhost && length configurations == 1)
+                    . logAttention_
+                    $ "Choosing action for host "
+                    <> ishow host
                 let perform = switchToConfiguration host resultPath
                 opts.action >>= \case
                     Switch -> perform ConfigSwitch
@@ -38,14 +53,30 @@ update (askOpts -> opts) = do
                     NoAction -> pure ()
         System{kernel = Darwin} -> updateDarwin opts trilbyPath
 
-updateFlake :: (HasCallStack) => Path b File -> App ()
-updateFlake path = runProcess_ . proc $ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromPath $ parent path]
+updateFlake
+    :: (HasCallStack, TypedProcess :> es, Log :> es)
+    => Path b File
+    -> Eff es ()
+updateFlake path =
+    runProcess_
+        . proc
+        $ ["nix", "flake", "update", "--accept-flake-config", "--flake", fromPath $ parent path]
 
-{- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
-To this end we write a single derivation that depends on each of the configurations we wish to build.
-The resulting output path contains symlinks for each configuration by name.
--}
-buildConfigurations :: (HasCallStack) => NonEmpty Configuration -> App (NonEmpty (Configuration, Path Abs Dir))
+-- | We wish to build multiple configurations, but avoid evaluating Trilby and Nixpkgs multiple times.
+-- To this end we write a single derivation that depends on each of the configurations we wish to build.
+-- The resulting output path contains symlinks for each configuration by name.
+buildConfigurations
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => NonEmpty Configuration
+    -> Eff es (NonEmpty (Configuration, Path Abs Dir))
 buildConfigurations (configuration :| []) = (configuration,) <$$> NonEmpty.fromList <$> nixBuild f
   where
     f =
@@ -73,7 +104,13 @@ buildConfigurations configurations = withTempFile $(mkRelFile "update.nix") $ \t
           ]
         |]
     [resultPath] <- nixBuild (File $ Abs tmpFile)
-    flip genM configurations $ getSymlinkTarget parseAbsDir . Abs . (resultPath </>) <=< parseRelFile . fromText . (.name)
+    flip genM configurations
+        $ getSymlinkTarget parseAbsDir
+        . Abs
+        . (resultPath </>)
+        <=< parseRelFile
+        . fromText
+        . (.name)
 
 data ConfigAction
     = ConfigBoot
@@ -86,7 +123,12 @@ instance Show ConfigAction where
     show ConfigSwitch = "switch"
     show ConfigTest = "test"
 
-switchToConfiguration :: (HasCallStack) => Host -> Path Abs Dir -> ConfigAction -> App ()
+switchToConfiguration
+    :: (HasCallStack, IOE :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> Path Abs Dir
+    -> ConfigAction
+    -> Eff es ()
 switchToConfiguration host path action = do
     case action of
         ConfigBoot -> setProfile host path
@@ -110,7 +152,11 @@ switchToConfiguration host path action = do
   where
     activationScript = path </> $(mkRelFile "bin/switch-to-configuration")
 
-setProfile :: (HasCallStack) => Host -> Path Abs t -> App ()
+setProfile
+    :: (HasCallStack, IOE :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> Path Abs t
+    -> Eff es ()
 setProfile host path =
     ssh host (asRoot $ runProcess_ . proc)
         . sconcat
@@ -119,7 +165,19 @@ setProfile host path =
           , ["--set", fromPath path]
           ]
 
-updateDarwin :: (HasCallStack) => UpdateOpts App -> Path Abs Dir -> App ()
+updateDarwin
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => UpdateOpts (Eff es)
+    -> Path Abs Dir
+    -> Eff es ()
 updateDarwin opts trilbyDir = inDir trilbyDir do
     cmd_ ["darwin-rebuild", "build", "--flake", fromPath trilbyDir]
     let result = $(mkRelDir "./result")

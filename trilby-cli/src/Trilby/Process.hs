@@ -87,7 +87,8 @@ readProcess
 readProcess p = withFrozenCallStack do
     logProc p
     (code, out, err) <- Process.readProcess p
-    logTrace (Text.pack . show $ p) $ Aeson.object ["exitCode" .= code, "stdout" .= out, "stderr" .= err]
+    logTrace (Text.pack . show $ p) $
+        Aeson.object ["exitCode" .= code, "stdout" .= out, "stderr" .= err]
     pure (code, out, err)
 
 readProcessStdout
