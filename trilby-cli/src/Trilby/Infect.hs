@@ -37,7 +37,6 @@ infect (askOpts -> opts) = do
 
 buildKexec
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Environment :> es
        , Concurrent :> es

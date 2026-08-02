@@ -1,9 +1,9 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 
 {
   globals.mapleader = lib.mkDefault " ";
   luaLoader.enable = true;
-  clipboard.providers.wl-copy.enable = lib.mkDefault true;
+  clipboard.providers.wl-copy.enable = lib.mkDefault pkgs.stdenv.hostPlatform.isLinux;
   extraConfigLuaPre = builtins.readFile ../init.lua;
   plugins = {
     gitsigns.enable = lib.mkDefault true;

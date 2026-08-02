@@ -48,7 +48,6 @@ disko action =
 
 getDisko
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es

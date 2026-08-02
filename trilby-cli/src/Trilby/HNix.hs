@@ -68,7 +68,6 @@ showNix = fromString . show . prettyNix . toExpr
 writeNixFile
     :: ( ToExpr a
        , HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
        , Reader Host :> es

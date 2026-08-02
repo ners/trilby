@@ -1,6 +1,6 @@
 { trilby, lib, pkgs, ... }:
 
-{
+lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") ({
   imports = with trilby.inputs.self.nixosModules; [
     profiles.base
     profiles.firefox
@@ -31,4 +31,4 @@
 lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
   # Both Gnome and Sway declare this as default, so let's resolve the ambiguity.
   programs.gnupg.agent.pinentryPackage = pkgs.unstable.pinentry-gnome3;
-}
+})

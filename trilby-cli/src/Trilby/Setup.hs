@@ -4,7 +4,7 @@ import Data.Text.IO qualified as Text
 import Effectful.Path (overPath)
 import Effectful.Path qualified as Path
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
-import Trilby.Host (Host)
+import Trilby.Host (Host (..))
 import Trilby.Prelude
 
 nixBins
@@ -25,7 +25,6 @@ installNix = shell_ ["curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/i
 
 ensureFlakes
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
@@ -66,7 +65,6 @@ findBinary c = do
 
 ensureNix
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Environment :> es
        , Concurrent :> es

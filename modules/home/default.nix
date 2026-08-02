@@ -8,7 +8,7 @@
 
   imports =
     let kernelName = trilby.hostSystem.kernel.name; in
-    if kernelName == "linux" then lib.findModulesList ./.
+    if kernelName == "linux" then [ ./linux.nix ]
     else if kernelName == "darwin" then [ ./darwin.nix ]
     else [ ];
 

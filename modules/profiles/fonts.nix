@@ -48,40 +48,41 @@ in
   fonts = lib.mkMerge [
     {
       fontDir.enable = true;
-      fontconfig.enable = true;
       enableGhostscriptFonts = true;
+      fontconfig = {
+        enable = true;
+        defaultFonts = {
+          sansSerif = [ "Source Sans Pro" ];
+          serif = [ "Source Serif Pro" ];
+          monospace = [ "Iosevka Nerd Font" ];
+          emoji = [ "Noto Color Emoji" ];
+        };
 
-      fontconfig.defaultFonts = {
-        sansSerif = [ "Source Sans Pro" ];
-        serif = [ "Source Serif Pro" ];
-        monospace = [ "Iosevka Nerd Font" ];
-        emoji = [ "Noto Color Emoji" ];
+        localConf = /*xml*/ ''
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+          <fontconfig>
+            <alias binding="weak">
+              <family>monospace</family>
+              <prefer>
+                <family>emoji</family>
+              </prefer>
+            </alias>
+            <alias binding="weak">
+              <family>sans-serif</family>
+              <prefer>
+                <family>emoji</family>
+              </prefer>
+            </alias>
+            <alias binding="weak">
+              <family>serif</family>
+              <prefer>
+                <family>emoji</family>
+              </prefer>
+            </alias>
+          </fontconfig>
+        '';
       };
-
-      fontconfig.localConf = /*xml*/ ''
-        <?xml version="1.0"?>
-        <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-        <fontconfig>
-          <alias binding="weak">
-            <family>monospace</family>
-            <prefer>
-              <family>emoji</family>
-            </prefer>
-          </alias>
-          <alias binding="weak">
-            <family>sans-serif</family>
-            <prefer>
-              <family>emoji</family>
-            </prefer>
-          </alias>
-          <alias binding="weak">
-            <family>serif</family>
-            <prefer>
-              <family>emoji</family>
-            </prefer>
-          </alias>
-        </fontconfig>
-      '';
     }
     (if (lib.versionAtLeast trilby.release "23.11")
     then { packages = fonts; }

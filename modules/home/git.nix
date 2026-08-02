@@ -11,7 +11,7 @@ lib.recursiveConcat [
         enable = lib.mkDefault true;
         git = {
           enable = lib.mkDefault true;
-          diffToolMode = lib.mkDefault true;
+          mode = lib.mkDefault "both";
         };
       };
       git.settings.log.date = lib.mkDefault "iso";

@@ -463,7 +463,6 @@ instance Show Owner where
 
 currentOwner
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
        , Reader Host :> es
@@ -493,7 +492,6 @@ changeOwner owner dir = asRoot cmd_ ["chown", "-R", ishow owner, fromPath dir]
 
 ensureDir
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
        , Reader Host :> es
@@ -535,7 +533,6 @@ inDir d a = do
 
 writeFile
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
        , Reader Host :> es
@@ -548,6 +545,9 @@ writeFile
     -> Text
     -> Eff es ()
 writeFile f t = do
+    Reader.ask >>= \case
+        Localhost -> pure ()
+        host -> errorExit $ "writeFile: tried to write " <> fromPath f <> " on host " <> ishow host
     logTrace ("writeFile " <> fromPath f) t
     ensureDir $ parent f
     liftIO $ Text.writeFile (fromPath f) t

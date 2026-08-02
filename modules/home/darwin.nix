@@ -1,5 +1,3 @@
-{ ... }:
-
 {
   imports = [
     ./direnv.nix
@@ -9,4 +7,6 @@
     ./starship.nix
     ./zsh
   ];
+
+  disabledModules = [ "misc/fontconfig.nix" ];
 }

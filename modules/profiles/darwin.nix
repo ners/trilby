@@ -1,7 +1,7 @@
 { trilby, ... }:
 
 {
-  imports = with trilby.inputs.self.nixosModules; [
+  imports = with trilby.inputs; with self.nixosModules; [
     home-manager.darwinModules.default
     profiles.base
     profiles.nix
