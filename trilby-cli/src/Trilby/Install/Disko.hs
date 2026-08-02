@@ -16,6 +16,7 @@ import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
 import Trilby.Disko.Partition
 import Trilby.HNix (FileOrFlake (..))
+import Trilby.Host (Host)
 import Trilby.Install.Options
 import Trilby.Prelude
 
@@ -28,7 +29,14 @@ data DiskoAction
     deriving stock (Generic)
 
 disko
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => DiskoAction
     -> Eff es ()
 disko action =
@@ -44,6 +52,7 @@ getDisko
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es

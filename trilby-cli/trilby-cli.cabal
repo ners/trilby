@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: trilby-cli
-version: 25.12
+version: 26.8
 synopsis: Trilby command line tools
 homepage: https://github.com/ners/trilby
 license: Apache-2.0
@@ -56,9 +56,8 @@ common common
     TypeFamilies
     ViewPatterns
 
-executable trilby
+library
   import: common
-  main-is: Main.hs
   hs-source-dirs: src
   build-depends:
     Glob,
@@ -79,7 +78,6 @@ executable trilby
     lens-family-th,
     log-base,
     log-effectful,
-    monad-time-effectful,
     optparse-applicative,
     path,
     path-io-effectful,
@@ -99,8 +97,10 @@ executable trilby
     Paths_trilby_cli
 
   other-modules:
-    Effectful.Path
     Paths_trilby_cli
+
+  exposed-modules:
+    Effectful.Path
     Trilby.App
     Trilby.BootloaderEntry
     Trilby.Clean
@@ -136,3 +136,34 @@ executable trilby
     Trilby.Util
     Trilby.Version
     Trilby.Widgets
+
+executable trilby
+  import: common
+  main-is: Main.hs
+  hs-source-dirs: app
+  build-depends:
+    effectful >=2.4,
+    monad-time-effectful,
+    optparse-applicative,
+    path-io-effectful,
+    trilby-cli,
+    typed-process-effectful,
+
+test-suite spec
+  import: common
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs: test
+  build-depends:
+    QuickCheck,
+    base,
+    hspec,
+    text,
+    trilby-cli,
+
+  other-modules:
+    Trilby.Disko.FilesystemSpec
+    Trilby.HostSpec
+    Trilby.Install.Config.EditionSpec
+    Trilby.Install.Config.ReleaseSpec
+    Trilby.SystemSpec

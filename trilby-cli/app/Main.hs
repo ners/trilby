@@ -12,6 +12,7 @@ import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Clean (clean)
 import Trilby.Command
+import Trilby.Host (Host (Localhost), onHost)
 import Trilby.Infect (infect)
 import Trilby.Install (install)
 import Trilby.Install.Options (validateParsedInstallOpts)
@@ -39,9 +40,9 @@ main = do
         $ \tmpDir -> do
             commandCache <- newTVarIO mempty
             runReader AppState{..} $ do
-                ensureNix
+                onHost Localhost ensureNix
                 case opts.command of
                     Clean o -> clean o
                     Infect o -> infect o
-                    Install o -> install =<< validateParsedInstallOpts o
+                    Install o -> onHost Localhost $ install =<< validateParsedInstallOpts o
                     Update o -> update o

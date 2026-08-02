@@ -12,6 +12,7 @@ import Text.XML.Light qualified as XML
 import Text.XML.Light.Cursor qualified as XML (Cursor)
 import Text.XML.Light.Cursor qualified as XML.Cursor
 import Trilby.HNix
+import Trilby.Host (Host)
 import Trilby.Prelude
 
 data Keyboard = Keyboard
@@ -48,7 +49,7 @@ instance ToExpr Keyboard where
             & canonicalSet
 
 getCurrentKeyboard
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => Eff es (Maybe Keyboard)
 getCurrentKeyboard = do
     localeStatus <- cmdOutTextLines ["localectl", "status", "--full"]
@@ -62,6 +63,7 @@ getAllKeyboards
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -102,6 +104,7 @@ getAllKeyboards = do
            , IOE :> es
            , Concurrent :> es
            , Reader AppState :> es
+           , Reader Host :> es
            , TypedProcess :> es
            , Log :> es
            )
@@ -117,6 +120,7 @@ getAllKeyboards = do
            , IOE :> es
            , Concurrent :> es
            , Reader AppState :> es
+           , Reader Host :> es
            , TypedProcess :> es
            , Log :> es
            , FileSystem :> es
@@ -137,6 +141,7 @@ getAllKeyboards = do
            , IOE :> es
            , Concurrent :> es
            , Reader AppState :> es
+           , Reader Host :> es
            , TypedProcess :> es
            , Log :> es
            , FileSystem :> es

@@ -1,5 +1,10 @@
 # Revision history for trilby-cli
 
+## 26.8 -- 2026-08-03
+
+* Remove App in favour of granular effects
+* Wrap per-Host commands in an `onHost` effect
+
 ## 25.12 -- 2025-12-02
 
 * Read optional TRILBY env var to locate Trilby flake

@@ -4,6 +4,7 @@ import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
+import Trilby.Configuration qualified as Configuration
 import Trilby.Disko.Filesystem
 import Trilby.Host
 import Trilby.Install.Config.Edition
@@ -115,7 +116,14 @@ validateDisk f = do
             pure Nothing
 
 askDisk
-    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Eff es (Path Abs File)
 askDisk = do
     disks <-
@@ -152,6 +160,7 @@ askKeyboard
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -174,6 +183,7 @@ askLocale
        , IOE :> es
        , Environment :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        )
@@ -192,7 +202,7 @@ askLocale = do
     addSuffix = (<> ".UTF-8")
 
 askTimezone
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => Eff es Text
 askTimezone = do
     currentTz <- cmdOutTextFirstLine ["timedatectl", "show", "--property=Timezone", "--value"]
@@ -209,6 +219,7 @@ askOpts
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -224,7 +235,8 @@ askOpts opts =
         , filesystem = maybe (selectEnum "Choose root partition filesystem:" Nothing) pure opts.filesystem
         , edition = maybe (selectEnum "Choose edition:" Nothing) pure opts.edition
         , release = maybe (selectEnum "Choose release:" Nothing) pure opts.release
-        , hostname = maybe (textInput "Choose hostname:" =<< hostname Localhost) pure opts.hostname
+        , hostname =
+            maybe (textInput "Choose hostname:" =<< onHost Localhost Configuration.hostname) pure opts.hostname
         , keyboard = maybe askKeyboard pure opts.keyboard
         , locale = maybe askLocale pure opts.locale
         , timezone = maybe askTimezone pure opts.timezone

@@ -4,6 +4,7 @@ import Data.Text.IO qualified as Text
 import Effectful.Path (overPath)
 import Effectful.Path qualified as Path
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
+import Trilby.Host (Host)
 import Trilby.Prelude
 
 nixBins
@@ -18,7 +19,8 @@ prependToPath :: (Environment :> es) => [Path Abs Dir] -> Eff es ()
 prependToPath = overPath . (<>) . fmap toFilePath
 
 installNix
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es) => Eff es ()
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
+    => Eff es ()
 installNix = shell_ ["curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install | sh"]
 
 ensureFlakes
@@ -27,6 +29,7 @@ ensureFlakes
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -44,6 +47,7 @@ setupNixMonitored
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -67,6 +71,7 @@ ensureNix
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -87,6 +92,7 @@ ensureDeps
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -100,6 +106,7 @@ ensureDeps deps = do
                , IOE :> es
                , Concurrent :> es
                , Reader AppState :> es
+               , Reader Host :> es
                , TypedProcess :> es
                , Log :> es
                , FileSystem :> es

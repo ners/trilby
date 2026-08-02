@@ -25,8 +25,12 @@ readPrecBoundedEnumOn
     -> ReadPrec a
 readPrecBoundedEnumOn m = ReadPrec.lift . ReadP.choice $ tryChoose <$> [minBound .. maxBound]
   where
+    -- Accepts both the transformed wire form (e.g. lowercase) and 'show's own
+    -- output verbatim, so `read . show` round-trips regardless of the mapping.
+    -- (De-duplicated: trying the same literal twice makes ReadP report the
+    -- otherwise-unambiguous parse as ambiguous.)
     tryChoose :: a -> ReadP a
-    tryChoose a = a <$ ReadP.string (m $ show a)
+    tryChoose a = a <$ ReadP.choice (ReadP.string <$> List.nub [m $ show a, show a])
 
 readPrecBoundedEnum :: (Show a, Bounded a, Enum a) => ReadPrec a
 readPrecBoundedEnum = readPrecBoundedEnumOn id

@@ -9,7 +9,7 @@ import Data.Aeson
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (genericParseJSON)
 import Data.List.Extra qualified as List
-import Trilby.Host (Host (..), ssh)
+import Trilby.Host (Host (..))
 import Trilby.Prelude
 
 data BootloaderEntryType
@@ -38,7 +38,12 @@ instance FromJSON BootloaderEntry where
     parseJSON = genericParseJSON defaultOptions{fieldLabelModifier = \s -> fromMaybe s $ List.stripSuffix "'" s}
 
 getBootloaderEntries
-    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
-    => Host
-    -> Eff es [BootloaderEntry]
-getBootloaderEntries host = ssh host cmdOutJson ["bootctl", "list", "--json=short", "--no-pager"]
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Eff es [BootloaderEntry]
+getBootloaderEntries = cmdOutJson ["bootctl", "list", "--json=short", "--no-pager"]

@@ -148,6 +148,7 @@ import System.Process.Typed qualified as Process
 import Text.Read (Read (..), ReadPrec, readMaybe)
 import Trilby.App
 import Trilby.FlakeRef
+import Trilby.Host (Host (Localhost), withHost)
 import Trilby.Log
 import Trilby.Process
 import Trilby.System
@@ -201,23 +202,59 @@ isRoot = (0 ==) <$> liftIO getEffectiveUserID
 asUser :: (HasCallStack) => (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
 asUser = id
 
-asRoot :: (HasCallStack, IOE :> es) => (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
-asRoot c t = ifM isRoot (c t) (c t')
+hostSystem
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Eff es System
+hostSystem = do
+    systemText <-
+        cached (maybe (errorExit "hostSystem failed") pure <=< cmdOutTextFirstLine)
+            . sconcat
+            $ [ ["nix", "eval"]
+              , ["--impure"]
+              , ["--raw"]
+              , ["--expr", "builtins.currentSystem"]
+              ]
+    pure . read . Text.unpack $ systemText
+
+asRoot
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , Log :> es
+       )
+    => (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
+asRoot c t = do
+    System{kernel} <- hostSystem
+    ifM isRoot (c t) (c $ escalate kernel t)
   where
-    t'
-        | "ssh" :| (sshArgs -> (args, xs)) <- t = "ssh" :| (args <> sudo xs)
-        | otherwise = run0 t
-    sshArgs :: [Text] -> ([Text], [Text])
-    sshArgs ("-t" : xs) = first ("-t" :) $ sshArgs xs
-    sshArgs ("-o" : x : xs) = first (["-o", x] <>) $ sshArgs xs
-    sshArgs (x : xs) = ([x], xs)
-    sshArgs [] = ([], [])
+    escalate :: Kernel -> NonEmpty Text -> NonEmpty Text
+    escalate Linux = run0
+    escalate Darwin = sudo
     run0, sudo :: (Semigroup (f Text), Applicative f) => f Text -> f Text
     run0 = prepend "run0" . prepend "--background="
     sudo = prepend "sudo"
 
 asRootIf
-    :: (HasCallStack, IOE :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader Host :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Bool
     -> (NonEmpty Text -> Eff es a)
     -> NonEmpty Text
@@ -225,7 +262,14 @@ asRootIf
 asRootIf b = if b then asRoot else id
 
 asRootWhenM
-    :: (HasCallStack, IOE :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader Host :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Eff es Bool
     -> (NonEmpty Text -> Eff es a)
     -> NonEmpty Text
@@ -233,7 +277,14 @@ asRootWhenM
 asRootWhenM b c t = b >>= \b -> asRootIf b c t
 
 asRootUnlessM
-    :: (HasCallStack, IOE :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader Host :> es
+       , Reader AppState :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Eff es Bool
     -> (NonEmpty Text -> Eff es a)
     -> NonEmpty Text
@@ -291,7 +342,6 @@ processCodeOutText =
 
 processOutJson
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
        , TypedProcess :> es
@@ -301,83 +351,103 @@ processOutJson
     => ProcessConfig stdin stdoutIgnored stderr
     -> Eff es a
 processOutJson =
-    withFrozenCallStack $ either fail pure . Aeson.eitherDecode <=< readProcessStdout_ <=< defaultProc
+    withFrozenCallStack $
+        either (errorExit . fromString) pure . Aeson.eitherDecode <=< readProcessStdout_ <=< defaultProc
+
+-- | Build a shell 'ProcessConfig' for a whole shell command line, run over SSH
+-- (as a single opaque remote argument, so pipes/quoting are preserved) when the
+-- Host in scope is not 'Localhost'.
+hostShellConfig :: (Reader Host :> es) => NonEmpty Text -> Eff es (ProcessConfig () () ())
+hostShellConfig t =
+    Reader.ask <&> \case
+        Localhost -> shell joined
+        host -> proc $ "ssh" :| ["-t", ishow host, joined]
+  where
+    joined = Text.unwords $ NonEmpty.toList t
 
 shell_
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es ()
-shell_ = withFrozenCallStack $ process_ . shell . Text.unwords . NonEmpty.toList
+shell_ = withFrozenCallStack $ process_ <=< hostShellConfig
 
 shellOutText
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es Text
-shellOutText = withFrozenCallStack $ processOutText . shell . Text.unwords . NonEmpty.toList
+shellOutText = withFrozenCallStack $ processOutText <=< hostShellConfig
 
 shellOutTextFirstLine
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es (Maybe Text)
-shellOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . shell . Text.unwords . NonEmpty.toList
+shellOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine <=< hostShellConfig
 
 shellOutTextLines
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es [Text]
-shellOutTextLines = withFrozenCallStack $ processOutTextLines . shell . Text.unwords . NonEmpty.toList
+shellOutTextLines = withFrozenCallStack $ processOutTextLines <=< hostShellConfig
 
 cmd_
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es ()
-cmd_ = withFrozenCallStack $ process_ . proc
+cmd_ = withFrozenCallStack $ withHost (process_ . proc)
 
 cmdCode
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es ExitCode
-cmdCode = withFrozenCallStack $ processCode . proc
+cmdCode = withFrozenCallStack $ withHost (processCode . proc)
 
 cmdOutText
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es Text
-cmdOutText = withFrozenCallStack $ processOutText . proc
+cmdOutText = withFrozenCallStack $ withHost (processOutText . proc)
 
 cmdCodeOutText
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es (ExitCode, Text)
-cmdCodeOutText = withFrozenCallStack $ processCodeOutText . proc
+cmdCodeOutText = withFrozenCallStack $ withHost (processCodeOutText . proc)
 
 cmdOutTextLines
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es [Text]
-cmdOutTextLines = withFrozenCallStack $ processOutTextLines . proc
+cmdOutTextLines = withFrozenCallStack $ withHost (processOutTextLines . proc)
 
 cmdOutTextFirstLine
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => NonEmpty Text
     -> Eff es (Maybe Text)
-cmdOutTextFirstLine = withFrozenCallStack $ processOutTextFirstLine . proc
+cmdOutTextFirstLine = withFrozenCallStack $ withHost (processOutTextFirstLine . proc)
 
 cmdOutJson
     :: ( HasCallStack
-       , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FromJSON a
        )
     => NonEmpty Text
     -> Eff es a
-cmdOutJson = withFrozenCallStack $ processOutJson . proc
+cmdOutJson = withFrozenCallStack $ withHost (processOutJson . proc)
 
 createDir
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es, FileSystem :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
     => Path b Dir
     -> Eff es ()
 createDir dir = do
@@ -396,6 +466,7 @@ currentOwner
        , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , Concurrent :> es
        , TypedProcess :> es
        , Log :> es
@@ -407,7 +478,14 @@ currentOwner = do
     pure Owner{..}
 
 changeOwner
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       , Concurrent :> es
+       )
     => Owner
     -> Path b t
     -> Eff es ()
@@ -418,6 +496,7 @@ ensureDir
        , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , Concurrent :> es
        , TypedProcess :> es
        , Log :> es
@@ -437,6 +516,7 @@ inDir
        , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , Concurrent :> es
        , TypedProcess :> es
        , Log :> es
@@ -458,6 +538,7 @@ writeFile
        , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , Concurrent :> es
        , TypedProcess :> es
        , Log :> es
@@ -511,7 +592,7 @@ containsNoneOf :: (Each s s a a, Foldable t, Eq a) => t a -> s -> Bool
 containsNoneOf = noneOf each . flip elem
 
 isGitTracked
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
     => Path b1 Dir
     -> Path b2 t2
     -> Eff es Bool

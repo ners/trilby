@@ -10,6 +10,7 @@ import Data.Fix
 import Data.List.Extra qualified as List
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
+import Effectful.Reader.Static qualified as Reader
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
@@ -70,6 +71,7 @@ writeNixFile
        , Fail :> es
        , IOE :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , Concurrent :> es
        , TypedProcess :> es
        , Log :> es
@@ -106,53 +108,66 @@ nixBuild f =
             )
 
 copyClosure
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
-    => Host
-    -> Path Abs Dir
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       , Concurrent :> es
+       )
+    => Path Abs Dir
     -> Eff es ()
-copyClosure Localhost _ = pure ()
-copyClosure host@Host{} path = do
-    ssh host cmdCode ["command", "-v", "nix-store"] >>= \case
-        ExitSuccess ->
-            cmd_
-                . sconcat
-                $ [ ["nix-copy-closure"]
-                  , ["--use-substitutes"]
-                  , ["--gzip"]
-                  , ["--to", ishow host]
-                  , [fromPath path]
-                  ]
-        _ -> do
-            ssh host (asRoot $ runProcess_ . proc) ["sh", "-c", "mkdir -p /nix && chown -R $(whoami) /nix"]
-            shell_
-                . sconcat
-                $ [
-                      [ "nix-store"
-                      , "--query"
-                      , "--requisites"
-                      , fromPath path
-                      ]
-                  , ["|"]
-                  ,
-                      [ "tar"
-                      , "--create"
-                      , "--gzip"
-                      , "--file=-"
-                      , "--files-from=-"
-                      , "--mode='u+rw'"
-                      ]
-                  , ["|"]
-                  , sconcat
-                        [ "ssh" :| ["-t", ishow host]
-                        ,
-                            [ "tar"
-                            , "--extract"
-                            , "--gzip"
-                            , "--file=-"
-                            , "--directory=/"
-                            ]
-                        ]
-                  ]
+copyClosure path =
+    Reader.ask >>= \case
+        Localhost -> pure ()
+        host@Host{} ->
+            cmdCode ["command", "-v", "nix-store"] >>= \case
+                ExitSuccess ->
+                    -- nix-copy-closure pushes to `--to host` itself over its own SSH connection,
+                    -- so this always runs locally.
+                    onHost Localhost
+                        . cmd_
+                        . sconcat
+                        $ [ ["nix-copy-closure"]
+                          , ["--use-substitutes"]
+                          , ["--gzip"]
+                          , ["--to", ishow host]
+                          , [fromPath path]
+                          ]
+                _ -> do
+                    asRoot (withHost $ runProcess_ . proc) ["sh", "-c", "mkdir -p /nix && chown -R $(whoami) /nix"]
+                    -- This pipeline runs locally; only its last stage (an explicit ssh) is remote.
+                    onHost Localhost
+                        . shell_
+                        . sconcat
+                        $ [
+                              [ "nix-store"
+                              , "--query"
+                              , "--requisites"
+                              , fromPath path
+                              ]
+                          , ["|"]
+                          ,
+                              [ "tar"
+                              , "--create"
+                              , "--gzip"
+                              , "--file=-"
+                              , "--files-from=-"
+                              , "--mode='u+rw'"
+                              ]
+                          , ["|"]
+                          , sconcat
+                                [ "ssh" :| ["-t", ishow host]
+                                ,
+                                    [ "tar"
+                                    , "--extract"
+                                    , "--gzip"
+                                    , "--file=-"
+                                    , "--directory=/"
+                                    ]
+                                ]
+                          ]
 
 trilbyFlake
     :: ( HasCallStack
@@ -160,6 +175,7 @@ trilbyFlake
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        )
@@ -172,7 +188,14 @@ trilbyFlake output = do
     urlFromEnv :: (Environment :> es) => Eff es (Maybe Text)
     urlFromEnv = fromString <$$> lookupEnv "TRILBY"
     urlFromRegistry
-        :: (HasCallStack, IOE :> es, Concurrent :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+        :: ( HasCallStack
+           , IOE :> es
+           , Concurrent :> es
+           , Reader AppState :> es
+           , Reader Host :> es
+           , TypedProcess :> es
+           , Log :> es
+           )
         => Eff es (Maybe Text)
     urlFromRegistry =
         cached cmdCode ["nix", "flake", "metadata", "trilby"] <&> \case

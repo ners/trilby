@@ -24,15 +24,15 @@ infect
     => InfectOpts Maybe
     -> Eff es ()
 infect (askOpts -> opts) = do
-    configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< opts.hosts
-    for_ configurations \Configuration{..} -> do
-        system <- hostSystem host
+    configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< onHost Localhost opts.hosts
+    for_ configurations \Configuration{..} -> onHost host do
+        system <- hostSystem
         case system.kernel of
             Linux -> do
                 [kexec] <- buildKexec opts
-                copyClosure host kexec
+                copyClosure kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ ssh host (asRoot $ runProcess_ . proc) [fromPath bin]
+                whenM opts.reboot $ asRoot (withHost $ runProcess_ . proc) [fromPath bin]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec
@@ -42,6 +42,7 @@ buildKexec
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es

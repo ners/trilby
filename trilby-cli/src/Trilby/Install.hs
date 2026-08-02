@@ -1,7 +1,9 @@
 module Trilby.Install (install) where
 
+import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (writeNixFile)
-import Trilby.Host (Host (Localhost), hostSystem, reboot)
+import Trilby.Host (Host (Localhost), onHost)
+import Trilby.Host qualified as Host
 import Trilby.Install.Config.Host
 import Trilby.Install.Config.User
 import Trilby.Install.Disko
@@ -26,17 +28,17 @@ install
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host.Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
        )
     => InstallOpts Maybe
     -> Eff es ()
-install (askOpts -> opts) = do
-    system <- hostSystem Localhost
-    case system.kernel of
-        Linux -> installLinux opts
-        Darwin -> installDarwin opts
+install (askOpts -> opts) =
+    hostSystem >>= \case
+        System{kernel = Linux} -> installLinux opts
+        System{kernel = Darwin} -> installDarwin opts
 
 installLinux
     :: ( HasCallStack
@@ -45,6 +47,7 @@ installLinux
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host.Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -65,7 +68,7 @@ installLinux opts | Just FlakeOpts{..} <- opts.flake = do
             shellOutTextFirstLine ["nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path"]
         asRoot cmd_ ["cp", "-r", storePath, fromPath $ trilbyDir Linux]
         asRoot cmd_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
-    reboot opts.reboot Localhost
+    whenM opts.reboot Configuration.reboot
 installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     disko <- getDisko opts
     inDir (parent diskoFile) $ writeNixFile diskoFile disko
@@ -75,10 +78,17 @@ installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     flakeRef <- setupHost Linux opts $ \hostDir _ -> do
         inDir hostDir $ writeNixFile $(mkRelFile "disko.nix") $ sanitise disko
     nixosInstall flakeRef
-    reboot opts.reboot Localhost
+    whenM opts.reboot Configuration.reboot
 
 formatDisk
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Eff es Bool
     -> FileOrFlake
     -> Eff es ()
@@ -87,7 +97,14 @@ formatDisk f d = whenM f do
     disko $ Format d
 
 mountRoot
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => FileOrFlake
     -> Eff es ()
 mountRoot d = unlessM rootIsMounted do
@@ -97,7 +114,14 @@ mountRoot d = unlessM rootIsMounted do
     disko $ Mount d
   where
     rootIsMounted
-        :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es) => Eff es Bool
+        :: ( HasCallStack
+           , IOE :> es
+           , Reader AppState :> es
+           , Reader Host.Host :> es
+           , TypedProcess :> es
+           , Log :> es
+           )
+        => Eff es Bool
     rootIsMounted = (ExitSuccess ==) <$> cmdCode ["mountpoint", "-q", fromPath $ rootMount Linux]
 
 flakeNix, defaultNix, configurationNix :: Path Rel File
@@ -112,6 +136,7 @@ setupHost
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host.Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es
@@ -149,7 +174,7 @@ setupHost kernel opts actions = do
         let userFile = userDir </> defaultNix
         writeNixFile userFile user
         inDir hostDir do
-            platform <- show <$> hostSystem Localhost
+            platform <- show <$> onHost Localhost hostSystem
             writeNixFile
                 defaultNix
                 [nix|
@@ -194,14 +219,28 @@ setupHost kernel opts actions = do
     pure FlakeRef{url = fromPath realTrilbyDir, output = pure hostname}
 
 hashedPassword
-    :: (HasCallStack, Fail :> es, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Text
     -> Eff es Password
 hashedPassword plain =
     maybe (fail "mkpasswd failed") (pure . HashedPassword) =<< cmdOutTextFirstLine ["mkpasswd", plain]
 
 nixosInstall
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => FlakeRef
     -> Eff es ()
 nixosInstall flakeRef = do
@@ -231,6 +270,7 @@ installDarwin
        , Environment :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host.Host :> es
        , TypedProcess :> es
        , Log :> es
        , FileSystem :> es

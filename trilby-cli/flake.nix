@@ -41,7 +41,7 @@
       src = sourceFilter ./.;
       overlay = lib.composeManyExtensions [
         inputs.terminal-widgets.overlays.default
-        (final: prev: with prev.haskell.lib.compose;  {
+        (final: prev: with prev.haskell.lib.compose; {
           haskell = prev.haskell // {
             packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
@@ -80,7 +80,7 @@
               })
             ];
           };
-          ${pname} = final.haskellPackages.${pname};
+          ${pname} = justStaticExecutables final.haskellPackages.${pname};
         })
       ];
     in
