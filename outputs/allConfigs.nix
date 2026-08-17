@@ -31,7 +31,7 @@ let
       in
       {
         ${system.trilby.configurationName} = system.config.system.build.${system.trilby.format} // {
-          inherit (system.config.system.build) vm;
+          inherit (system) config;
         };
       }
     );

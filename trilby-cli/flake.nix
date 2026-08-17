@@ -39,45 +39,48 @@
           root;
       };
       src = sourceFilter ./.;
+      haskell-overlay = pkgs: with pkgs.lib; with pkgs.haskell.lib.compose; composeManyExtensions [
+        (hfinal: hprev: {
+          typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
+          path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
+          "${pname}" = hfinal.callCabal2nix pname src { };
+          hnix = dontCheck (doJailbreak (hfinal.callCabal2nix "hnix" inputs.hnix { }));
+          hnix-store-core = hprev.hnix-store-core_0_8_0_0;
+          hnix-store-remote = hprev.hnix-store-remote_0_7_0_0;
+        })
+        (hfinal: hprev: lib.optionalAttrs (lib.versionAtLeast hprev.ghc.version "9.12") {
+          algebraic-graphs = hprev.algebraic-graphs_0_8;
+          boring = doJailbreak hprev.boring;
+          constraints-extras = doJailbreak hprev.constraints-extras;
+          cryptonite = dontCheck hprev.cryptonite;
+          dependent-sum-template = doJailbreak hprev.dependent-sum-template;
+          generic-lens = dontCheck hprev.generic-lens_2_3_0_0;
+          generic-lens-core = hprev.generic-lens-core_2_3_0_0;
+          ghc-exactprint = addBuildDepends (with hfinal; [ Diff HUnit ghc-paths silently syb ]) hprev.ghc-exactprint_1_12_0_0;
+          hedgehog = hprev.hedgehog_1_7;
+          hnix-store-nar = doJailbreak hprev.hnix-store-nar;
+          lens-family = doJailbreak hprev.lens-family;
+          lens-family-core = doJailbreak hprev.lens-family-core;
+          lens-family-th = doJailbreak hprev.lens-family-th;
+          lifted-async = hprev.lifted-async_0_11_0;
+          nix-derivation = doJailbreak hprev.nix-derivation;
+          rebase = hprev.rebase_1_23;
+          relude = dontCheck hprev.relude;
+          repline = doJailbreak hprev.repline;
+          rerebase = hprev.rerebase_1_23;
+          saltine = doJailbreak hprev.saltine;
+          some = doJailbreak hprev.some;
+          tasty-hspec = doJailbreak hprev.tasty-hspec;
+          uuid = doJailbreak hprev.uuid;
+        })
+      ];
       overlay = lib.composeManyExtensions [
         inputs.terminal-widgets.overlays.default
         (final: prev: with prev.haskell.lib.compose; {
           haskell = prev.haskell // {
             packageOverrides = lib.composeManyExtensions [
               prev.haskell.packageOverrides
-              (hfinal: hprev: {
-                typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
-                path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
-                "${pname}" = hfinal.callCabal2nix pname src { };
-                hnix = dontCheck (doJailbreak (hfinal.callCabal2nix "hnix" inputs.hnix { }));
-                hnix-store-core = hprev.hnix-store-core_0_8_0_0;
-                hnix-store-remote = hprev.hnix-store-remote_0_7_0_0;
-              })
-              (hfinal: hprev: lib.optionalAttrs (lib.versionAtLeast hprev.ghc.version "9.12") {
-                algebraic-graphs = hprev.algebraic-graphs_0_8;
-                boring = doJailbreak hprev.boring;
-                constraints-extras = doJailbreak hprev.constraints-extras;
-                cryptonite = dontCheck hprev.cryptonite;
-                dependent-sum-template = doJailbreak hprev.dependent-sum-template;
-                generic-lens = dontCheck hprev.generic-lens_2_3_0_0;
-                generic-lens-core = hprev.generic-lens-core_2_3_0_0;
-                ghc-exactprint = addBuildDepends (with hfinal; [ Diff HUnit ghc-paths silently syb ]) hprev.ghc-exactprint_1_12_0_0;
-                hedgehog = hprev.hedgehog_1_7;
-                hnix-store-nar = doJailbreak hprev.hnix-store-nar;
-                lens-family = doJailbreak hprev.lens-family;
-                lens-family-core = doJailbreak hprev.lens-family-core;
-                lens-family-th = doJailbreak hprev.lens-family-th;
-                lifted-async = hprev.lifted-async_0_11_0;
-                nix-derivation = doJailbreak hprev.nix-derivation;
-                rebase = hprev.rebase_1_23;
-                relude = dontCheck hprev.relude;
-                repline = doJailbreak hprev.repline;
-                rerebase = hprev.rerebase_1_23;
-                saltine = doJailbreak hprev.saltine;
-                some = doJailbreak hprev.some;
-                tasty-hspec = doJailbreak hprev.tasty-hspec;
-                uuid = doJailbreak hprev.uuid;
-              })
+              (haskell-overlay final)
             ];
           };
           ${pname} = justStaticExecutables final.haskellPackages.${pname};
