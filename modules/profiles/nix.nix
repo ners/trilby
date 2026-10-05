@@ -17,7 +17,6 @@
       settings = {
         experimental-features = [ "nix-command" "flakes" ];
         trusted-users = [ "root" "@wheel" "@admin" ];
-        nix-path = config.nix.nixPath;
       };
       gc = {
         automatic = true;
@@ -33,11 +32,21 @@
           path = inputs.self.outPath;
         };
       };
+    }
+
+    (if lib.versionAtLeast trilby.release "26.05"
+    then {
+      settings.nix-path = [
+        "nixpkgs=${trilby.nixpkgs.outPath}"
+        "trilby=${inputs.self.outPath}"
+      ];
+    } else {
+      settings.nix-path = config.nix.nixPath;
       nixPath = [
         "nixpkgs=${trilby.nixpkgs.outPath}"
         "trilby=${inputs.self.outPath}"
       ];
-    }
+    })
 
     (lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") {
       channel.enable = false;
