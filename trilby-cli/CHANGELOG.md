@@ -2,6 +2,7 @@
 
 ## 26.8 -- 2026-08-03
 
+* Add Media command
 * Remove App in favour of granular effects
 * Wrap per-Host commands in an `onHost` effect
 

@@ -5,6 +5,7 @@ import Data.String (IsString (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import GHC.Generics (Generic)
+import Nix.TH (ToExpr (..))
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..))
@@ -22,6 +23,9 @@ instance Read Architecture where
       where
         allowed :: Char -> Bool
         allowed c = or @[] [isLetter c, isDigit c, c == '_']
+
+instance ToExpr Architecture where
+    toExpr = toExpr . show
 
 data Kernel
     = Linux
@@ -46,3 +50,6 @@ instance Read System where
         ReadPrec.lift $ ReadP.char '-'
         kernel <- readPrec
         pure System{..}
+
+instance ToExpr System where
+    toExpr = toExpr . show

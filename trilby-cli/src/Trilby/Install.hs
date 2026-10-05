@@ -1,6 +1,7 @@
 module Trilby.Install (install) where
 
-import Trilby.Configuration (ConfigAction (..), switchToConfiguration, buildConfiguration)
+import Effectful.Reader.Static qualified as Reader
+import Trilby.Configuration (ConfigAction (..), buildConfiguration, switchToConfiguration)
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), onHost)
@@ -14,7 +15,6 @@ import Trilby.Install.Options
 import Trilby.Prelude
 import Trilby.Setup (ensureDeps)
 import Trilby.Widgets
-import Effectful.Reader.Static qualified as Reader
 
 rootMount :: Kernel -> Path Abs Dir
 rootMount Linux = $(mkAbsDir "/mnt")
@@ -282,5 +282,5 @@ installDarwin
 -- installDarwin opts | Just FlakeOpts{..} <- opts.flake = pure ()
 installDarwin opts = do
     configuration <- Configuration.fromHost =<< Reader.ask
-    FlakeRef{output=[name]} <- setupHost Darwin opts \_ _ -> pure ()
+    FlakeRef{output = [name]} <- setupHost Darwin opts \_ _ -> pure ()
     flip switchToConfiguration ConfigSwitch =<< buildConfiguration configuration{Configuration.name}

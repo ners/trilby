@@ -30,8 +30,10 @@ instance ToExpr Host where
 
           services.xserver.xkb = keyboard;
 
-          i18n.defaultLocale = locale;
-          i18n.extraLocaleSettings.LC_ALL = locale;
+          i18n = {
+            defaultLocale = locale;
+            extraLocaleSettings.LC_ALL = locale;
+          };
 
           time.timeZone = timezone;
         }
