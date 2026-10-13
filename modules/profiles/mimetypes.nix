@@ -8,10 +8,7 @@ let
     ${mime} = (attrs.${mime} or [ ]) ++ lib.splitString ";" desktopNames;
   };
   invert = with lib; foldlAttrs
-    (acc: desktopNames: mimes:
-      if isList mimes then foldr (addMime desktopNames) acc mimes
-      else addMime desktopName mimes acc
-    )
+    (acc: desktopNames: mimes: foldr (addMime desktopNames) acc mimes)
     { };
 in
 {

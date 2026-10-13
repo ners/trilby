@@ -1,28 +1,16 @@
+{ trilby, lib, ... }:
+
 {
   networking = {
     networkmanager.enable = true;
-    useNetworkd = true;
     firewall.enable = true;
     nftables.enable = true;
-    # speed up boot
-    dhcpcd = {
-      wait = "background";
-      extraConfig = "noarp";
-    };
   };
 
   services.resolved.enable = true;
 
-  systemd = {
-    # use systemd networkd
-    network = {
-      enable = true;
-      wait-online.anyInterface = true;
-    };
-    services = {
-      # speed up boot
-      NetworkManager-wait-online.enable = false;
-      systemd-udev-settle.enable = false;
-    };
+  systemd.services = {
+    NetworkManager-wait-online.enable = lib.mkDefault (trilby.edition == "server");
+    systemd-udev-settle.enable = false;
   };
 }

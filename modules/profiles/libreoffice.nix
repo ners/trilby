@@ -56,7 +56,6 @@
     ];
     "libreoffice-draw.desktop" = [
       "application/clarisworks"
-      "application/pdf"
       "application/vnd.corel-draw"
       "application/vnd.ms-publisher"
       "application/vnd.oasis.opendocument.graphics"
@@ -144,7 +143,6 @@
       "application/x-starwriter"
       "application/x-starwriter-global"
       "application/x-t602"
-      "text/plain"
       "text/rtf"
     ];
   };
