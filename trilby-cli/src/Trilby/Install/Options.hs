@@ -16,6 +16,11 @@ import Trilby.Install.Config.Release
 import Trilby.Prelude
 import Trilby.Widgets
 
+data BootMode = EFI | BIOS
+    deriving stock (Generic, Show, Eq, Bounded, Enum)
+
+instance Read BootMode where readPrec = readPrecBoundedEnumOn (fmap toLower)
+
 data LuksOpts m
     = NoLuks
     | UseLuks {luksPassword :: m Text, luksPasswordFile :: Maybe FilePath}
@@ -55,6 +60,7 @@ data InstallOpts m = InstallOpts
     { flake :: Maybe (FlakeOpts m)
     , luks :: m (LuksOpts m)
     , disk :: m (Path Abs File)
+    , bootMode :: m BootMode
     , format :: m Bool
     , filesystem :: m Format
     , edition :: m Edition
@@ -78,6 +84,8 @@ parseOpts f = do
     flake <- parseFlake f
     luks <- parseLuks f
     disk <- f $ parsePath parseAbsFile (long "disk" <> metavar "DISK" <> help "The disk to install to")
+    bootMode <-
+        f $ parseEnum (long "boot-mode" <> metavar "MODE" <> help "How the system boots, efi or bios (default: detected)")
     format <- f $ parseYesNo "format" "Format the installation disk"
     filesystem <-
         f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
@@ -182,6 +190,9 @@ askLuks opts =
     askPassword :: (HasCallStack, IOE :> es, Log :> es) => Eff es Text
     askPassword = passwordInput "Choose LUKS password:"
 
+detectBootMode :: (FileSystem :> es) => Eff es BootMode
+detectBootMode = bool BIOS EFI <$> doesDirExist $(mkAbsDir "/sys/firmware/efi")
+
 readSecretFile :: (HasCallStack, IOE :> es, Log :> es) => FilePath -> Eff es Text
 readSecretFile path =
     liftIO (Exception.try @SomeException $ Text.readFile path) >>= \case
@@ -272,6 +283,7 @@ askOpts opts =
         { flake = askFlake <$> opts.flake
         , luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
+        , bootMode = maybe detectBootMode pure opts.bootMode
         , format =
             maybe
                 ( yesNoButtons

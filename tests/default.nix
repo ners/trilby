@@ -27,7 +27,7 @@ let
     }
   '';
 
-  referenceSystem = { filesystem, luks }: let rootDevice = if luks then "/dev/mapper/cryptroot" else "/dev/vda3"; in lib.trilbySystem {
+  referenceSystem = { filesystem, luks, efi }: let rootDevice = if luks then "/dev/mapper/cryptroot" else "/dev/vda3"; in lib.trilbySystem {
     inherit trilby;
     modules = [
       ({ trilby, inputs, lib, ... }: {
@@ -43,6 +43,16 @@ let
       })
       (lib.optionalAttrs luks {
         boot.initrd.luks.devices.cryptroot.device = "/dev/vda3";
+      })
+      (lib.optionalAttrs (!efi) {
+        boot.loader = {
+          systemd-boot.enable = false;
+          efi.canTouchEfiVariables = false;
+          grub = {
+            enable = true;
+            devices = [ "/dev/disk/by-id/virtio-root" ];
+          };
+        };
       })
     ];
   };
@@ -121,11 +131,11 @@ let
       ]);
   };
 
-  targetNode = {
+  targetNode = efi: {
     virtualisation = {
       inherit diskImage;
       useBootLoader = true;
-      useEFIBoot = true;
+      useEFIBoot = efi;
       useDefaultFilesystems = false;
       efi.keepVariables = false;
     };
@@ -135,15 +145,15 @@ let
     };
   };
 
-  mkInstallTest = name: { filesystem ? "ext4", luks ? false, boot ? true }:
+  mkInstallTest = name: { filesystem ? "ext4", luks ? false, boot ? true, efi ? true }:
     lib.trilbyTest {
       name = "trilby-installer-${name}";
       inherit trilby;
       skipLint = true;
       globalTimeout = 120;
       nodes = {
-        installer = installerNode { inherit filesystem luks; };
-        target = targetNode;
+        installer = installerNode { inherit filesystem luks efi; };
+        target = targetNode efi;
       };
       testScript = /*python*/ ''
         installer.start()
@@ -166,6 +176,7 @@ let
                 + " --disk /dev/vda --format"
                 + " ${if luks then "--luks --luks-password-file /tmp/password" else "--no-luks"}"
                 + " --filesystem ${filesystem}"
+                + " --boot-mode ${if efi then "efi" else "bios"}"
                 + " --edition server --release unstable"
                 + " --hostname testhost"
                 + " --keyboard us --locale en_GB.UTF-8 --timezone Europe/Zurich"
@@ -174,7 +185,7 @@ let
                 + " > /tmp/install.log 2>&1"
             )
             if status != 0:
-                print(installer.execute("tail -n 60 /tmp/install.log")[1])
+                print(installer.execute("grep -a -E 'error|Failed assertions|^- ' /tmp/install.log | grep -a -v -E 'Cannot build|nix-output-monitor' | tail -n 25; tail -n 10 /tmp/install.log")[1])
                 raise Exception("trilby install failed")
 
         ${if boot then /*python*/ ''
@@ -217,4 +228,5 @@ in
 {
   "installer-ext4" = mkInstallTest "ext4" { };
   "installer-btrfs-luks" = mkInstallTest "btrfs-luks" { filesystem = "btrfs"; luks = true; boot = false; };
+  "installer-bios" = mkInstallTest "bios" { efi = false; };
 }

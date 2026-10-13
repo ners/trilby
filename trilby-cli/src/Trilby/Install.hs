@@ -192,10 +192,11 @@ setupHost kernel opts actions = do
                     locale <- Just <$> opts.locale
                     timezone <- Just <$> opts.timezone
                     stateVersion <- localStateVersion release
+                    bios <- (BIOS ==) <$> opts.bootMode
                     pure (user, Host{..})
                 Darwin -> do
                     let user = User{uid = max 1000 owner.uid, username, password = Nothing}
-                    let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, stateVersion = Nothing, ..}
+                    let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, stateVersion = Nothing, bios = False, ..}
                     pure (user, host)
 
         userDir <- parseRelDir . fromText $ "users/" <> username
@@ -363,6 +364,7 @@ resolveHostOpts kernel =
         >=> when' (kernel == Linux) (memoOpt #keyboard)
         >=> when' (kernel == Linux) (memoOpt #locale)
         >=> when' (kernel == Linux) (memoOpt #timezone)
+        >=> when' (kernel == Linux) (memoOpt #bootMode)
         >=> memoOpt #edit
         >=> memoOpt #reboot
   where

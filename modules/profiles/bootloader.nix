@@ -15,7 +15,6 @@ in
         enable = mkDefault (!hasEfi);
         efiSupport = mkDefault false;
         device = mkDefault "nodev";
-        fsIdentifier = mkDefault "label";
       };
       systemd-boot = {
         enable = mkDefault hasEfi;

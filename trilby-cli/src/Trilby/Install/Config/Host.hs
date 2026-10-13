@@ -15,6 +15,7 @@ data Host = Host
     , locale :: Maybe Text
     , timezone :: Maybe Text
     , stateVersion :: Maybe Text
+    , bios :: Bool
     , user :: User
     }
     deriving stock (Generic)
@@ -37,6 +38,10 @@ instance ToExpr Host where
           time.timeZone = timezone;
 
           system.stateVersion = stateVersion;
+
+          boot.loader.grub.enable = grub;
+          boot.loader.systemd-boot.enable = systemdBoot;
+          boot.loader.efi.canTouchEfiVariables = systemdBoot;
         }
         |]
             & _Fix
@@ -44,4 +49,6 @@ instance ToExpr Host where
             . _2
             %~ canonicalSet
       where
+        grub = if bios then Just True else Nothing
+        systemdBoot = if bios then Just False else Nothing
         userModule = fromText @NExpr $ "../../users/" <> user.username
