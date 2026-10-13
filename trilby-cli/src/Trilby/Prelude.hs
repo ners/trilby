@@ -80,7 +80,7 @@ import Debug.Trace
 import Effectful
 import Effectful.Concurrent.STM (Concurrent, atomically, modifyTVar, readTVarIO)
 import Effectful.Environment (Environment, getEnv, lookupEnv, setEnv)
-import Effectful.Exception (SomeException (SomeException), handle)
+import Effectful.Exception (SomeException (SomeException), finally, handle)
 import Effectful.Fail (Fail)
 import Effectful.FileSystem.Path.IO
     ( AnyPath
@@ -230,7 +230,7 @@ hostSystem = do
               , ["--raw"]
               , ["--expr", "builtins.currentSystem"]
               ]
-    pure . read . Text.unpack $ systemText
+    maybe (errorExit $ "Unsupported system: " <> systemText) pure . readMaybe . Text.unpack $ systemText
 
 asRoot
     :: ( HasCallStack
@@ -536,9 +536,7 @@ inDir d a = do
     d' <- liftIO $ parseAbsDir =<< getWorkingDirectory
     ensureDir d
     liftIO $ changeWorkingDirectory (fromPath d)
-    a <- a
-    liftIO $ changeWorkingDirectory (fromPath d')
-    pure a
+    a `finally` liftIO (changeWorkingDirectory (fromPath d'))
 
 writeFile
     :: ( HasCallStack
@@ -605,7 +603,7 @@ is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
 verbosityAtLeast :: (HasCallStack, Reader AppState :> es) => LogLevel -> Eff es Bool
-verbosityAtLeast v = Reader.asks $ (v <) . verbosity
+verbosityAtLeast v = Reader.asks $ (v <=) . verbosity
 
 withTrace
     :: (HasCallStack, Reader AppState :> es)

@@ -4,6 +4,7 @@
 
 * Do not expose passwords during install
 * Fix remote host commands over SSH
+* Fix assorted CLI bugs
 
 ## 26.8 -- 2026-08-03
 

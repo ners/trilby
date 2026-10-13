@@ -23,20 +23,23 @@ data CleanOpts m = CleanOpts
 parseWhat :: Parser (Set WhatToClean)
 parseWhat = Set.fromList <$> (all <|> some one)
   where
+    items :: [(WhatToClean, String, String)]
+    items =
+        [ (Boot, "boot", "old files in the boot partition")
+        , (Podman, "podman", "all Podman containers and images")
+        , (Profiles, "profiles", "old generations of profiles")
+        , (Store, "store", "unreachable store objects")
+        ]
     all :: Parser [WhatToClean]
-    all =
-        flag' [minBound .. maxBound]
-            $ long "all"
-            <> help "Clean everything except what is explicitly excluded"
+    all = do
+        flag' () $ long "all" <> help "Clean everything, except what is excluded with --no-<item>"
+        excluded <-
+            many
+                . asum
+                $ [flag' w $ long ("no-" <> name) <> internal <> help ("Keep " <> what) | (w, name, what) <- items]
+        pure $ filter (`notElem` excluded) [minBound .. maxBound]
     one :: Parser WhatToClean
-    one =
-        foldr1 @[]
-            (<|>)
-            [ flag' Boot $ long "boot" <> help "Clean up old files in the boot partition"
-            , flag' Podman $ long "podman" <> help "Delete all Podman containers and images"
-            , flag' Profiles $ long "profiles" <> help "Delete old generations of profiles"
-            , flag' Store $ long "store" <> help "Delete unreachable store objects"
-            ]
+    one = asum [flag' w $ long name <> help ("Clean " <> what) | (w, name, what) <- items]
 
 askWhat
     :: (HasCallStack, IOE :> es)

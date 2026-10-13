@@ -6,6 +6,7 @@ import Effectful.Path qualified as Path
 import Trilby.HNix (FileOrFlake (Flake), nixBuild, trilbyFlake)
 import Trilby.Host (Host (..))
 import Trilby.Prelude
+import Trilby.Widgets (yesNoButtons)
 
 nixBins
     :: (HasCallStack, Reader AppState :> es, TypedProcess :> es, Log :> es, FileSystem :> es)
@@ -19,9 +20,24 @@ prependToPath :: (Environment :> es) => [Path Abs Dir] -> Eff es ()
 prependToPath = overPath . (<>) . fmap toFilePath
 
 installNix
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Environment :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Eff es ()
-installNix = shell_ ["curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install | sh"]
+installNix = do
+    unlessM (yesNoButtons "Nix is required but not installed. Download and run the Nix installer?" True)
+        $ errorExit "Cannot continue without Nix"
+    shell_
+        [ "set -e; f=$(mktemp); trap 'rm -f \"$f\"' EXIT;"
+        , "curl --proto '=https' --tlsv1.2 -fL -o \"$f\" https://nixos.org/nix/install;"
+        , "sh \"$f\""
+        ]
+    prependToPath [$(mkAbsDir "/nix/var/nix/profiles/default/bin")]
 
 ensureFlakes
     :: ( HasCallStack
@@ -38,7 +54,7 @@ ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata"
     confDir <- getXdgDir XdgConfig $ Just $(mkRelDir "nix")
     ensureDir confDir
     let confFile = confDir </> $(mkRelFile "nix.conf")
-    liftIO . Text.appendFile (toFilePath confFile) $ "experimental-features = nix-command flakes"
+    liftIO . Text.appendFile (toFilePath confFile) $ "\nexperimental-features = nix-command flakes\n"
 
 setupNixMonitored
     :: ( HasCallStack

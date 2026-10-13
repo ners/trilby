@@ -1,5 +1,6 @@
 module Trilby.Install.Options where
 
+import Control.Exception qualified as Exception
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
@@ -108,8 +109,8 @@ validateParsedInstallOpts opts =
 
 validateDisk :: (IOE :> es, Log :> es) => Path Abs File -> Eff es (Maybe (Path Abs File))
 validateDisk f = do
-    status <- liftIO . getFileStatus . toFilePath $ f
-    if isBlockDevice status
+    status <- liftIO . Exception.try @SomeException . getFileStatus . toFilePath $ f
+    if either (const False) isBlockDevice status
         then pure $ Just f
         else do
             logAttention_ $ "Cannot find disk " <> fromPath f

@@ -163,6 +163,7 @@ test-suite spec
 
   other-modules:
     Trilby.Disko.FilesystemSpec
+    Trilby.FlakeRefSpec
     Trilby.HostSpec
     Trilby.Install.Config.EditionSpec
     Trilby.Install.Config.ReleaseSpec
