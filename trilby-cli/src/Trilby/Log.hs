@@ -56,9 +56,10 @@ import System.Console.ANSI
     , ConsoleIntensity (..)
     , ConsoleLayer (Foreground)
     , SGR (..)
-    , setSGR
+    , hSetSGR
+    , hSupportsANSI
     )
-import System.IO (putStr, putStrLn)
+import System.IO (hPutStr, hPutStrLn, stderr)
 import System.IO.Unsafe (unsafePerformIO)
 import Text.Show (Show (show))
 
@@ -81,7 +82,9 @@ data LogData = LogData
 
 withLogger :: (MonadUnliftIO m) => LogLevel -> (Logger -> m r) -> m r
 withLogger logLevel act = do
-    logger <- liftIO $ Effectful.Log.mkLogger "stdout" \LogMessage{..} -> runEff . runConcurrent $ do
+    ansi <- liftIO $ hSupportsANSI stderr
+    let setSGR sgr = when ansi (hSetSGR stderr sgr)
+    logger <- liftIO $ Effectful.Log.mkLogger "stderr" \LogMessage{..} -> runEff . runConcurrent $ do
         atomically $ takeTMVar lock
         let foreground =
                 case lmLevel of
@@ -92,23 +95,23 @@ withLogger logLevel act = do
             if logLevel < LogTrace
                 then do
                     setSGR [SetColor Foreground Dull foreground]
-                    putStrLn . Text.unpack . Text.strip $ lmMessage
+                    hPutStrLn stderr . Text.unpack . Text.strip $ lmMessage
                 else do
-                    putStr . unwords $ [iso8601Show lmTime, "", showLogLevel lmLevel, ""]
+                    hPutStr stderr . unwords $ [iso8601Show lmTime, "", showLogLevel lmLevel, ""]
                     setSGR [SetColor Foreground Dull foreground]
-                    putStrLn . Text.unpack . Text.strip $ lmMessage
+                    hPutStrLn stderr . Text.unpack . Text.strip $ lmMessage
         case fromJSON lmData of
             Aeson.Success LogData{..} -> do
                 forM_ value \value -> liftIO do
                     setSGR [SetColor Foreground Dull Yellow]
                     case value of
-                        Aeson.String t -> Text.putStrLn t
-                        _ -> LazyByteString.putStrLn . encodePretty $ value
+                        Aeson.String t -> Text.hPutStrLn stderr t
+                        _ -> LazyByteString.hPutStrLn stderr . encodePretty $ value
                 when (logLevel >= LogTrace) . forM_ callStack $ \callStack -> liftIO do
                     setSGR [Reset]
                     setSGR [SetConsoleIntensity FaintIntensity]
-                    mapM_ putStrLn . drop 1 . prettyCallStackLines $ callStack
-                    putStrLn ""
+                    mapM_ (hPutStrLn stderr) . drop 1 . prettyCallStackLines $ callStack
+                    hPutStrLn stderr ""
             _ -> pure ()
         liftIO . setSGR $ [Reset]
         atomically $ putTMVar lock ()
