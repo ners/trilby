@@ -36,4 +36,4 @@ curl -fsSL https://raw.githubusercontent.com/ners/trilby/refs/heads/main/quickst
 
 We welcome contributions of all types, including bug fixes, feature requests, and documentation improvements.
 
-If you wish to dive in and help, look for [issues](/issues) labelled with "good first issue".
+If you wish to dive in and help, look for [issues](https://github.com/ners/trilby/issues) labelled with "good first issue".
