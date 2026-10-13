@@ -3,6 +3,7 @@
     networkmanager.enable = true;
     useNetworkd = true;
     firewall.enable = true;
+    nftables.enable = true;
     # speed up boot
     dhcpcd = {
       wait = "background";
