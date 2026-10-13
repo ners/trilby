@@ -1,16 +1,20 @@
-{ pkgs, ... }:
+{ lib, options, pkgs, ... }:
 
 {
-  plugins = {
-    haskell-tools = {
-      enable = true;
-      hlsPackage = null;
-    };
-    treesitter.grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
-      haskell
-      haskell_persistent
-    ];
-  };
+  plugins = lib.mkMerge [
+    (lib.optionalAttrs (options.plugins ? haskell-tools) {
+      haskell-tools = {
+        enable = true;
+        hlsPackage = null;
+      };
+    })
+    {
+      treesitter.grammarPackages = with pkgs.vimPlugins.nvim-treesitter.builtGrammars; [
+        haskell
+        haskell_persistent
+      ];
+    }
+  ];
   files."ftplugin/haskell.lua" = {
     opts = rec {
       expandtab = true;
