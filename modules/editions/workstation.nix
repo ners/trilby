@@ -17,7 +17,6 @@ lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") ({
   services = {
     flatpak.enable = true;
     fwupd.enable = true;
-    localtimed.enable = true;
     printing.enable = true;
     usbmuxd.enable = true;
     xserver.enable = true;
