@@ -54,6 +54,6 @@
 
   xdg.mime.inverted.defaultApplications = {
     "org.gnome.Nautilus.desktop" = [ "inode/directory" ];
-    "org.gnome.gedit.desktop" = [ "text/plain" ];
+    "org.gnome.TextEditor.desktop" = [ "text/plain" ];
   };
 }
