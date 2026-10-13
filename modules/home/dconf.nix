@@ -16,7 +16,6 @@ in
               interface = {
                 font-antialiasing = "grayscale";
                 font-hinting = "full";
-                gtk-im-module = "gtk-im-context-simple";
                 gtk-theme = "Adwaita-dark";
                 color-scheme = "prefer-dark";
                 monospace-font-name = "Iosevka Nerd Font Mono 11";
