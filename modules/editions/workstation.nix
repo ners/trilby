@@ -15,7 +15,6 @@ lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") ({
   ];
 
   services = {
-    blueman.enable = true;
     flatpak.enable = true;
     fwupd.enable = true;
     localtimed.enable = true;
@@ -24,11 +23,16 @@ lib.optionalAttrs (trilby.hostSystem.kernel.name == "linux") ({
     xserver.enable = true;
   };
 
+  systemd.oomd = {
+    enable = lib.mkDefault true;
+    enableUserSlices = lib.mkDefault true;
+  };
+
   powerManagement.enable = true;
 
   security.rtkit.enable = true;
 } //
 lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
   # Both Gnome and Sway declare this as default, so let's resolve the ambiguity.
-  programs.gnupg.agent.pinentryPackage = pkgs.unstable.pinentry-curses;
+  programs.gnupg.agent.pinentryPackage = pkgs.pinentry-gnome3;
 })

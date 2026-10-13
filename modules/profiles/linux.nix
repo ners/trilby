@@ -55,5 +55,5 @@
 
   users.users.root.initialHashedPassword = lib.mkDefault "!";
 
-  programs.dconf.enable = true;
+  programs.dconf.enable = lib.mkDefault (trilby.edition == "workstation");
 }
