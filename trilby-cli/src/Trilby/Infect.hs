@@ -3,6 +3,7 @@ module Trilby.Infect (infect) where
 import Data.List.NonEmpty.Extra qualified as NonEmpty
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Effectful.Reader.Static qualified as Reader
 import Trilby.Configuration (Configuration (..))
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (FileOrFlake (File), copyClosure, nixBuild, trilbyFlake, writeNixFile)
@@ -29,10 +30,10 @@ infect (askOpts -> opts) = do
         system <- hostSystem
         case system.kernel of
             Linux -> do
-                [kexec] <- buildKexec opts
+                [kexec] <- Reader.local (const Localhost) (buildKexec opts system)
                 copyClosure kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ asRoot (withHost $ runProcess_ . proc) [fromPath bin]
+                whenM opts.reboot $ asRoot (withHost $ runProcess_ . proc) ["nohup", "sh", "-c", "(sleep 1; exec " <> fromPath bin <> ") </dev/null >/dev/null 2>&1 &"]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec
@@ -47,10 +48,12 @@ buildKexec
        , FileSystem :> es
        )
     => InfectOpts (Eff es)
+    -> System
     -> Eff es [Path Abs Dir]
-buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
+buildKexec opts system = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
     FlakeRef{url = trilbyUrl} <- trilbyFlake []
     edition <- opts.edition
+    let platform = ishow system :: Text
     authorisedKeys <-
         opts.authorisedKeys >>= \case
             AuthorisedKeys keys -> pure keys
@@ -65,7 +68,7 @@ buildKexec opts = withTempFile $(mkRelFile "infect.nix") \tmpFile -> do
         let system = lib.trilbySystem {
           trilby = {
             edition = edition;
-            hostPlatform = builtins.currentSystem;
+            hostPlatform = platform;
           };
           modules = [
             trilby.nixosModules.formats.kexecScript

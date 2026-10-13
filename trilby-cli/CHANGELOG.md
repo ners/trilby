@@ -12,6 +12,7 @@
 * Add --password-file and --luks-password-file options
 * Log to stderr
 * Catch command failures and exit cleanly
+* Build infect image locally and detach kexec on remote host
 
 ## 26.8 -- 2026-08-03
 

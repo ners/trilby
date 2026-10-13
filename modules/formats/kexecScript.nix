@@ -1,4 +1,4 @@
-{ inputs, modulesPath, ... }:
+{ inputs, lib, modulesPath, ... }:
 
 {
   disabledModules = [
@@ -11,4 +11,9 @@
   ];
 
   netboot.squashfsCompression = "lz4";
+
+  services.openssh = {
+    enable = lib.mkForce true;
+    startAtBoot = lib.mkDefault true;
+  };
 }
