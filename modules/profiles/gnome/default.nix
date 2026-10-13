@@ -36,7 +36,7 @@
 
   programs.gnupg.agent.enable = true;
 
-  environment.sessionVariables.SSH_AUTH_SOCK = "$XDG_RUNTIME_DIR/gcr/ssh";
+  environment.sessionVariables.SSH_AUTH_SOCK = "\${XDG_RUNTIME_DIR}/gcr/ssh";
 
   security.pam.services = {
     login.enableGnomeKeyring = true;
