@@ -28,6 +28,8 @@ lib.recursiveConcat [
       inherit nixosModules;
       legacyPackages.${buildPlatform} = pkgs;
       packages.${buildPlatform} = allConfigs // { default = pkgs.trilby-cli; };
+      checks.${buildPlatform} = lib.optionalAttrs (lib.hasSuffix "-linux" buildPlatform)
+        (import ../tests { inherit lib nixosModules buildPlatform pkgs; });
       formatter.${buildPlatform} = pkgs.writeShellApplication {
         name = "formatter";
         runtimeInputs = with pkgs; with haskellPackages; [

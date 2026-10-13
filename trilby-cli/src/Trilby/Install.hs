@@ -3,6 +3,7 @@ module Trilby.Install (install) where
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.ByteString.Lazy qualified as LazyByteString
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Encoding
 import Effectful.Reader.Static qualified as Reader
@@ -228,12 +229,11 @@ setupHost kernel opts actions = do
                             , "--root"
                             , fromPath $ rootMount kernel
                             ]
+                    overrides <- inputOverrides
                     cmd_
-                        . sconcat
-                        $ [ ["nix", "flake", "lock"]
-                          , ["--accept-flake-config"]
-                          , ["--override-input", "trilby", "trilby"]
-                          ]
+                        $ NonEmpty.appendList
+                            ["nix", "flake", "lock", "--accept-flake-config", "--override-input", "trilby", "trilby"]
+                            (overrides >>= \(name, url) -> ["--override-input", name, url])
                 Darwin -> pure ()
         actions hostDir userDir
         whenM opts.edit do
@@ -379,3 +379,12 @@ localStateVersion Unstable = do
         (ExitSuccess, v) | not (Text.null v) -> Just v
         _ -> Nothing
 localStateVersion release = pure . Just $ ishow release
+
+inputOverrides :: (Environment :> es) => Eff es [(Text, Text)]
+inputOverrides =
+    maybe [] (mapMaybe parse . Text.words . fromString) <$> lookupEnv "TRILBY_INPUT_OVERRIDES"
+  where
+    parse :: Text -> Maybe (Text, Text)
+    parse (Text.breakOn "=" -> (name, rest))
+        | not (Text.null name), Just url <- Text.stripPrefix "=" rest, not (Text.null url) = Just (name, url)
+        | otherwise = Nothing

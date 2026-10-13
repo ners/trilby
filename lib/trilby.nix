@@ -78,7 +78,7 @@ rec {
     let
       trilby = trilbyConfig (attrs.trilby or { });
       lib = import ../lib {
-        inherit inputs;
+        inherit (trilby) inputs;
         inherit (trilby.nixpkgs) lib;
       };
       nixosLib = import "${trilby.nixpkgs}/nixos/lib" {
@@ -86,29 +86,22 @@ rec {
       };
     in
     nixosLib.runTest {
-      inherit (attrs) name testScript;
+      inherit (attrs) name testScript nodes globalTimeout;
       extraDriverArgs = attrs.extraDriverArgs or [ ];
       skipLint = attrs.skipLint or false;
 
       hostPkgs = pkgsFor trilby;
 
       node = {
-        specialArgs = { inherit inputs trilby lib; };
+        specialArgs = { inherit trilby lib; inherit (trilby) inputs; };
         pkgs = pkgsFor trilby;
         pkgsReadOnly = false;
       };
 
-      nodes = (attrs.nodes or { }) // {
-        trilby = {
-          imports = with trilby.inputs.self.nixosModules; [
-            editions.${trilby.edition}
-            hostPlatforms.${trilby.hostPlatform}
-            trilby.nixpkgs.nixosModules.testing.test-instrumentation
-          ]
-          ++ optional (trilby ? format && isNotEmpty trilby.format) formats.${trilby.format}
-          ++ attrs.modules or [ ];
-        };
-      };
+      defaults.imports = with trilby.inputs.self.nixosModules; [
+        editions.${trilby.edition}
+        hostPlatforms.${trilby.hostPlatform}
+      ];
     };
 
   trilbyUser = trilby: u:
