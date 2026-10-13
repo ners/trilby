@@ -9,6 +9,7 @@
 * Prompt and validate options before formatting disk
 * Set stateVersion and nixvim in generated flakes
 * Use a regular uid for the admin user
+* Add --password-file and --luks-password-file options
 
 ## 26.8 -- 2026-08-03
 

@@ -151,6 +151,7 @@ let
         installer.succeed("udevadm settle")
 
         with subtest("Install"):
+            installer.succeed("echo hunter2 > /tmp/password")
             installer.copy_from_host("${testOptions}", "/tmp/test-options.nix")
             installer.succeed(
                 "cat > /tmp/editor <<'EDITOR'\n"
@@ -163,12 +164,12 @@ let
                 "EDITOR=/tmp/editor TRILBY_INPUT_OVERRIDES='${inputOverrides}' "
                 + "trilby --debug install"
                 + " --disk /dev/vda --format"
-                + " ${if luks then "--luks --luks-password hunter2" else "--no-luks"}"
+                + " ${if luks then "--luks --luks-password-file /tmp/password" else "--no-luks"}"
                 + " --filesystem ${filesystem}"
                 + " --edition server --release unstable"
                 + " --hostname testhost"
                 + " --keyboard us --locale en_GB.UTF-8 --timezone Europe/Zurich"
-                + " --username testuser --password hunter2"
+                + " --username testuser --password-file /tmp/password"
                 + " --edit --no-reboot"
                 + " > /tmp/install.log 2>&1"
             )

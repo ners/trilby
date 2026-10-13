@@ -4,6 +4,7 @@ import Control.Exception qualified as Exception
 import Data.Char (isAlphaNum, isAscii, isAsciiLower, isDigit)
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
+import Data.Text.IO qualified as Text
 import Options.Applicative
 import System.Posix (getFileStatus, isBlockDevice)
 import Trilby.Configuration qualified as Configuration
@@ -17,7 +18,7 @@ import Trilby.Widgets
 
 data LuksOpts m
     = NoLuks
-    | UseLuks {luksPassword :: m Text}
+    | UseLuks {luksPassword :: m Text, luksPasswordFile :: Maybe FilePath}
     deriving stock (Generic)
 
 deriving stock instance Eq (LuksOpts Maybe)
@@ -32,6 +33,8 @@ parseLuks f = do
             flag' () (long "luks" <> help "Encrypt the disk with LUKS2")
             luksPassword <-
                 f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
+            luksPasswordFile <-
+                optional $ strOption (long "luks-password-file" <> metavar "FILE" <> help "Read the disk encryption password from FILE")
             pure UseLuks{..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
@@ -62,6 +65,7 @@ data InstallOpts m = InstallOpts
     , timezone :: m Text
     , username :: m Text
     , password :: m Text
+    , passwordFile :: Maybe FilePath
     , edit :: m Bool
     , reboot :: m Bool
     }
@@ -93,6 +97,8 @@ parseOpts f = do
         f $ strOption (long "username" <> metavar "USERNAME" <> help "The username of the admin user")
     password <-
         f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
+    passwordFile <-
+        optional $ strOption (long "password-file" <> metavar "FILE" <> help "Read the password of the admin user from FILE")
     edit <- f $ parseYesNo "edit" "Edit the configuration before installing"
     reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
@@ -166,14 +172,21 @@ askLuks
     -> Eff es (LuksOpts (Eff es))
 askLuks opts =
     case opts of
-        Nothing -> bool NoLuks UseLuks{luksPassword = askPassword} <$> askUseLuks
+        Nothing -> bool NoLuks UseLuks{luksPassword = askPassword, luksPasswordFile = Nothing} <$> askUseLuks
         Just NoLuks -> pure NoLuks
-        Just UseLuks{..} -> pure UseLuks{luksPassword = maybe askPassword pure luksPassword}
+        Just UseLuks{..} ->
+            pure UseLuks{luksPassword = maybe (maybe askPassword readSecretFile luksPasswordFile) pure luksPassword, luksPasswordFile}
   where
     askUseLuks :: (HasCallStack, IOE :> es, Log :> es) => Eff es Bool
     askUseLuks = yesNoButtons "Encrypt the disk with LUKS2?" True
     askPassword :: (HasCallStack, IOE :> es, Log :> es) => Eff es Text
     askPassword = passwordInput "Choose LUKS password:"
+
+readSecretFile :: (HasCallStack, IOE :> es, Log :> es) => FilePath -> Eff es Text
+readSecretFile path =
+    liftIO (Exception.try @SomeException $ Text.readFile path) >>= \case
+        Right t -> pure $ Text.dropWhileEnd (\c -> c == '\r' || c == '\n') t
+        Left e -> errorExit $ "Cannot read " <> fromString path <> ": " <> fromString (show e)
 
 askFlake :: (HasCallStack, IOE :> es, Log :> es) => FlakeOpts Maybe -> FlakeOpts (Eff es)
 askFlake FlakeOpts{..} =
@@ -283,7 +296,8 @@ askOpts opts =
         , timezone = maybe askTimezone pure opts.timezone
         , username =
             maybe (askValidated validateUsername $ textInput "Choose admin username:" "") pure opts.username
-        , password = maybe (passwordInput "Choose admin password:") pure opts.password
+        , password = maybe (maybe (passwordInput "Choose admin password:") readSecretFile opts.passwordFile) pure opts.password
+        , passwordFile = opts.passwordFile
         , edit = maybe (yesNoButtons "Edit the configuration?" False) pure opts.edit
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
         }
