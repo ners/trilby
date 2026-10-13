@@ -7,6 +7,7 @@ in
   imports = [
     trilby.nixpkgs.nixosModules.installer.cd-dvd.installation-cd-base
     inputs.self.nixosModules.profiles.installer
+    inputs.self.nixosModules.profiles.ssh
   ];
 
   isoImage = lib.mkMerge [
