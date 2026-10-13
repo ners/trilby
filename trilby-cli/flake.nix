@@ -48,7 +48,17 @@
               (hfinal: hprev: {
                 typed-process-effectful = dontCheck (doJailbreak (unmarkBroken hprev.typed-process-effectful));
                 path-io-effectful = hfinal.callCabal2nix "path-io-effectful" inputs.path-io-effectful { };
-                "${pname}" = hfinal.callCabal2nix pname src { };
+                "${pname}" = (hfinal.callCabal2nix pname src { }).overrideAttrs (attrs: {
+                  nativeBuildInputs = attrs.nativeBuildInputs or [ ] ++ [ prev.installShellFiles ];
+                  postInstall = ''
+                    ${attrs.postInstall or ""}
+                    export trilby=$out/bin/trilby
+                    installShellCompletion --cmd trilby \
+                      --bash <($trilby --bash-completion-script $trilby) \
+                      --fish <($trilby --fish-completion-script $trilby) \
+                      --zsh <($trilby --zsh-completion-script $trilby)
+                  '';
+                });
                 hnix = dontCheck (doJailbreak (hfinal.callCabal2nix "hnix" inputs.hnix { }));
                 hnix-store-core = hprev.hnix-store-core_0_8_0_0;
                 hnix-store-remote = hprev.hnix-store-remote_0_7_0_0;
