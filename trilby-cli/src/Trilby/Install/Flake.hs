@@ -85,7 +85,11 @@ flake kernel release =
                   ]
                 , [ InputFlake
                         { name = "nix-darwin"
-                        , url = "github:nix-darwin/nix-darwin"
+                        , url =
+                            "github:nix-darwin/nix-darwin"
+                                <> if release == Unstable
+                                    then ""
+                                    else "/nix-darwin-" <> ishow release
                         , inputs = ["nixpkgs" `Follows` "nixpkgs"]
                         }
                   | kernel == Darwin

@@ -1,10 +1,12 @@
 module Trilby.Install (install) where
 
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Types qualified as Aeson
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Encoding
 import Effectful.Reader.Static qualified as Reader
-import Trilby.Configuration (ConfigAction (..), buildConfiguration, switchToConfiguration)
+import Trilby.Configuration (ConfigAction (..), buildConfiguration, buildConfigurationFrom, switchToConfiguration)
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), onHost)
@@ -40,10 +42,15 @@ install
        )
     => InstallOpts Maybe
     -> Eff es ()
-install (askOpts -> opts) =
+install rawOpts =
     hostSystem >>= \case
         System{kernel = Linux} -> installLinux opts
-        System{kernel = Darwin} -> installDarwin opts
+        System{kernel = Darwin} -> do
+            when (isJust rawOpts.flake && (isJust rawOpts.disk || isJust rawOpts.format || isJust rawOpts.luks || isJust rawOpts.filesystem))
+                $ logAttention_ "Ignoring disk options (--disk, --format, --luks, --filesystem): they do not apply on Darwin"
+            installDarwin opts
+  where
+    opts = askOpts rawOpts
 
 installLinux
     :: ( HasCallStack
@@ -68,11 +75,7 @@ installLinux opts | Just FlakeOpts{..} <- opts.flake = do
     formatDisk opts.format diskoRef
     mountRoot diskoRef
     nixosInstall flakeRef
-    whenM copyFlake do
-        Just storePath <-
-            shellOutTextFirstLine ["nix flake archive --json " <> flakeRef.url <> " | jq --raw-output .path"]
-        asRoot cmd_ ["cp", "-r", storePath, fromPath $ trilbyDir Linux]
-        asRoot cmd_ ["chown", "-R", "1000:1000", fromPath $ trilbyDir Linux]
+    whenM copyFlake $ copyFlakeTo Linux flakeRef
     whenM opts.reboot Configuration.reboot
 installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
     disko <- getDisko opts
@@ -285,8 +288,44 @@ installDarwin
        )
     => InstallOpts (Eff es)
     -> Eff es ()
--- installDarwin opts | Just FlakeOpts{..} <- opts.flake = pure ()
+installDarwin opts | Just FlakeOpts{..} <- opts.flake = do
+    configuration <- Configuration.fromHost =<< Reader.ask
+    name <- case flakeRef.output of
+        [] -> pure configuration.name
+        [name] -> pure name
+        output -> errorExit $ "Cannot install from a flake output that is not a single configuration name: " <> ishow flakeRef { output }
+    result <- buildConfigurationFrom ["--impure"] flakeRef.url configuration{Configuration.name}
+    switchToConfiguration result ConfigSwitch
+    whenM copyFlake $ copyFlakeTo Darwin flakeRef
+    whenM opts.reboot Configuration.reboot
 installDarwin opts = do
     configuration <- Configuration.fromHost =<< Reader.ask
     FlakeRef{output = [name]} <- setupHost Darwin opts \_ _ -> pure ()
     flip switchToConfiguration ConfigSwitch =<< buildConfiguration configuration{Configuration.name}
+    whenM opts.reboot Configuration.reboot
+
+copyFlakeTo
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Kernel
+    -> FlakeRef
+    -> Eff es ()
+copyFlakeTo kernel flakeRef = do
+    archive <- cmdOutJson ["nix", "flake", "archive", "--json", flakeRef.url]
+    storePath <-
+        maybe (errorExit "nix flake archive did not report a store path") pure
+            $ Aeson.parseMaybe (Aeson.withObject "archive" (Aeson..: "path")) (archive :: Aeson.Value)
+    owner <- case kernel of
+        Linux -> pure "1000:1000"
+        Darwin -> ishow <$> currentOwner
+    let dest = fromPath $ trilbyDir kernel
+    asRoot cmd_ ["mkdir", "-p", dest]
+    asRoot cmd_ ["cp", "-R", storePath <> "/.", dest]
+    asRoot cmd_ ["chmod", "-R", "u+w", dest]
+    asRoot cmd_ ["chown", "-R", owner, dest]

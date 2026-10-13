@@ -8,6 +8,7 @@ module Trilby.HNix where
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Fix
 import Data.List.Extra qualified as List
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Text
 import Effectful.Reader.Static qualified as Reader
@@ -90,14 +91,21 @@ nixBuild
     :: (HasCallStack, Reader AppState :> es, TypedProcess :> es, Log :> es)
     => FileOrFlake
     -> Eff es [Path Abs Dir]
-nixBuild f =
+nixBuild = nixBuildWith []
+
+nixBuildWith
+    :: (HasCallStack, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => [Text]
+    -> FileOrFlake
+    -> Eff es [Path Abs Dir]
+nixBuildWith flags f =
     mapM (parseAbsDir . fromText)
         . Text.lines
         . Text.decodeUtf8
         . LazyByteString.toStrict
         =<< withTrace
             (readProcessStdout_ . proc)
-            ( sconcat
+            ( (`NonEmpty.appendList` flags) $ sconcat
                 [ ["nix", "build"]
                 , ["--no-link", "--print-out-paths"]
                 , case f of

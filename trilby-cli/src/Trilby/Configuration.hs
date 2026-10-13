@@ -53,7 +53,11 @@ reboot
        , Concurrent :> es
        )
     => Eff es ()
-reboot = asRoot (withHost $ runProcess_ . proc) ["systemctl", "reboot"]
+reboot = do
+    System{kernel} <- hostSystem
+    asRoot (withHost $ runProcess_ . proc) case kernel of
+        Linux -> ["systemctl", "reboot"]
+        Darwin -> ["shutdown", "-r", "now"]
 
 data ConfigAction
     = ConfigBoot
@@ -132,14 +136,29 @@ buildConfiguration
        )
     => Configuration
     -> Eff es (Path Abs Dir)
-buildConfiguration Configuration{..} = do
+buildConfiguration = buildConfigurationFrom [] $ fromPath $ trilbyHome rootDir
+
+buildConfigurationFrom
+    :: ( HasCallStack
+       , Fail :> es
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => [Text]
+    -> Text
+    -> Configuration
+    -> Eff es (Path Abs Dir)
+buildConfigurationFrom flags url Configuration{..} = do
     System{kernel} <- onHost host hostSystem
     [out] <-
         onHost Localhost
-            . nixBuild
+            . nixBuildWith flags
             . Flake
             $ FlakeRef
-                { url = fromPath $ trilbyHome rootDir
+                { url
                 , output =
                     case kernel of
                         Darwin -> ["darwinConfigurations", name, "system"]

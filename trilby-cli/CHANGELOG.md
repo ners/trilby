@@ -5,6 +5,7 @@
 * Do not expose passwords during install
 * Fix remote host commands over SSH
 * Fix assorted CLI bugs
+* Support install --flake and --reboot on Darwin
 
 ## 26.8 -- 2026-08-03
 
