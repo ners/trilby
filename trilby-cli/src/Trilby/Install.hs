@@ -6,7 +6,12 @@ import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Encoding
 import Effectful.Reader.Static qualified as Reader
-import Trilby.Configuration (ConfigAction (..), buildConfiguration, buildConfigurationFrom, switchToConfiguration)
+import Trilby.Configuration
+    ( ConfigAction (..)
+    , buildConfiguration
+    , buildConfigurationFrom
+    , switchToConfiguration
+    )
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), onHost)
@@ -44,10 +49,21 @@ install
     -> Eff es ()
 install rawOpts =
     hostSystem >>= \case
-        System{kernel = Linux} -> installLinux opts
+        System{kernel = Linux} -> do
+            ensureDeps
+                [ ("disko", "disko")
+                , ("mkpasswd", "mkpasswd")
+                ]
+            installLinux opts
         System{kernel = Darwin} -> do
-            when (isJust rawOpts.flake && (isJust rawOpts.disk || isJust rawOpts.format || isJust rawOpts.luks || isJust rawOpts.filesystem))
-                $ logAttention_ "Ignoring disk options (--disk, --format, --luks, --filesystem): they do not apply on Darwin"
+            when (isJust rawOpts.flake) $
+                for_ @[]
+                    [ ("--disk", isJust rawOpts.disk)
+                    , ("--format", isJust rawOpts.format)
+                    , ("--luks", isJust rawOpts.luks)
+                    , ("--filesystem", isJust rawOpts.filesystem)
+                    ]
+                    \(option, given) -> when given $ logAttention_ ("Ignoring " <> option <> ": it does not apply on Darwin")
             installDarwin opts
   where
     opts = askOpts rawOpts
@@ -67,21 +83,22 @@ installLinux
     => InstallOpts (Eff es)
     -> Eff es ()
 installLinux opts | Just FlakeOpts{..} <- opts.flake = do
-    ensureDeps
-        [ ("disko", "disko")
-        , ("mkpasswd", "mkpasswd")
-        ]
+    copy <- copyFlake
+    reboot <- opts.reboot
+    format <- opts.format
     let diskoRef = Disko.Flake flakeRef
-    formatDisk opts.format diskoRef
+    formatDisk (pure format) diskoRef
     mountRoot diskoRef
     nixosInstall flakeRef
-    whenM copyFlake $ copyFlakeTo Linux flakeRef
-    whenM opts.reboot Configuration.reboot
-installLinux opts = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
-    disko <- getDisko opts
+    when copy $ copyFlakeTo Linux flakeRef
+    when reboot Configuration.reboot
+installLinux opts0 = withTempFile $(mkRelFile "disko.nix") \diskoFile -> do
+    disko <- getDisko opts0
+    opts <- resolveHostOpts Linux opts0
+    format <- opts.format
     inDir (parent diskoFile) $ writeNixFile diskoFile disko
     let diskoRef = Disko.File $ Abs diskoFile
-    formatDisk opts.format diskoRef
+    formatDisk (pure format) diskoRef
     mountRoot diskoRef
     flakeRef <- setupHost Linux opts $ \hostDir _ -> do
         inDir hostDir $ writeNixFile $(mkRelFile "disko.nix") $ sanitise disko
@@ -256,15 +273,6 @@ nixosInstall
     -> Eff es ()
 nixosInstall flakeRef = do
     logAttention_ "Performing installation ... "
-    -- TODO(vkleen): this shouldn't work and neither should it be necessary ...
-    (withTrace . asRoot) cmd_
-        . sconcat
-        $ [ ["nix", "build"]
-          , ["--store", "/mnt"]
-          , ["--impure"]
-          , ["--accept-flake-config"]
-          , ["trilby#nix-monitored"]
-          ]
     (withTrace . asRoot) cmd_
         . sconcat
         $ [ ["nixos-install"]
@@ -293,12 +301,16 @@ installDarwin opts | Just FlakeOpts{..} <- opts.flake = do
     name <- case flakeRef.output of
         [] -> pure configuration.name
         [name] -> pure name
-        output -> errorExit $ "Cannot install from a flake output that is not a single configuration name: " <> ishow flakeRef { output }
+        output ->
+            errorExit
+                $ "Cannot install from a flake output that is not a single configuration name: "
+                <> ishow flakeRef{output}
     result <- buildConfigurationFrom ["--impure"] flakeRef.url configuration{Configuration.name}
     switchToConfiguration result ConfigSwitch
     whenM copyFlake $ copyFlakeTo Darwin flakeRef
     whenM opts.reboot Configuration.reboot
-installDarwin opts = do
+installDarwin opts0 = do
+    opts <- resolveHostOpts Darwin opts0
     configuration <- Configuration.fromHost =<< Reader.ask
     FlakeRef{output = [name]} <- setupHost Darwin opts \_ _ -> pure ()
     flip switchToConfiguration ConfigSwitch =<< buildConfiguration configuration{Configuration.name}
@@ -329,3 +341,28 @@ copyFlakeTo kernel flakeRef = do
     asRoot cmd_ ["cp", "-R", storePath <> "/.", dest]
     asRoot cmd_ ["chmod", "-R", "u+w", dest]
     asRoot cmd_ ["chown", "-R", owner, dest]
+
+memoOpt
+    :: (Monad m)
+    => Lens' (InstallOpts m) (m a)
+    -> InstallOpts m
+    -> m (InstallOpts m)
+memoOpt l opts = do
+    a <- opts ^. l
+    pure $ opts & l .~ pure a
+
+resolveHostOpts :: (Monad m) => Kernel -> InstallOpts m -> m (InstallOpts m)
+resolveHostOpts kernel =
+    memoOpt #hostname
+        >=> memoOpt #edition
+        >=> memoOpt #release
+        >=> memoOpt #username
+        >=> when' (kernel == Linux) (memoOpt #password)
+        >=> when' (kernel == Linux) (memoOpt #keyboard)
+        >=> when' (kernel == Linux) (memoOpt #locale)
+        >=> when' (kernel == Linux) (memoOpt #timezone)
+        >=> memoOpt #edit
+        >=> memoOpt #reboot
+  where
+    when' :: (Applicative f) => Bool -> (a -> f a) -> a -> f a
+    when' c f = if c then f else pure

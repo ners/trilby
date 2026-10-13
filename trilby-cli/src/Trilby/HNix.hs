@@ -105,13 +105,14 @@ nixBuildWith flags f =
         . LazyByteString.toStrict
         =<< withTrace
             (readProcessStdout_ . proc)
-            ( (`NonEmpty.appendList` flags) $ sconcat
-                [ ["nix", "build"]
-                , ["--no-link", "--print-out-paths"]
-                , case f of
-                    File f -> ["--file", fromSomeBase f]
-                    Flake f -> ["--accept-flake-config", ishow f]
-                ]
+            ( (`NonEmpty.appendList` flags)
+                $ sconcat
+                    [ ["nix", "build"]
+                    , ["--no-link", "--print-out-paths"]
+                    , case f of
+                        File f -> ["--file", fromSomeBase f]
+                        Flake f -> ["--accept-flake-config", ishow f]
+                    ]
             )
 
 copyClosure

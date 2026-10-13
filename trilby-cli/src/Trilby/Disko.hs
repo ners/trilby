@@ -16,4 +16,4 @@ instance ToExpr Disko where
         }
         |]
       where
-        diskSet = listToSet (one . DynamicKey . Plain . fromText . (.device)) disks
+        diskSet = listToSet (one . DynamicKey . Plain . fromText . (.name)) disks

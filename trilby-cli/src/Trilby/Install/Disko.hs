@@ -8,6 +8,7 @@ module Trilby.Install.Disko
 where
 
 import Control.Lens
+import Data.Char (isAlphaNum)
 import Data.Generics.Labels ()
 import Data.List (sortOn)
 import Data.Text qualified as Text
@@ -39,8 +40,8 @@ disko
     -> Eff es ()
 disko action =
     (withTrace . asRoot) cmd_ $ case action of
-        Format (File f) -> ["disko", "-m", "disko", fromSomeBase f]
-        Format (Flake f) -> ["disko", "-m", "disko", "--flake", ishow f]
+        Format (File f) -> ["disko", "-m", "destroy,format,mount", "--yes-wipe-all-disks", fromSomeBase f]
+        Format (Flake f) -> ["disko", "-m", "destroy,format,mount", "--yes-wipe-all-disks", "--flake", ishow f]
         Mount (File f) -> ["disko", "-m", "mount", fromSomeBase f]
         Mount (Flake f) -> ["disko", "-m", "mount", "--flake", ishow f]
 
@@ -60,7 +61,10 @@ getDisko opts = do
     diskName :: Path Abs File <- opts.disk
     diskLines <-
         sortOn Text.length
-            <$> cmdOutTextLines ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
+            . fmap Text.strip
+            . Text.lines
+            . snd
+            <$> cmdCodeOutText ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
     diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
     logAttention_ $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
     luksPasswordFile <- (</> $(mkRelFile "luksPassword")) <$> Reader.asks tmpDir
@@ -70,17 +74,22 @@ getDisko opts = do
         NoLuks -> pure ()
     let useLuks = luks `is` #_UseLuks
     filesystem <- opts.filesystem
+    let diskId =
+            Text.map (\c -> if isAlphaNum c || c `elem` ("._-" :: String) then c else '-')
+                . fromPath
+                . filename
+                $ diskDevice
     let mbrPartition =
             Partition
                 { priority = Just 0
-                , label = "boot"
+                , label = diskId <> "-boot"
                 , size = Trilby.Disko.Partition.MiB 1
                 , content = MbrPartition
                 }
     let efiPartition =
             Partition
                 { priority = Just 1
-                , label = "EFI"
+                , label = diskId <> "-EFI"
                 , size = Trilby.Disko.Partition.GiB 1
                 , content =
                     EfiPartition
@@ -128,7 +137,7 @@ getDisko opts = do
     let rootPartition =
             Partition
                 { priority = Nothing
-                , label = "Trilby"
+                , label = diskId <> "-Trilby"
                 , size = Whole
                 , content = if useLuks then rootLuksContent else rootContent
                 }
@@ -136,7 +145,7 @@ getDisko opts = do
         Disko
             { disks =
                 [ Disk
-                    { name = fromPath . filename $ diskDevice
+                    { name = diskId
                     , device = fromPath diskDevice
                     , content =
                         Gpt

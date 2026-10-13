@@ -6,6 +6,7 @@
 * Fix remote host commands over SSH
 * Fix assorted CLI bugs
 * Support install --flake and --reboot on Darwin
+* Prompt and validate options before formatting disk
 
 ## 26.8 -- 2026-08-03
 

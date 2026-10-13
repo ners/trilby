@@ -1,6 +1,7 @@
 module Trilby.Install.Options where
 
 import Control.Exception qualified as Exception
+import Data.Char (isAlphaNum, isAscii, isAsciiLower, isDigit)
 import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Options.Applicative
@@ -100,12 +101,38 @@ validateParsedInstallOpts
     :: (IOE :> es, Log :> es)
     => InstallOpts Maybe
     -> Eff es (InstallOpts Maybe)
-validateParsedInstallOpts opts =
+validateParsedInstallOpts opts = do
+    either (errorExit . fromString) pure do
+        for_ opts.hostname validateHostname
+        for_ opts.username validateUsername
     case opts.disk of
         Nothing -> pure opts
         Just d -> do
             vd <- fromMaybeM (liftIO exitFailure) $ validateDisk d
             pure $ opts & #disk ?~ vd
+
+validateHostname :: Text -> Either String Text
+validateHostname h
+    | Text.null h || Text.length h > 63 = Left "hostname must be 1 to 63 characters long"
+    | not (Text.all (\c -> isAscii c && (isAlphaNum c || c == '-')) h) =
+        Left "hostname may only contain letters, digits, and '-'"
+    | Text.head h == '-' || Text.last h == '-' = Left "hostname must not start or end with '-'"
+    | otherwise = Right h
+
+validateUsername :: Text -> Either String Text
+validateUsername u
+    | Text.null u || Text.length u > 32 = Left "username must be 1 to 32 characters long"
+    | not (isAsciiLower (Text.head u) || Text.head u == '_') =
+        Left "username must start with a lowercase letter or '_'"
+    | not (Text.all (\c -> isAsciiLower c || isDigit c || c == '_' || c == '-') u) =
+        Left "username may only contain lowercase letters, digits, '_' and '-'"
+    | otherwise = Right u
+
+askValidated :: (IOE :> es, Log :> es) => (Text -> Either String Text) -> Eff es Text -> Eff es Text
+askValidated validate ask =
+    (validate <$> ask) >>= \case
+        Right answer -> pure answer
+        Left reason -> logAttention_ (fromString reason) >> askValidated validate ask
 
 validateDisk :: (IOE :> es, Log :> es) => Path Abs File -> Eff es (Maybe (Path Abs File))
 validateDisk f = do
@@ -232,16 +259,30 @@ askOpts opts =
         { flake = askFlake <$> opts.flake
         , luks = askLuks opts.luks
         , disk = maybe askDisk pure opts.disk
-        , format = maybe (yesNoButtons "Format the disk?" True) pure opts.format
+        , format =
+            maybe
+                ( yesNoButtons
+                    "Erase the selected disk and create new partitions? ALL DATA ON IT WILL BE LOST."
+                    False
+                )
+                pure
+                opts.format
         , filesystem = maybe (selectEnum "Choose root partition filesystem:" Nothing) pure opts.filesystem
         , edition = maybe (selectEnum "Choose edition:" Nothing) pure opts.edition
         , release = maybe (selectEnum "Choose release:" Nothing) pure opts.release
         , hostname =
-            maybe (textInput "Choose hostname:" =<< onHost Localhost Configuration.hostname) pure opts.hostname
+            maybe
+                ( askValidated validateHostname
+                    $ textInput "Choose hostname:"
+                    =<< onHost Localhost Configuration.hostname
+                )
+                pure
+                opts.hostname
         , keyboard = maybe askKeyboard pure opts.keyboard
         , locale = maybe askLocale pure opts.locale
         , timezone = maybe askTimezone pure opts.timezone
-        , username = maybe (textInput "Choose admin username:" "") pure opts.username
+        , username =
+            maybe (askValidated validateUsername $ textInput "Choose admin username:" "") pure opts.username
         , password = maybe (passwordInput "Choose admin password:") pure opts.password
         , edit = maybe (yesNoButtons "Edit the configuration?" False) pure opts.edit
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot
