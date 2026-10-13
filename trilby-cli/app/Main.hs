@@ -40,9 +40,10 @@ main = do
         $ \tmpDir -> do
             commandCache <- newTVarIO mempty
             runReader AppState{..} $ do
-                onHost Localhost ensureNix
-                case opts.command of
-                    Clean o -> clean o
-                    Infect o -> infect o
-                    Install o -> onHost Localhost $ install =<< validateParsedInstallOpts o
-                    Update o -> update o
+                reportFailedCommand $ do
+                    onHost Localhost ensureNix
+                    case opts.command of
+                        Clean o -> clean o
+                        Infect o -> infect o
+                        Install o -> onHost Localhost $ install =<< validateParsedInstallOpts o
+                        Update o -> update o

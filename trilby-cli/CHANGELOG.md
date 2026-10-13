@@ -11,6 +11,7 @@
 * Use a regular uid for the admin user
 * Add --password-file and --luks-password-file options
 * Log to stderr
+* Catch command failures and exit cleanly
 
 ## 26.8 -- 2026-08-03
 

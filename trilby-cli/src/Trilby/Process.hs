@@ -59,8 +59,7 @@ proc :: NonEmpty Text -> ProcessConfig () () ()
 proc (x :| xs) = Process.proc (Text.unpack x) (Text.unpack <$> xs)
 
 logProc :: (HasCallStack, Log :> es) => ProcessConfig stdin stdout stderr -> Eff es ()
-logProc ProcessConfig{pcCmdSpec = ShellCommand str} = logInfo_ . Text.pack $ str
-logProc ProcessConfig{pcCmdSpec = RawCommand x xs} = logInfo_ . Text.unwords . fmap Text.pack $ x : xs
+logProc = logInfo_ . describeProc
 
 runProcess
     :: (HasCallStack, TypedProcess :> es, Log :> es)
@@ -121,3 +120,7 @@ readProcessStderr_ p = withFrozenCallStack do
     err <- Process.readProcessStderr_ p
     logTrace (Text.pack . show $ p) $ Aeson.object ["stderr" .= err]
     pure err
+
+describeProc :: ProcessConfig stdin stdout stderr -> Text
+describeProc ProcessConfig{pcCmdSpec = ShellCommand str} = Text.pack str
+describeProc ProcessConfig{pcCmdSpec = RawCommand x xs} = Text.unwords . fmap Text.pack $ x : xs

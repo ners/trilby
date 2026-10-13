@@ -307,6 +307,16 @@ defaultProc
 defaultProc p = do
     verbose <- verbosityAtLeast LogInfo
     let output = if verbose then Process.inherit else Process.nullStream
+    pure . setStdin Process.nullStream . setStdout output . setStderr Process.inherit $ p
+
+-- | For commands whose failure is an expected answer rather than an error.
+probeProc
+    :: (HasCallStack, IOE :> es, Reader AppState :> es)
+    => ProcessConfig stdin stdout stderr
+    -> Eff es (ProcessConfig () () ())
+probeProc p = do
+    verbose <- verbosityAtLeast LogInfo
+    let output = if verbose then Process.inherit else Process.nullStream
     pure . setStdin Process.nullStream . setStdout output . setStderr output $ p
 
 process_
@@ -319,7 +329,7 @@ processCode
     :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
     => ProcessConfig stdin stdout stderr
     -> Eff es ExitCode
-processCode = withFrozenCallStack $ runProcess <=< defaultProc
+processCode = withFrozenCallStack $ runProcess <=< probeProc
 
 processOutText
     :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
@@ -347,7 +357,7 @@ processCodeOutText
     -> Eff es (ExitCode, Text)
 processCodeOutText =
     withFrozenCallStack $
-        fmap (second (Text.decodeUtf8 . LazyByteString.toStrict)) . readProcessStdout <=< defaultProc
+        fmap (second (Text.decodeUtf8 . LazyByteString.toStrict)) . readProcessStdout <=< probeProc
 
 processOutJson
     :: ( HasCallStack
@@ -646,3 +656,8 @@ infixl 4 <$$>
 
 genM :: (Monad m, Traversable t) => (a -> m b) -> t a -> m (t (a, b))
 genM f = mapM \a -> (a,) <$> f a
+
+reportFailedCommand :: (HasCallStack, IOE :> es, Log :> es) => Eff es a -> Eff es a
+reportFailedCommand = handle \(Process.ExitCodeException{Process.eceExitCode = code, Process.eceProcessConfig = config}) -> do
+    logAttention_ $ "Command failed (" <> ishow code <> "): " <> describeProc config
+    liftIO $ exitWith code
