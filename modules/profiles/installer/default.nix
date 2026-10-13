@@ -67,7 +67,7 @@
   # be used anywhere else.
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
-      if (subject.isInGroup("wheel")) {
+      if (subject.local && subject.active && subject.isInGroup("wheel")) {
         return polkit.Result.YES;
       }
     });
