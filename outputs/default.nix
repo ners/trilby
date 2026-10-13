@@ -3,7 +3,7 @@ inputs:
 with builtins;
 let
   lib = import ../lib { inherit inputs; inherit (inputs.nixpkgs) lib; };
-  buildPlatforms = attrNames inputs.nixpkgs.legacyPackages;
+  buildPlatforms = inputs.nixpkgs.lib.systems.flakeExposed;
   nixosModules = lib.findModules ../modules;
 in
 lib.recursiveConcat [

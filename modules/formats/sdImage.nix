@@ -1,12 +1,17 @@
 { trilby, ... }:
 
+let
+  inherit (trilby.hostSystem) cpu;
+in
 {
   imports = [
     (with trilby.nixpkgs.nixosModules.installer;
-    if (trilby.hostSystem.cpu.arch == "riscv64") then
+    if (cpu.arch == "riscv64") then
       sd-card.sd-image-riscv64-qemu
+    else if (cpu.name == "armv7l") then
+      sd-card.sd-image-armv7l-multiplatform
     else
-      sd-card."sd-image-${trilby.hostSystem.cpu.name}"
+      sd-card."sd-image-${cpu.name}"
     )
   ];
 }

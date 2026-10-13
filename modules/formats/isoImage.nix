@@ -20,7 +20,7 @@ in
         } ''
         convert ${inputs.self.nixosModules.overlays.trilby-grub2-theme}/bios-boot.svg $out
       '';
-      storeContents = builtins.attrValues inputs;
+      storeContents = builtins.attrValues (removeAttrs inputs [ "flake-compat" "nix-darwin" ]);
     }
     (lib.optionalAttrs (lib.versionAtLeast trilby.release "23.05") {
       appendToMenuLabel = "";
@@ -33,10 +33,9 @@ in
     then { settings.PasswordAuthentication = true; }
     else { passwordAuthentication = true; };
 
-  boot.initrd = {
-    luks.devices = { };
-    systemd.enable = false;
-  };
+  networking.wireless.enable = lib.mkForce false;
+
+  boot.initrd.luks.devices = { };
 } // lib.optionalAttrs (lib.versionAtLeast trilby.release "24.05") {
   system.installer.channel.enable = false;
 } // lib.optionalAttrs (lib.versionAtLeast trilby.release "25.05") {

@@ -11,8 +11,11 @@ lib.recursiveConcat [
         enable = lib.mkDefault true;
         git = {
           enable = lib.mkDefault true;
-          mode = lib.mkDefault "both";
-        };
+        } // (
+          if lib.versionAtLeast trilby.release "26.11"
+          then { mode = lib.mkDefault "both"; }
+          else { diffToolMode = lib.mkDefault true; }
+        );
       };
       git.settings.log.date = lib.mkDefault "iso";
     };

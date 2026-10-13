@@ -1,7 +1,9 @@
 { pkgs, ... }:
 
 {
-  environment.systemPackages = with pkgs; [ libreoffice-stable ];
+  environment.systemPackages = [
+    (pkgs.libreoffice-stable or pkgs.libreoffice-still)
+  ];
 
   xdg.mime.inverted.defaultApplications = {
     "libreoffice-base.desktop" = [

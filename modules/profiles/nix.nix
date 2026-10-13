@@ -9,6 +9,7 @@
     {
       monitored = {
         enable = lib.mkDefault true;
+        notify = lib.mkDefault pkgs.stdenv.hostPlatform.isLinux;
         package = lib.mkDefault (pkgs.unstable.nix-monitored.override {
           nix = pkgs.unstable.nixVersions.latest;
         });

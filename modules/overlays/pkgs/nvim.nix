@@ -1,6 +1,6 @@
 { inputs, lib, pkgs, ... }:
 
-inputs.nixvim.legacyPackages.${pkgs.system}.makeNixvimWithModule {
+inputs.nixvim.legacyPackages.${pkgs.stdenv.hostPlatform.system}.makeNixvimWithModule {
   inherit pkgs;
   extraSpecialArgs = {
     inherit inputs;

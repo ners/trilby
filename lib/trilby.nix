@@ -123,7 +123,7 @@ rec {
         }
         (lib.optionalAttrs isNixos (
           if (u ? initialPassword && u ? initialHashedPassword)
-          then error "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
+          then throw "trilbyUser: both `initialPassword` and `initialHashedPassword` cannot be specified"
           else if (u ? initialPassword)
           then { inherit (u) initialPassword; }
           else if (u ? initialHashedPassword)

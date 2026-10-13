@@ -10,7 +10,7 @@
 
   fileSystems."/" = {
     device = "/dev/disk/by-label/trilby";
-    fsType = "f2fs";
+    fsType = "ext4";
   };
 
   boot = {
@@ -23,8 +23,8 @@
           device = "/dev/vda";
         } else {
           device = "nodev";
-          efiSupport = lib.mkDefault true;
-          efiInstallAsRemovable = lib.mkDefault true;
+          efiSupport = true;
+          efiInstallAsRemovable = true;
         };
     };
   };

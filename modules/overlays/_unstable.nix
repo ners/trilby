@@ -9,7 +9,7 @@ self: super: {
     inherit (super.stdenv.hostPlatform) system;
     config.allowUnfree = true;
     overlays = with builtins; lib.pipe overlays [
-      (filter (o: o != ./unstable.nix))
+      (filter (o: o != ./_unstable.nix))
       (map (o: import o (args // { unstable = true; })))
     ];
   };
