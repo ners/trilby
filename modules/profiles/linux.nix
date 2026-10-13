@@ -53,7 +53,7 @@
 
   time.timeZone = lib.mkDefault "Europe/Zurich";
 
-  users.users.root.initialHashedPassword = "";
+  users.users.root.initialHashedPassword = lib.mkDefault "!";
 
   programs.dconf.enable = true;
 }
