@@ -25,6 +25,7 @@ import Effectful.Process.Typed
     ( ExitCode (..)
     , ProcessConfig
     , TypedProcess
+    , byteStringInput
     , inherit
     , nullStream
     , setStderr

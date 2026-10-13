@@ -1,6 +1,10 @@
 module Trilby.Install (install) where
 
-import Trilby.Configuration (ConfigAction (..), switchToConfiguration, buildConfiguration)
+import Data.ByteString.Lazy qualified as LazyByteString
+import Data.Text qualified as Text
+import Data.Text.Encoding qualified as Encoding
+import Effectful.Reader.Static qualified as Reader
+import Trilby.Configuration (ConfigAction (..), buildConfiguration, switchToConfiguration)
 import Trilby.Configuration qualified as Configuration
 import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), onHost)
@@ -14,7 +18,6 @@ import Trilby.Install.Options
 import Trilby.Prelude
 import Trilby.Setup (ensureDeps)
 import Trilby.Widgets
-import Effectful.Reader.Static qualified as Reader
 
 rootMount :: Kernel -> Path Abs Dir
 rootMount Linux = $(mkAbsDir "/mnt")
@@ -223,16 +226,19 @@ setupHost kernel opts actions = do
 hashedPassword
     :: ( HasCallStack
        , Fail :> es
-       , IOE :> es
-       , Reader AppState :> es
-       , Reader Host.Host :> es
        , TypedProcess :> es
        , Log :> es
        )
     => Text
     -> Eff es Password
-hashedPassword plain =
-    maybe (fail "mkpasswd failed") (pure . HashedPassword) =<< cmdOutTextFirstLine ["mkpasswd", plain]
+hashedPassword plain = do
+    let p =
+            setStdin (byteStringInput . LazyByteString.fromStrict $ Encoding.encodeUtf8 plain)
+                $ proc ["mkpasswd", "--method=yescrypt", "--stdin"]
+    out <- Text.strip . Encoding.decodeUtf8 . LazyByteString.toStrict <$> readProcessStdout_ p
+    case Text.lines out of
+        (h : _) | "$y$" `Text.isPrefixOf` h -> pure $ HashedPassword h
+        _ -> fail "mkpasswd failed to produce a yescrypt hash"
 
 nixosInstall
     :: ( HasCallStack
@@ -282,5 +288,5 @@ installDarwin
 -- installDarwin opts | Just FlakeOpts{..} <- opts.flake = pure ()
 installDarwin opts = do
     configuration <- Configuration.fromHost =<< Reader.ask
-    FlakeRef{output=[name]} <- setupHost Darwin opts \_ _ -> pure ()
+    FlakeRef{output = [name]} <- setupHost Darwin opts \_ _ -> pure ()
     flip switchToConfiguration ConfigSwitch =<< buildConfiguration configuration{Configuration.name}

@@ -143,6 +143,7 @@ import System.Posix
     , getEffectiveUserID
     , getWorkingDirectory
     , readSymbolicLink
+    , setFileMode
     )
 import System.Process.Typed qualified as Process
 import Text.Read (Read (..), ReadPrec, readMaybe)
@@ -551,6 +552,30 @@ writeFile f t = do
     logTrace ("writeFile " <> fromPath f) t
     ensureDir $ parent f
     liftIO $ Text.writeFile (fromPath f) t
+
+writeSecretFile
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , Concurrent :> es
+       , TypedProcess :> es
+       , Log :> es
+       , FileSystem :> es
+       )
+    => Path b File
+    -> Text
+    -> Eff es ()
+writeSecretFile f t = do
+    Reader.ask >>= \case
+        Localhost -> pure ()
+        host -> errorExit $ "writeSecretFile: tried to write " <> fromPath f <> " on host " <> ishow host
+    logTrace_ $ "writeSecretFile " <> fromPath f
+    ensureDir $ parent f
+    liftIO do
+        Text.writeFile (fromPath f) ""
+        setFileMode (fromPath f) 0o600
+        Text.writeFile (fromPath f) t
 
 withTempFile
     :: (HasCallStack, Reader AppState :> es)

@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 26.10 -- 2026-10-14
+
+* Do not expose passwords during install
+
 ## 26.8 -- 2026-08-03
 
 * Remove App in favour of granular effects

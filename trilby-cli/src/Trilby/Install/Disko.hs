@@ -11,6 +11,7 @@ import Control.Lens
 import Data.Generics.Labels ()
 import Data.List (sortOn)
 import Data.Text qualified as Text
+import Effectful.Reader.Static qualified as Reader
 import Trilby.Disko
 import Trilby.Disko.Disk
 import Trilby.Disko.Filesystem
@@ -19,9 +20,6 @@ import Trilby.HNix (FileOrFlake (..))
 import Trilby.Host (Host)
 import Trilby.Install.Options
 import Trilby.Prelude
-
-luksPasswordFile :: Path Abs File
-luksPasswordFile = $(mkAbsFile "/tmp/luksPassword")
 
 data DiskoAction
     = Format !FileOrFlake
@@ -65,9 +63,10 @@ getDisko opts = do
             <$> cmdOutTextLines ["find", "-L", "/dev/disk/by-id", "-samefile", fromPath diskName]
     diskDevice <- headDef diskName <$> mapM (parseAbsFile . fromText) diskLines
     logAttention_ $ "Using disk " <> fromPath diskName <> " with id " <> fromPath diskDevice
+    luksPasswordFile <- (</> $(mkRelFile "luksPassword")) <$> Reader.asks tmpDir
     luks <- opts.luks
     case luks of
-        UseLuks{luksPassword} -> writeFile luksPasswordFile =<< luksPassword
+        UseLuks{luksPassword} -> writeSecretFile luksPasswordFile =<< luksPassword
         NoLuks -> pure ()
     let useLuks = luks `is` #_UseLuks
     filesystem <- opts.filesystem
