@@ -17,6 +17,7 @@ import Trilby.HNix (writeNixFile)
 import Trilby.Host (Host (Localhost), onHost)
 import Trilby.Host qualified as Host
 import Trilby.Install.Config.Host
+import Trilby.Install.Config.Release (Release (..))
 import Trilby.Install.Config.User
 import Trilby.Install.Disko
 import Trilby.Install.Disko qualified as Disko
@@ -189,10 +190,11 @@ setupHost kernel opts actions = do
                     keyboard <- Just <$> opts.keyboard
                     locale <- Just <$> opts.locale
                     timezone <- Just <$> opts.timezone
+                    stateVersion <- localStateVersion release
                     pure (user, Host{..})
                 Darwin -> do
                     let user = User{uid = owner.uid, username, password = Nothing}
-                    let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, ..}
+                    let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, stateVersion = Nothing, ..}
                     pure (user, host)
 
         userDir <- parseRelDir . fromText $ "users/" <> username
@@ -366,3 +368,14 @@ resolveHostOpts kernel =
   where
     when' :: (Applicative f) => Bool -> (a -> f a) -> a -> f a
     when' c f = if c then f else pure
+
+localStateVersion
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host.Host :> es, TypedProcess :> es, Log :> es)
+    => Release
+    -> Eff es (Maybe Text)
+localStateVersion Unstable = do
+    (code, out) <- cmdCodeOutText ["nix", "eval", "--offline", "--raw", "nixpkgs#lib.trivial.release"]
+    pure $ case (code, Text.strip out) of
+        (ExitSuccess, v) | not (Text.null v) -> Just v
+        _ -> Nothing
+localStateVersion release = pure . Just $ ishow release

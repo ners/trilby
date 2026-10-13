@@ -36,7 +36,7 @@
   ];
 
   system = {
-    stateVersion = trilby.release;
+    stateVersion = lib.mkDefault trilby.release;
 
     systemBuilderArgs.name =
       let

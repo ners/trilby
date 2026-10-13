@@ -7,6 +7,7 @@
 * Fix assorted CLI bugs
 * Support install --flake and --reboot on Darwin
 * Prompt and validate options before formatting disk
+* Set stateVersion and nixvim in generated flakes
 
 ## 26.8 -- 2026-08-03
 

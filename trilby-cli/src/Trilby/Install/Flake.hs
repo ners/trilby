@@ -110,6 +110,15 @@ flake kernel release =
                         , inputs = []
                         }
                     , InputFlake
+                        { name = "nixvim"
+                        , url =
+                            "github:nix-community/nixvim"
+                                <> if release == Unstable
+                                    then ""
+                                    else "/nixos-" <> ishow release
+                        , inputs = ["nixpkgs" `Follows` "nixpkgs"]
+                        }
+                    , InputFlake
                         { name = "trilby"
                         , url = "github:ners/trilby"
                         , inputs =
@@ -119,6 +128,7 @@ flake kernel release =
                                     then "nixpkgs"
                                     else "nixpkgs-unstable"
                             , "home-manager" `Follows` "home-manager"
+                            , "nixvim" `Follows` "nixvim"
                             ]
                                 <> ["nix-darwin" `Follows` "nix-darwin" | kernel == Darwin]
                         }

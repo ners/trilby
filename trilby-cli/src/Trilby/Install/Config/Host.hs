@@ -14,6 +14,7 @@ data Host = Host
     , keyboard :: Maybe Keyboard
     , locale :: Maybe Text
     , timezone :: Maybe Text
+    , stateVersion :: Maybe Text
     , user :: User
     }
     deriving stock (Generic)
@@ -34,6 +35,8 @@ instance ToExpr Host where
           i18n.extraLocaleSettings.LC_ALL = locale;
 
           time.timeZone = timezone;
+
+          system.stateVersion = stateVersion;
         }
         |]
             & _Fix
