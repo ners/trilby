@@ -16,7 +16,7 @@ import Options.Applicative.NonEmpty (some1)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..))
-import Trilby.Util (ishow)
+import Trilby.Util (ishow, singleQuoted)
 import Prelude
 
 data Host
@@ -47,7 +47,7 @@ withHost c t = Reader.ask >>= \host -> ssh host c t
   where
     ssh :: Host -> (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
     ssh Localhost c t = c t
-    ssh host c t = c $ ["ssh", "-t", ishow host] <> t
+    ssh host c t = c $ ["ssh", "-t", ishow host] <> (singleQuoted <$> t)
 
 parseHosts :: Mod ArgumentFields Host -> Parser (NonEmpty Host)
 parseHosts mods = fmap NonEmpty.nubOrd . some1 $ argument auto (metavar "HOST" <> mods)

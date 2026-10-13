@@ -1,7 +1,6 @@
 module Trilby.Configuration where
 
 import Data.Text qualified as Text
-import Effectful.Reader.Static qualified as Reader
 import Trilby.HNix
 import Trilby.Host
 import Trilby.Prelude
@@ -23,15 +22,12 @@ hostname
        )
     => Eff es Text
 hostname =
-    Reader.ask >>= \case
-        Localhost ->
-            cached
-                ( maybe (errorExit "hostname failed") pure
-                    . (listToMaybe . Text.split (== '.') =<<)
-                    <=< cmdOutTextFirstLine
-                )
-                ["hostname"]
-        Host{..} -> pure hostname
+    cached
+        ( maybe (errorExit "hostname failed") pure
+            . (listToMaybe . Text.split (== '.') =<<)
+            <=< cmdOutTextFirstLine
+        )
+        ["hostname"]
 
 fromHost
     :: ( HasCallStack

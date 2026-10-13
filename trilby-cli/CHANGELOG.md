@@ -3,6 +3,7 @@
 ## 26.10 -- 2026-10-14
 
 * Do not expose passwords during install
+* Fix remote host commands over SSH
 
 ## 26.8 -- 2026-08-03
 

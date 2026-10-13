@@ -91,16 +91,21 @@ updateDarwin
        , IOE :> es
        , Concurrent :> es
        , Reader AppState :> es
+       , Reader Host :> es
        , TypedProcess :> es
        , Log :> es
        )
     => UpdateOpts (Eff es)
     -> Eff es ()
-updateDarwin opts = onHost Localhost $ do
-    result <- buildConfiguration =<< Configuration.fromHost =<< Reader.ask
-    cmd_ ["nvd", "--color", "always", "diff", "/run/current-system", fromPath result]
+updateDarwin opts = do
+    host <- Reader.ask
+    result <- buildConfiguration =<< Configuration.fromHost host
+    copyClosure result
+    withHost
+        (runProcess_ . proc)
+        ["nvd", "--color", "always", "diff", "/run/current-system", fromPath result]
     let perform = switchToConfiguration result
-    inject opts.action >>= \case
+    opts.action >>= \case
         Switch -> perform ConfigSwitch
         Test -> perform ConfigTest
         Boot{} -> errorExit "Boot is not supported on Darwin"

@@ -140,7 +140,6 @@ import Path
 import System.Exit (ExitCode (..), exitFailure, exitSuccess, exitWith)
 import System.Posix
     ( changeWorkingDirectory
-    , getEffectiveUserID
     , getWorkingDirectory
     , readSymbolicLink
     , setFileMode
@@ -197,8 +196,17 @@ errorExit :: (HasCallStack, IOE :> es, Log :> es) => Text -> Eff es a
 errorExit msg = logAttention_ msg >> liftIO exitFailure
 {-# INLINE errorExit #-}
 
-isRoot :: (HasCallStack, IOE :> es) => Eff es Bool
-isRoot = (0 ==) <$> liftIO getEffectiveUserID
+isRoot
+    :: ( HasCallStack
+       , IOE :> es
+       , Concurrent :> es
+       , Reader AppState :> es
+       , Reader Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Eff es Bool
+isRoot = (0 ==) . (.uid) <$> currentOwner
 
 asUser :: (HasCallStack) => (NonEmpty Text -> Eff es a) -> NonEmpty Text -> Eff es a
 asUser = id
