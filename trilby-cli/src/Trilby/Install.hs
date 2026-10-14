@@ -186,14 +186,14 @@ setupHost kernel opts actions = do
             case kernel of
                 Linux -> do
                     password <- Just <$> (hashedPassword =<< opts.password)
-                    let user = User{uid = owner.uid, ..}
+                    let user = User{uid = max 1000 owner.uid, ..}
                     keyboard <- Just <$> opts.keyboard
                     locale <- Just <$> opts.locale
                     timezone <- Just <$> opts.timezone
                     stateVersion <- localStateVersion release
                     pure (user, Host{..})
                 Darwin -> do
-                    let user = User{uid = owner.uid, username, password = Nothing}
+                    let user = User{uid = max 1000 owner.uid, username, password = Nothing}
                     let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, stateVersion = Nothing, ..}
                     pure (user, host)
 
