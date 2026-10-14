@@ -74,6 +74,41 @@ let
 
   plainPkgs = import release.nixpkgs { system = buildPlatform; };
 
+  allOutputs = p: if p ? outputs then map (o: p.${o}) p.outputs else [ p ];
+
+  evalClosure = pkgs:
+    collectInputs (
+      lib.attrValues trilbyConfig.inputs
+      ++ lib.concatMap lib.attrValues (lib.attrValues releases)
+      ++ lib.attrValues (lib.loadFlake { src = ../trilby-cli; }).defaultNix.inputs
+    )
+    ++ allOutputs pkgs.haskellPackages.cabal2nix-unstable
+    ++ map (n: pkgs.haskellPackages.${n}.cabal2nixDeriver)
+      [ "trilby-cli" "hnix" "path-io-effectful" "terminal-widgets" "text-rope-zipper" "terminal" ];
+
+  installClosure = pkgs: args:
+    evalClosure pkgs
+    ++ [ (referenceSystem args).config.system.build.toplevel ]
+    ++ (let
+      c = (referenceSystem args).config;
+      outputsOf = p: lib.concatMap (o: lib.optional (p ? ${o}) p.${o})
+        ((p.meta.outputsToInstall or [ "out" ]) ++ c.environment.extraOutputsToInstall);
+    in lib.concatMap outputsOf (c.environment.systemPackages))
+    ++ allOutputs pkgs.nix-monitored
+    ++ lib.concatMap allOutputs (with pkgs; [
+      desktop-file-utils shared-mime-info texinfo libxml2 libxslt docbook5 docbook_xsl_ns
+      kbd kmod libarchive brotli curl sudo lndir unionfs-fuse shellcheck-minimal libcap libcap-text-verifier
+      nixos-artwork.wallpapers.simple-dark-gray-bottom
+      (python3.withPackages (p: [ p.mistune ]))
+      mypy zstd systemd
+    ])
+    ++ lib.concatMap allOutputs (with plainPkgs; [
+      stdenv stdenvNoCC bintools stdenv.shellPackage dash
+    ] ++ plainPkgs.stdenv.initialPath ++ [
+      util-linux e2fsprogs mdadm zfs lvm2 bash jq gnused gawk coreutils-full
+      parted gptfdisk dosfstools xfsprogs btrfs-progs cryptsetup
+    ]);
+
   installerNode = args: { pkgs, ... }: {
     imports = [
       nixosModules.profiles.installer
@@ -98,37 +133,7 @@ let
       flake-registry = "";
     };
 
-    system.extraDependencies =
-      let allOutputs = p: if p ? outputs then map (o: p.${o}) p.outputs else [ p ];
-      in
-      collectInputs (
-        lib.attrValues trilbyConfig.inputs
-        ++ lib.concatMap lib.attrValues (lib.attrValues releases)
-        ++ lib.attrValues (lib.loadFlake { src = ../trilby-cli; }).defaultNix.inputs
-      )
-      ++ [ (referenceSystem args).config.system.build.toplevel ]
-      ++ (let
-        c = (referenceSystem args).config;
-        outputsOf = p: lib.concatMap (o: lib.optional (p ? ${o}) p.${o})
-          ((p.meta.outputsToInstall or [ "out" ]) ++ c.environment.extraOutputsToInstall);
-      in lib.concatMap outputsOf (c.environment.systemPackages))
-      ++ allOutputs pkgs.nix-monitored
-      ++ allOutputs pkgs.haskellPackages.cabal2nix-unstable
-      ++ map (n: pkgs.haskellPackages.${n}.cabal2nixDeriver)
-        [ "trilby-cli" "hnix" "path-io-effectful" "terminal-widgets" "text-rope-zipper" "terminal" ]
-      ++ lib.concatMap allOutputs (with pkgs; [
-        desktop-file-utils shared-mime-info texinfo libxml2 libxslt docbook5 docbook_xsl_ns
-        kbd kmod libarchive brotli curl sudo lndir unionfs-fuse shellcheck-minimal libcap libcap-text-verifier
-        nixos-artwork.wallpapers.simple-dark-gray-bottom
-        (python3.withPackages (p: [ p.mistune ]))
-        mypy zstd systemd
-      ])
-      ++ lib.concatMap allOutputs (with plainPkgs; [
-        stdenv stdenvNoCC bintools stdenv.shellPackage dash
-      ] ++ plainPkgs.stdenv.initialPath ++ [
-        util-linux e2fsprogs mdadm zfs lvm2 bash jq gnused gawk coreutils-full
-        parted gptfdisk dosfstools xfsprogs btrfs-progs cryptsetup
-      ]);
+    system.extraDependencies = installClosure pkgs args;
   };
 
   targetNode = efi: {
@@ -224,9 +229,147 @@ let
         ''}
       '';
     };
+
+  snakeOil = import "${release.nixpkgs}/nixos/tests/ssh-keys.nix" pkgs;
+  snakeOilPublicKey = snakeOil.snakeOilPublicKey;
+
+  infectSystem =
+    lib.trilbySystem {
+      trilby = { edition = "server"; hostPlatform = buildPlatform; };
+      modules = [
+        nixosModules.formats.kexecScript
+        { users.users.trilby.openssh.authorizedKeys.keys = [ snakeOilPublicKey ]; }
+      ];
+    };
+
+  infectImage =
+    assert infectSystem.config.services.openssh.enable;
+    assert infectSystem.config.users.users.trilby.openssh.authorizedKeys.keys == [ snakeOilPublicKey ];
+    infectSystem.config.system.build.kexecTree;
+
+  infectInstallArgs = { filesystem = "ext4"; luks = false; efi = true; };
+
+  installBundle = pkgs:
+    pkgs.linkFarm "install-closure"
+      (lib.imap0 (i: path: { name = toString i; inherit path; }) (installClosure pkgs infectInstallArgs));
+
+  bundleInfo = pkgs: pkgs.closureInfo { rootPaths = [ (installBundle pkgs) ]; };
+
+  mkInfectTest = lib.trilbyTest {
+    name = "trilby-infect";
+    inherit trilby;
+    skipLint = true;
+    globalTimeout = 300;
+    nodes = {
+      controller = { pkgs, ... }: {
+        imports = [ nixosModules.profiles.installer ];
+        virtualisation.memorySize = 4096;
+        nix.settings = {
+          substituters = lib.mkForce [ "daemon" ];
+          connect-timeout = 1;
+          flake-registry = "";
+        };
+        system.extraDependencies = [ infectImage (installBundle pkgs) (bundleInfo pkgs) ];
+        networking.firewall.allowedUDPPorts = [ 67 ];
+        services.dnsmasq = {
+          enable = true;
+          settings = {
+            interface = "eth1";
+            bind-interfaces = true;
+            dhcp-range = [ "192.168.1.100,192.168.1.100,1h" ];
+          };
+        };
+      };
+      victim = {
+        virtualisation = {
+          cores = 4;
+          memorySize = 6144;
+          diskSize = 16384;
+          useBootLoader = true;
+          useEFIBoot = true;
+        };
+        virtualisation.sharedDirectories.hoststore = {
+          source = builtins.storeDir;
+          target = "/mnt/hoststore";
+        };
+        services.openssh.settings.PermitRootLogin = "prohibit-password";
+        users.users.root.openssh.authorizedKeys.keys = [ snakeOilPublicKey ];
+        system.extraDependencies = [ infectImage ];
+      };
+    };
+    testScript = /*python*/ ''
+      import shlex
+
+      ip = "192.168.1.100"
+      sshopts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+      def on_victim(cmd):
+          return f"ssh {sshopts} trilby@{ip} {shlex.quote(cmd)}"
+
+      start_all()
+      controller.wait_for_unit("multi-user.target")
+      victim.wait_for_unit("multi-user.target")
+
+      controller.succeed("mkdir -p /root/.ssh && chmod 700 /root/.ssh")
+      controller.copy_from_host("${snakeOil.snakeOilPrivateKey}", "/root/.ssh/id_ecdsa")
+      controller.succeed("chmod 600 /root/.ssh/id_ecdsa")
+      controller.wait_until_succeeds("ssh root@victim true")
+      victim.succeed("touch /run/not-infected-yet")
+
+      infect = "trilby infect root@victim --edition server --authorised-key '${snakeOilPublicKey}'"
+
+      with subtest("Without --reboot the victim is prepared but keeps running"):
+          controller.succeed(infect + " --no-reboot >&2")
+          victim.succeed("test -e /run/not-infected-yet")
+
+      with subtest("The controller reboots the victim into the Trilby image"):
+          # a real terminal, as a user would have: it matters for processes that outlive the ssh session
+          controller.succeed("script -qec " + shlex.quote(infect + " --reboot") + " /tmp/infect.log </dev/null")
+          controller.wait_until_succeeds(on_victim("grep -q init=${infectSystem.config.system.build.toplevel}/init /proc/cmdline"))
+          assert controller.succeed(on_victim("hostname")).strip() == "trilby"
+          controller.succeed(on_victim("test ! -e /run/not-infected-yet"))
+
+      with subtest("The controller installs Trilby onto the victim"):
+          controller.copy_from_host("${testOptions}", "/tmp/test-options.nix")
+          controller.succeed("printf '%s\\n' '#!/bin/sh' 'cp /tmp/test-options.nix \"$(dirname \"$2\")/test-options.nix\"' > /tmp/editor")
+          controller.succeed("printf '%s\\n' 'flake-registry =' 'connect-timeout = 1' > /tmp/extra.conf")
+          controller.succeed(f"scp {sshopts} /tmp/editor /tmp/test-options.nix /tmp/extra.conf trilby@{ip}:/tmp/")
+          controller.succeed(on_victim("run0 sh -c 'cat /etc/nix/nix.conf /tmp/extra.conf > /tmp/nix.conf; rm /etc/nix/nix.conf; cp /tmp/nix.conf /etc/nix/nix.conf'"))
+          controller.succeed(on_victim("chmod +x /tmp/editor; echo hunter2 > /tmp/password"))
+          controller.succeed(f"scp {sshopts} ${bundleInfo pkgs}/registration trilby@{ip}:/tmp/registration")
+          controller.succeed(on_victim(
+              "run0 sh -c 'mkdir -p /run/hoststore /run/store/upper /run/store/work"
+              " && mount -t virtiofs hoststore /run/hoststore"
+              " && mount -t overlay overlay -o lowerdir=/run/hoststore,upperdir=/run/store/upper,workdir=/run/store/work /nix/store"
+              " && nix-store --load-db < /tmp/registration'"
+          ))
+          install = (
+              "EDITOR=/tmp/editor TRILBY_INPUT_OVERRIDES='${inputOverrides}' trilby install"
+              " --disk /dev/vda --format --no-luks --filesystem ext4"
+              " --edition server --release unstable --hostname testhost"
+              " --keyboard us --locale en_GB.UTF-8 --timezone Europe/Zurich"
+              " --username testuser --password-file /tmp/password --edit --reboot"
+          )
+          status, _ = controller.execute(on_victim(install) + " > /tmp/install.log 2>&1")
+          if status not in (0, 255) or "Command failed" in controller.succeed("cat /tmp/install.log"):
+              print(controller.succeed("tail -n 30 /tmp/install.log"))
+              raise Exception("remote installation failed")
+
+      with subtest("The victim reboots into the installed system"):
+          victim.wait_for_shutdown()
+          victim.start()
+          victim.wait_for_unit("multi-user.target")
+          assert victim.succeed("hostname").strip() == "testhost"
+          assert victim.succeed("id -u testuser").strip() == "1000"
+          assert victim.succeed("findmnt -no FSTYPE /").strip() == "ext4"
+          victim.succeed("test -f /etc/trilby/flake.nix")
+          victim.fail("grep -q init=${infectSystem.config.system.build.toplevel}/init /proc/cmdline")
+    '';
+  };
 in
 {
   "installer-ext4" = mkInstallTest "ext4" { };
   "installer-btrfs-luks" = mkInstallTest "btrfs-luks" { filesystem = "btrfs"; luks = true; boot = false; };
   "installer-bios" = mkInstallTest "bios" { efi = false; };
+  "infect" = mkInfectTest;
 }
