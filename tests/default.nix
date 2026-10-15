@@ -32,6 +32,7 @@ let
     modules = [
       ({ trilby, inputs, lib, ... }: {
         imports = [ "${testOptions}" (lib.trilbyUser trilby { name = "testuser"; initialPassword = "hunter2"; inherit inputs; }) ];
+        networking.hostName = "testhost";
         fileSystems."/boot" = { device = "/dev/vda2"; fsType = "vfat"; };
       })
       (if filesystem == "btrfs" then {
@@ -129,6 +130,7 @@ let
     nix.settings = {
       substituters = lib.mkForce [ "daemon" ];
       require-sigs = false;
+      always-allow-substitutes = true;
       connect-timeout = 1;
       flake-registry = "";
     };
@@ -341,7 +343,9 @@ let
               "run0 sh -c 'mkdir -p /run/hoststore /run/store/upper /run/store/work"
               " && mount -t virtiofs hoststore /run/hoststore"
               " && mount -t overlay overlay -o lowerdir=/run/hoststore,upperdir=/run/store/upper,workdir=/run/store/work /nix/store"
-              " && nix-store --load-db < /tmp/registration'"
+              " && nix-store --load-db < /tmp/registration"
+              " && mkdir -p /root/.config/nix"
+              " && echo always-allow-substitutes = true > /root/.config/nix/nix.conf'"
           ))
           install = (
               "EDITOR=/tmp/editor TRILBY_INPUT_OVERRIDES='${inputOverrides}' trilby install"
