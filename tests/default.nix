@@ -149,7 +149,6 @@ let
     lib.trilbyTest {
       name = "trilby-installer-${name}";
       inherit trilby;
-      skipLint = true;
       globalTimeout = 120;
       nodes = {
         installer = installerNode { inherit filesystem luks efi; };
@@ -228,7 +227,6 @@ let
   mkOfflineTest = lib.trilbyTest {
     name = "trilby-offline";
     inherit trilby;
-    skipLint = true;
     globalTimeout = 120;
     nodes.machine = { };
     testScript = ''
@@ -276,7 +274,6 @@ let
   mkInfectTest = lib.trilbyTest {
     name = "trilby-infect";
     inherit trilby;
-    skipLint = true;
     globalTimeout = 300;
     nodes = {
       controller = { pkgs, ... }: {
@@ -422,7 +419,6 @@ let
   mkConfigTest = lib.trilbyTest {
     name = "trilby-config";
     inherit trilby;
-    skipLint = true;
     globalTimeout = 300;
     nodes.machine = { pkgs, ... }: {
       virtualisation = {

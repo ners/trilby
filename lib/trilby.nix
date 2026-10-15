@@ -88,7 +88,6 @@ rec {
     nixosLib.runTest {
       inherit (attrs) name testScript nodes globalTimeout;
       extraDriverArgs = attrs.extraDriverArgs or [ ];
-      skipLint = attrs.skipLint or false;
 
       hostPkgs = pkgsFor trilby;
 
