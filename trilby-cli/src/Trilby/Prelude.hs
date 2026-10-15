@@ -612,6 +612,31 @@ getSymlinkTarget = (liftIO . readSymbolicLink . fromSomeBase >=>)
 is :: a -> Getting (First c) a c -> Bool
 is a c = isJust $ a ^? c
 
+isOffline :: (Reader AppState :> es) => Eff es Bool
+isOffline = Reader.asks offline
+
+nixCommand :: (Reader AppState :> es) => NonEmpty Text -> Eff es (NonEmpty Text)
+nixCommand args =
+    isOffline <&> \offline -> "nix" :| bool [] ["--offline", "--option", "flake-registry", ""] offline <> toList args
+
+offlineNixConfig :: Text
+offlineNixConfig = "tarball-ttl = 4294967295\nconnect-timeout = 1\nflake-registry ="
+
+withOfflineEnv
+    :: (Reader AppState :> es)
+    => (NonEmpty Text -> Eff es a)
+    -> NonEmpty Text
+    -> Eff es a
+withOfflineEnv c t =
+    isOffline >>= \offline -> c if offline then ["env", "NIX_CONFIG=" <> offlineNixConfig] <> t else t
+
+requireLocalhost :: (HasCallStack, IOE :> es, Reader AppState :> es, Log :> es) => Host -> Eff es ()
+requireLocalhost host =
+    whenM isOffline
+        . when (host /= Localhost)
+        . errorExit
+        $ "--offline forbids operating on remote host " <> ishow host
+
 verbosityAtLeast :: (HasCallStack, Reader AppState :> es) => LogLevel -> Eff es Bool
 verbosityAtLeast v = Reader.asks $ (v <=) . verbosity
 

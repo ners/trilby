@@ -98,22 +98,21 @@ nixBuildWith
     => [Text]
     -> FileOrFlake
     -> Eff es [Path Abs Dir]
-nixBuildWith flags f =
+nixBuildWith flags f = do
+    command <-
+        nixCommand
+            $ sconcat
+                [ ["build"]
+                , ["--no-link", "--print-out-paths"]
+                , case f of
+                    File f -> ["--file", fromSomeBase f]
+                    Flake f -> ["--accept-flake-config", ishow f]
+                ]
     mapM (parseAbsDir . fromText)
         . Text.lines
         . Text.decodeUtf8
         . LazyByteString.toStrict
-        =<< withTrace
-            (readProcessStdout_ . proc)
-            ( (`NonEmpty.appendList` flags)
-                $ sconcat
-                    [ ["nix", "build"]
-                    , ["--no-link", "--print-out-paths"]
-                    , case f of
-                        File f -> ["--file", fromSomeBase f]
-                        Flake f -> ["--accept-flake-config", ishow f]
-                    ]
-            )
+        =<< withTrace (readProcessStdout_ . proc) (command `NonEmpty.appendList` flags)
 
 copyClosure
     :: ( HasCallStack
@@ -190,9 +189,15 @@ trilbyFlake
     => [Text]
     -> Eff es FlakeRef
 trilbyFlake output = do
-    url <- fromMaybeM (pure fallbackUrl) $ firstJustM id [urlFromEnv, urlFromRegistry]
+    url <- fromMaybeM fallback $ firstJustM id [urlFromEnv, urlFromRegistry]
     pure FlakeRef{..}
   where
+    fallback :: (HasCallStack, IOE :> es, Reader AppState :> es, Log :> es) => Eff es Text
+    fallback =
+        ifM
+            isOffline
+            (errorExit "The trilby flake is not in the flake registry, and --offline forbids downloading it")
+            (pure fallbackUrl)
     urlFromEnv :: (Environment :> es) => Eff es (Maybe Text)
     urlFromEnv = fromString <$$> lookupEnv "TRILBY"
     urlFromRegistry
@@ -206,7 +211,7 @@ trilbyFlake output = do
            )
         => Eff es (Maybe Text)
     urlFromRegistry =
-        cached cmdCode ["nix", "flake", "metadata", "trilby"] <&> \case
+        nixCommand ["flake", "metadata", "trilby"] >>= cached cmdCode <&> \case
             ExitSuccess -> Just "trilby"
             _ -> Nothing
     fallbackUrl :: Text

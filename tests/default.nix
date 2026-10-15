@@ -65,12 +65,6 @@ let
       operator = n: map node (lib.attrValues (n.value.inputs or { }));
     });
 
-  inputOverrides = lib.concatStringsSep " " (map (name: "${name}=path:${release.${name}}") [
-    "nixpkgs"
-    "home-manager"
-    "nixvim"
-  ]);
-
   diskImage = "./target.qcow2";
 
   plainPkgs = import release.nixpkgs { system = buildPlatform; };
@@ -131,8 +125,6 @@ let
       substituters = lib.mkForce [ "daemon" ];
       require-sigs = false;
       always-allow-substitutes = true;
-      connect-timeout = 1;
-      flake-registry = "";
     };
 
     system.extraDependencies = installClosure pkgs args;
@@ -178,8 +170,8 @@ let
                 + "chmod +x /tmp/editor"
             )
             status, _ = installer.execute(
-                "EDITOR=/tmp/editor TRILBY_INPUT_OVERRIDES='${inputOverrides}' "
-                + "trilby --debug install"
+                "EDITOR=/tmp/editor "
+                + "trilby --debug --offline install"
                 + " --disk /dev/vda --format"
                 + " ${if luks then "--luks --luks-password-file /tmp/password" else "--no-luks"}"
                 + " --filesystem ${filesystem}"
@@ -231,6 +223,29 @@ let
         ''}
       '';
     };
+
+  mkOfflineTest = lib.trilbyTest {
+    name = "trilby-offline";
+    inherit trilby;
+    skipLint = true;
+    globalTimeout = 120;
+    nodes.machine = { };
+    testScript = ''
+      machine.wait_for_unit("multi-user.target")
+
+      for command in ["update", "clean", "infect"]:
+          with subtest(f"{command} refuses to operate on a remote host"):
+              status, out = machine.execute(f"trilby --offline {command} root@remote 2>&1")
+              assert status != 0, out
+              assert "--offline forbids operating on remote host" in out, out
+
+      with subtest("Offline mode refuses to install Nix"):
+          status, out = machine.execute("PATH=/nonexistent $(command -v trilby) --offline clean 2>&1")
+          assert status != 0, out
+          assert "Nix is required but not installed" in out, out
+          assert "Download" not in out, out
+    '';
+  };
 
   snakeOil = import "${release.nixpkgs}/nixos/tests/ssh-keys.nix" pkgs;
   snakeOilPublicKey = snakeOil.snakeOilPublicKey;
@@ -334,9 +349,7 @@ let
       with subtest("The controller installs Trilby onto the victim"):
           controller.copy_from_host("${testOptions}", "/tmp/test-options.nix")
           controller.succeed("printf '%s\\n' '#!/bin/sh' 'cp /tmp/test-options.nix \"$(dirname \"$2\")/test-options.nix\"' > /tmp/editor")
-          controller.succeed("printf '%s\\n' 'flake-registry =' 'connect-timeout = 1' > /tmp/extra.conf")
-          controller.succeed(f"scp {sshopts} /tmp/editor /tmp/test-options.nix /tmp/extra.conf trilby@{ip}:/tmp/")
-          controller.succeed(on_victim("run0 sh -c 'cat /etc/nix/nix.conf /tmp/extra.conf > /tmp/nix.conf; rm /etc/nix/nix.conf; cp /tmp/nix.conf /etc/nix/nix.conf'"))
+          controller.succeed(f"scp {sshopts} /tmp/editor /tmp/test-options.nix trilby@{ip}:/tmp/")
           controller.succeed(on_victim("chmod +x /tmp/editor; echo hunter2 > /tmp/password"))
           controller.succeed(f"scp {sshopts} ${bundleInfo pkgs}/registration trilby@{ip}:/tmp/registration")
           controller.succeed(on_victim(
@@ -348,7 +361,7 @@ let
               " && echo always-allow-substitutes = true > /root/.config/nix/nix.conf'"
           ))
           install = (
-              "EDITOR=/tmp/editor TRILBY_INPUT_OVERRIDES='${inputOverrides}' trilby install"
+              "EDITOR=/tmp/editor trilby --offline install"
               " --disk /dev/vda --format --no-luks --filesystem ext4"
               " --edition server --release unstable --hostname testhost"
               " --keyboard us --locale en_GB.UTF-8 --timezone Europe/Zurich"
@@ -375,5 +388,6 @@ in
   "installer-ext4" = mkInstallTest "ext4" { };
   "installer-btrfs-luks" = mkInstallTest "btrfs-luks" { filesystem = "btrfs"; luks = true; boot = false; };
   "installer-bios" = mkInstallTest "bios" { efi = false; };
+  "offline" = mkOfflineTest;
   "infect" = mkInfectTest;
 }

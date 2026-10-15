@@ -39,7 +39,7 @@ disko
     => DiskoAction
     -> Eff es ()
 disko action =
-    (withTrace . asRoot) cmd_ $ case action of
+    (withTrace . withOfflineEnv . asRoot) cmd_ $ case action of
         Format (File f) -> ["disko", "-m", "destroy,format,mount", "--yes-wipe-all-disks", fromSomeBase f]
         Format (Flake f) -> ["disko", "-m", "destroy,format,mount", "--yes-wipe-all-disks", "--flake", ishow f]
         Mount (File f) -> ["disko", "-m", "mount", fromSomeBase f]

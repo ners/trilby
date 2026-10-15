@@ -4,6 +4,8 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.ByteString.Lazy qualified as LazyByteString
 import Data.List.NonEmpty qualified as NonEmpty
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Data.Text.Encoding qualified as Encoding
 import Effectful.Reader.Static qualified as Reader
@@ -230,11 +232,13 @@ setupHost kernel opts actions = do
                             , "--root"
                             , fromPath $ rootMount kernel
                             ]
-                    overrides <- inputOverrides
+                    overrides <- ifM isOffline (offlineOverrides release) (pure [])
+                    command <-
+                        nixCommand ["flake", "lock", "--accept-flake-config", "--override-input", "trilby", "trilby"]
                     cmd_
                         $ NonEmpty.appendList
-                            ["nix", "flake", "lock", "--accept-flake-config", "--override-input", "trilby", "trilby"]
-                            (overrides >>= \(name, url) -> ["--override-input", name, url])
+                            command
+                            (overrides >>= \(name, path) -> ["--override-input", name, "path:" <> path])
                 Darwin -> pure ()
         actions hostDir userDir
         whenM opts.edit do
@@ -276,7 +280,7 @@ nixosInstall
     -> Eff es ()
 nixosInstall flakeRef = do
     logAttention_ "Performing installation ... "
-    (withTrace . asRoot) cmd_
+    (withTrace . withOfflineEnv . asRoot) cmd_
         . sconcat
         $ [ ["nixos-install"]
           , ["--flake", ishow flakeRef]
@@ -332,7 +336,7 @@ copyFlakeTo
     -> FlakeRef
     -> Eff es ()
 copyFlakeTo kernel flakeRef = do
-    archive <- cmdOutJson ["nix", "flake", "archive", "--json", flakeRef.url]
+    archive <- cmdOutJson =<< nixCommand ["flake", "archive", "--json", flakeRef.url]
     storePath <-
         maybe (errorExit "nix flake archive did not report a store path") pure
             $ Aeson.parseMaybe (Aeson.withObject "archive" (Aeson..: "path")) (archive :: Aeson.Value)
@@ -376,17 +380,35 @@ localStateVersion
     => Release
     -> Eff es (Maybe Text)
 localStateVersion Unstable = do
-    (code, out) <- cmdCodeOutText ["nix", "eval", "--offline", "--raw", "nixpkgs#lib.trivial.release"]
+    (code, out) <-
+        cmdCodeOutText =<< nixCommand ["eval", "--offline", "--raw", "nixpkgs#lib.trivial.release"]
     pure $ case (code, Text.strip out) of
         (ExitSuccess, v) | not (Text.null v) -> Just v
         _ -> Nothing
 localStateVersion release = pure . Just $ ishow release
 
-inputOverrides :: (Environment :> es) => Eff es [(Text, Text)]
-inputOverrides =
-    maybe [] (mapMaybe parse . Text.words . fromString) <$> lookupEnv "TRILBY_INPUT_OVERRIDES"
-  where
-    parse :: Text -> Maybe (Text, Text)
-    parse (Text.breakOn "=" -> (name, rest))
-        | not (Text.null name), Just url <- Text.stripPrefix "=" rest, not (Text.null url) = Just (name, url)
-        | otherwise = Nothing
+newtype ArchivedInput = ArchivedInput {path :: Text}
+    deriving stock (Generic)
+    deriving anyclass (Aeson.FromJSON)
+
+newtype ArchivedInputs = ArchivedInputs {inputs :: Map Text ArchivedInput}
+    deriving stock (Generic)
+    deriving anyclass (Aeson.FromJSON)
+
+offlineOverrides
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
+    => Release
+    -> Eff es [(Text, Text)]
+offlineOverrides release = do
+    ArchivedInputs{inputs} <-
+        cmdOutJson =<< nixCommand ["flake", "archive", "--json", "--dry-run", "trilby"]
+    let archived name = (name,) . (.path) <$> Map.lookup name inputs
+    pure . catMaybes $ case release of
+        Unstable -> archived <$> ["nixpkgs", "home-manager", "nixvim"]
+        _ -> [("nixpkgs-unstable",) . (.path) <$> Map.lookup "nixpkgs" inputs]

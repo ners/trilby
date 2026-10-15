@@ -25,7 +25,9 @@ infect
     => InfectOpts Maybe
     -> Eff es ()
 infect (askOpts -> opts) = do
-    configurations <- mapM Configuration.fromHost . NonEmpty.nubOrd =<< onHost Localhost opts.hosts
+    hosts <- NonEmpty.nubOrd <$> onHost Localhost opts.hosts
+    for_ hosts requireLocalhost
+    configurations <- mapM Configuration.fromHost hosts
     for_ configurations \Configuration{..} -> onHost host do
         system <- hostSystem
         case system.kernel of

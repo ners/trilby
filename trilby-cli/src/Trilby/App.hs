@@ -28,6 +28,7 @@ import Prelude
 
 data AppState = AppState
     { verbosity :: LogLevel
+    , offline :: Bool
     , commandCache :: TVar (HashMap (NonEmpty Text) Value)
     , tmpDir :: Path Abs Dir
     }

@@ -1,5 +1,9 @@
 # Revision history for trilby-cli
 
+## 26.10.1 -- 2026-10-15
+
+* Add --offline flag
+
 ## 26.10 -- 2026-10-14
 
 * Do not expose passwords during install

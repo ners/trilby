@@ -30,6 +30,7 @@ installNix
        )
     => Eff es ()
 installNix = do
+    whenM isOffline $ errorExit "Nix is required but not installed"
     unlessM (yesNoButtons "Nix is required but not installed. Download and run the Nix installer?" True)
         $ errorExit "Cannot continue without Nix"
     shell_
@@ -50,7 +51,7 @@ ensureFlakes
        , FileSystem :> es
        )
     => Eff es ()
-ensureFlakes = unlessM ((ExitSuccess ==) <$> cmdCode ["nix", "flake", "metadata", "nixpkgs"]) do
+ensureFlakes = unlessM ((ExitSuccess ==) <$> (cmdCode =<< nixCommand ["flake", "metadata", "nixpkgs"])) do
     confDir <- getXdgDir XdgConfig $ Just $(mkRelDir "nix")
     ensureDir confDir
     let confFile = confDir </> $(mkRelFile "nix.conf")
@@ -68,7 +69,11 @@ setupNixMonitored
        , FileSystem :> es
        )
     => Eff es ()
-setupNixMonitored = prependToPath =<< nixBins . pure . Flake =<< trilbyFlake ["nix-monitored"]
+setupNixMonitored =
+    ifM
+        isOffline
+        (logInfo_ "Offline, not setting up nix-monitored")
+        (prependToPath =<< nixBins . pure . Flake =<< trilbyFlake ["nix-monitored"])
 
 findBinary
     :: (HasCallStack, Environment :> es, FileSystem :> es, Log :> es)

@@ -9,6 +9,7 @@ import Trilby.Version qualified as Trilby
 
 data Options m = Options
     { verbosity :: m LogLevel
+    , offline :: Bool
     , command :: Command m
     }
 
@@ -18,6 +19,10 @@ parseOptions = do
     let verbosityInfo = flag' LogInfo $ short 'v' <> long "verbose" <> help "Increase the logging verbosity level"
     let verbosityDebug = flag' LogTrace $ long "debug" <> help "Set the logging verbosity level to 'debug'"
     verbosity <- optional $ verbosityError <|> verbosityInfo <|> verbosityDebug
+    offline <-
+        switch
+            $ long "offline"
+            <> help "Work without network access: do not download, update flakes, or use remote hosts"
     command <- parseCommand
     simpleVersioner Trilby.fullVersionString
     pure Options{..}

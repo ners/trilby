@@ -16,8 +16,10 @@ clean
        )
     => CleanOpts Maybe
     -> Eff es ()
-clean (askOpts -> opts) =
-    opts.hosts >>= mapM_ \host -> onHost host do
+clean (askOpts -> opts) = do
+    hosts <- opts.hosts
+    for_ hosts requireLocalhost
+    for_ hosts \host -> onHost host do
         system <- hostSystem
         whats <- inject opts.what
         for_ whats \case

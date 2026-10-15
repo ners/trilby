@@ -24,7 +24,7 @@ import Trilby.Version qualified as Trilby
 
 main :: IO ()
 main = do
-    opts <- execParser parseOptionsInfo
+    opts@Options{offline} <- execParser parseOptionsInfo
     verbosity <- getVerbosity opts
     runEff
         . runLog verbosity

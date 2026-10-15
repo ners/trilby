@@ -29,8 +29,10 @@ update
     => UpdateOpts Maybe
     -> Eff es ()
 update (askOpts -> opts) = onHost Localhost do
+    hosts <- opts.hosts
+    for_ hosts requireLocalhost
     trilbyPath <- canonicalizePath $ trilbyHome rootDir
-    whenM opts.flakeUpdate do
+    ifM isOffline (logAttention_ "Offline, not updating the flake locks") $ whenM opts.flakeUpdate do
         isGit <- doesDirExist $ trilbyPath </> $(mkRelDir ".git")
         let filterGitTracked
                 | isGit = filterM $ isGitTracked trilbyPath
@@ -38,7 +40,7 @@ update (askOpts -> opts) = onHost Localhost do
         flakes <- liftIO $ mapM parseAbsFile =<< globDir1 "**/flake.lock" (toFilePath trilbyPath)
         mapM_ updateFlake =<< filterGitTracked flakes
     localSystem <- onHost Localhost hostSystem
-    opts.hosts >>= mapM_ \host -> onHost host do
+    for_ hosts \host -> onHost host do
         system <- hostSystem
         unless (system == localSystem) $ errorExit "Cross building is currently not supported"
         case system.kernel of
