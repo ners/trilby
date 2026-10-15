@@ -20,6 +20,21 @@ data Host = Host
     }
     deriving stock (Generic)
 
+systemModule :: Edition -> String -> NExpr
+systemModule edition platform =
+    [nix|
+    { inputs, lib, ... }:
+    lib.trilbySystem {
+      inherit inputs;
+      trilby = {
+        edition = edition;
+        buildPlatform = platform;
+        hostPlatform = platform;
+      };
+      modules = lib.findModulesList ./.;
+    }
+    |]
+
 instance ToExpr Host where
     toExpr Host{..} =
         [nix|

@@ -1,4 +1,4 @@
-module Trilby.Install (install) where
+module Trilby.Install (install, hashedPassword) where
 
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
@@ -206,20 +206,7 @@ setupHost kernel opts actions = do
         writeNixFile userFile user
         inDir hostDir do
             platform <- show <$> onHost Localhost hostSystem
-            writeNixFile
-                defaultNix
-                [nix|
-                { inputs, lib, ... }:
-                lib.trilbySystem {
-                  inherit inputs;
-                  trilby = {
-                    edition = edition;
-                    buildPlatform = platform;
-                    hostPlatform = platform;
-                  };
-                  modules = lib.findModulesList ./.;
-                }
-                |]
+            writeNixFile defaultNix $ systemModule edition platform
             writeNixFile configurationNix host
             case kernel of
                 Linux -> do

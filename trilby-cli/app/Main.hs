@@ -12,6 +12,7 @@ import Options.Applicative (execParser)
 import Trilby.App
 import Trilby.Clean (clean)
 import Trilby.Command
+import Trilby.Config (config)
 import Trilby.Host (Host (Localhost), onHost)
 import Trilby.Infect (infect)
 import Trilby.Install (install)
@@ -44,6 +45,7 @@ main = do
                     onHost Localhost ensureNix
                     case opts.command of
                         Clean o -> clean o
+                        Config o -> config o
                         Infect o -> infect o
                         Install o -> onHost Localhost $ install =<< validateParsedInstallOpts o
                         Update o -> update o

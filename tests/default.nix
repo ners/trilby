@@ -383,6 +383,132 @@ let
           victim.fail("grep -q init=${infectSystem.config.system.build.toplevel}/init /proc/cmdline")
     '';
   };
+
+  configFlake = pkgs.writeText "flake.nix" /*nix*/ ''
+    {
+      inputs = {
+        nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+        home-manager.url = "github:nix-community/home-manager";
+        nixvim = {
+          url = "github:nix-community/nixvim";
+          inputs.nixpkgs.follows = "nixpkgs";
+        };
+        trilby = {
+          url = "github:ners/trilby";
+          inputs = {
+            nixpkgs.follows = "nixpkgs";
+            nixpkgs-unstable.follows = "nixpkgs";
+            home-manager.follows = "home-manager";
+            nixvim.follows = "nixvim";
+          };
+        };
+      };
+      outputs = inputs:
+        let inherit (inputs.trilby) lib; in
+        {
+          inherit (inputs.trilby) legacyPackages;
+          nixosConfigurations =
+            lib.mapAttrs (_: host: import host { inherit inputs lib; }) (lib.findModules ./hosts);
+        };
+    }
+  '';
+
+  configLockArgs = lib.concatMapStringsSep " "
+    (name: "--override-input ${name} path:${release.${name}}")
+    [ "nixpkgs" "home-manager" "nixvim" ]
+  + " --override-input trilby trilby";
+
+  mkConfigTest = lib.trilbyTest {
+    name = "trilby-config";
+    inherit trilby;
+    skipLint = true;
+    globalTimeout = 300;
+    nodes.machine = { pkgs, ... }: {
+      virtualisation = {
+        cores = 4;
+        memorySize = 4096;
+      };
+      nix.settings.substituters = lib.mkForce [ ];
+      system.extraDependencies = evalClosure pkgs;
+    };
+    testScript = /*python*/ ''
+      import json
+
+      def config(args):
+          status, out = machine.execute(f"USER=root trilby --offline config {args} 2>/tmp/stderr")
+          print(machine.succeed("cat /tmp/stderr"))
+          if status != 0:
+              raise Exception(f"trilby config {args} exited with {status}")
+          return out
+
+      def listing(args):
+          return json.loads(config(args + " --json"))
+
+      def hosts_of(entry):
+          return sorted(scope["host"] for scope in entry["scopes"])
+
+      machine.wait_for_unit("multi-user.target")
+
+      with subtest("A flake can be created and locked offline"):
+          machine.succeed("mkdir -p /etc/trilby/hosts")
+          machine.copy_from_host("${configFlake}", "/etc/trilby/flake.nix")
+          machine.succeed("cd /etc/trilby && NIX_CONFIG='flake-registry =' nix --offline flake lock ${configLockArgs}")
+
+      with subtest("A host can be added"):
+          config("hosts add alpha --edition server --platform ${buildPlatform}")
+          machine.succeed("cp -r /etc/trilby/hosts/alpha /etc/trilby/hosts/beta")
+          for host in ["alpha", "beta"]:
+              machine.succeed(f"echo '{{ documentation.enable = false; }}' > /etc/trilby/hosts/{host}/options.nix")
+          machine.succeed(
+              "cat > /etc/trilby/hosts/alpha/filesystems.nix <<'EOF'\n"
+              + "{\n"
+              + "  fileSystems.\"/\" = { device = \"/dev/vda1\"; fsType = \"ext4\"; };\n"
+              + "  fileSystems.\"/boot\" = { device = \"/dev/vda2\"; fsType = \"vfat\"; };\n"
+              + "}\n"
+              + "EOF"
+          )
+
+      with subtest("Packages and services are added to a host"):
+          config("packages add cowsay --host alpha --no-action")
+          config("services add nginx --host alpha --no-action")
+          configuration = machine.succeed("cat /etc/trilby/hosts/alpha/configuration.nix")
+          assert "cowsay" in configuration, configuration
+          assert "services.nginx.enable = true" in configuration, configuration
+          machine.fail("grep -q cowsay /etc/trilby/hosts/beta/configuration.nix")
+
+      with subtest("Packages are listed once, by store path"):
+          packages = listing("packages list --host alpha,beta --system --unique --full-path")
+          assert all(p["name"].startswith("/nix/store/") for p in packages), packages[:3]
+          [cowsay] = [p for p in packages if "-cowsay-" in p["name"]]
+          assert hosts_of(cowsay) == ["alpha"], cowsay
+          assert cowsay["origins"] == ["local"], cowsay
+
+      with subtest("Hosts can be compared"):
+          changes = {(c["kind"], c["name"]) for c in listing("diff alpha beta --kind packages,services")}
+          assert ("services", "nginx") in changes, changes
+          assert any(kind == "packages" and name.startswith("cowsay") for kind, name in changes), changes
+
+      with subtest("Entries can be searched"):
+          found = listing("search nginx --system --kind services")
+          assert [(e["kind"], e["name"]) for e in found] == [("services", "nginx")], found
+          assert hosts_of(found[0]) == ["alpha"], found
+
+      with subtest("A host can be edited"):
+          machine.succeed("printf '#!/bin/sh\\necho \"# edited\" >> \"$1\"\\n' > /tmp/editor && chmod +x /tmp/editor")
+          machine.succeed("VISUAL=/tmp/editor USER=root trilby --offline config edit --host alpha --no-action 2>/tmp/stderr")
+          machine.succeed("grep -q '# edited' /etc/trilby/hosts/alpha/configuration.nix")
+
+      with subtest("Packages are removed again"):
+          config("packages rm cowsay --host alpha --yes --no-action")
+          machine.fail("grep -q cowsay /etc/trilby/hosts/alpha/configuration.nix")
+
+      with subtest("Hosts are checked for evaluation errors"):
+          status, out = machine.execute("USER=root trilby --offline config check --host alpha,beta 2>/dev/null")
+          assert status != 0, out
+          assert any(line.startswith("ok") and "alpha" in line for line in out.splitlines()), out
+          assert any(line.startswith("FAIL") and "beta" in line and "root file system" in line for line in out.splitlines()), out
+    '';
+  };
 in
 {
   "installer-ext4" = mkInstallTest "ext4" { };
@@ -390,4 +516,5 @@ in
   "installer-bios" = mkInstallTest "bios" { efi = false; };
   "offline" = mkOfflineTest;
   "infect" = mkInfectTest;
+  "config" = mkConfigTest;
 }

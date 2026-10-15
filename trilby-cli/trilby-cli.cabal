@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: trilby-cli
-version: 26.10
+version: 26.10.1
 synopsis: Trilby command line tools
 homepage: https://github.com/ners/trilby
 license: Apache-2.0
@@ -106,6 +106,33 @@ library
     Trilby.Clean
     Trilby.Clean.Options
     Trilby.Command
+    Trilby.Config
+    Trilby.Config.Add
+    Trilby.Config.Apply
+    Trilby.Config.Cache
+    Trilby.Config.Check
+    Trilby.Config.Diff
+    Trilby.Config.Edit
+    Trilby.Config.Editor
+    Trilby.Config.Effects
+    Trilby.Config.Eval
+    Trilby.Config.File
+    Trilby.Config.Hosts
+    Trilby.Config.Json
+    Trilby.Config.List
+    Trilby.Config.Options
+    Trilby.Config.Origin
+    Trilby.Config.Profile
+    Trilby.Config.Progress
+    Trilby.Config.Remove
+    Trilby.Config.Rows
+    Trilby.Config.Search
+    Trilby.Config.Selector
+    Trilby.Config.Size
+    Trilby.Config.Table
+    Trilby.Config.Target
+    Trilby.Config.Users
+    Trilby.Config.Why
     Trilby.Configuration
     Trilby.Disko
     Trilby.Disko.Disk
@@ -156,12 +183,15 @@ test-suite spec
   hs-source-dirs: test
   build-depends:
     QuickCheck,
+    aeson,
     base,
     hspec,
     text,
     trilby-cli,
 
   other-modules:
+    Trilby.Config.CacheSpec
+    Trilby.Config.EditSpec
     Trilby.Disko.FilesystemSpec
     Trilby.FlakeRefSpec
     Trilby.HostSpec

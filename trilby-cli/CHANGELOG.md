@@ -3,6 +3,7 @@
 ## 26.10.1 -- 2026-10-15
 
 * Add --offline flag
+* Add config command
 
 ## 26.10 -- 2026-10-14
 
