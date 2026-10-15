@@ -24,6 +24,7 @@ let
       i18n.supportedLocales = lib.mkForce [ "en_GB.UTF-8/UTF-8" ];
       nix.monitored.enable = lib.mkForce false;
       services.btrfs.autoScrub.enable = lib.mkForce false;
+      users.users.root.initialHashedPassword = lib.mkForce null;
     }
   '';
 

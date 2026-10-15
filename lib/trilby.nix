@@ -101,6 +101,7 @@ rec {
       defaults.imports = with trilby.inputs.self.nixosModules; [
         editions.${trilby.edition}
         hostPlatforms.${trilby.hostPlatform}
+        { users.users.root.initialHashedPassword = lib.mkForce null; }
       ];
     };
 
