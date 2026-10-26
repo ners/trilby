@@ -22,10 +22,5 @@ in
         consoleMode = mkDefault "max";
       };
     };
-
-    initrd = {
-      # Use systemd for PID 1.
-      systemd.enable = mkDefault true;
-    };
   };
 }
