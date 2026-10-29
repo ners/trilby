@@ -39,7 +39,9 @@ parseLuks f = do
             luksPassword <-
                 f $ strOption (long "luks-password" <> metavar "PASSWORD" <> help "The disk encryption password")
             luksPasswordFile <-
-                optional $ strOption (long "luks-password-file" <> metavar "FILE" <> help "Read the disk encryption password from FILE")
+                optional
+                    $ strOption
+                        (long "luks-password-file" <> metavar "FILE" <> help "Read the disk encryption password from FILE")
             pure UseLuks{..}
 
 data FlakeOpts m = FlakeOpts {flakeRef :: FlakeRef, copyFlake :: m Bool}
@@ -85,7 +87,9 @@ parseOpts f = do
     luks <- parseLuks f
     disk <- f $ parsePath parseAbsFile (long "disk" <> metavar "DISK" <> help "The disk to install to")
     bootMode <-
-        f $ parseEnum (long "boot-mode" <> metavar "MODE" <> help "How the system boots, efi or bios (default: detected)")
+        f
+            $ parseEnum
+                (long "boot-mode" <> metavar "MODE" <> help "How the system boots, efi or bios (default: detected)")
     format <- f $ parseYesNo "format" "Format the installation disk"
     filesystem <-
         f $ parseEnum (long "filesystem" <> metavar "FS" <> help "The root partition filesystem")
@@ -106,7 +110,9 @@ parseOpts f = do
     password <-
         f $ strOption (long "password" <> metavar "PASSWORD" <> help "The password of the admin user")
     passwordFile <-
-        optional $ strOption (long "password-file" <> metavar "FILE" <> help "Read the password of the admin user from FILE")
+        optional
+            $ strOption
+                (long "password-file" <> metavar "FILE" <> help "Read the password of the admin user from FILE")
     edit <- f $ parseYesNo "edit" "Edit the configuration before installing"
     reboot <- f $ parseYesNo "reboot" "Reboot when done installing"
     pure InstallOpts{..}
@@ -183,7 +189,11 @@ askLuks opts =
         Nothing -> bool NoLuks UseLuks{luksPassword = askPassword, luksPasswordFile = Nothing} <$> askUseLuks
         Just NoLuks -> pure NoLuks
         Just UseLuks{..} ->
-            pure UseLuks{luksPassword = maybe (maybe askPassword readSecretFile luksPasswordFile) pure luksPassword, luksPasswordFile}
+            pure
+                UseLuks
+                    { luksPassword = maybe (maybe askPassword readSecretFile luksPasswordFile) pure luksPassword
+                    , luksPasswordFile
+                    }
   where
     askUseLuks :: (HasCallStack, IOE :> es, Log :> es) => Eff es Bool
     askUseLuks = yesNoButtons "Encrypt the disk with LUKS2?" True
@@ -308,7 +318,11 @@ askOpts opts =
         , timezone = maybe askTimezone pure opts.timezone
         , username =
             maybe (askValidated validateUsername $ textInput "Choose admin username:" "") pure opts.username
-        , password = maybe (maybe (passwordInput "Choose admin password:") readSecretFile opts.passwordFile) pure opts.password
+        , password =
+            maybe
+                (maybe (passwordInput "Choose admin password:") readSecretFile opts.passwordFile)
+                pure
+                opts.password
         , passwordFile = opts.passwordFile
         , edit = maybe (yesNoButtons "Edit the configuration?" False) pure opts.edit
         , reboot = maybe (yesNoButtons "Reboot system?" True) pure opts.reboot

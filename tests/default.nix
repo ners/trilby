@@ -28,36 +28,37 @@ let
     }
   '';
 
-  referenceSystem = { filesystem, luks, efi }: let rootDevice = if luks then "/dev/mapper/cryptroot" else "/dev/vda3"; in lib.trilbySystem {
-    inherit trilby;
-    modules = [
-      ({ trilby, inputs, lib, ... }: {
-        imports = [ "${testOptions}" (lib.trilbyUser trilby { name = "testuser"; initialPassword = "hunter2"; inherit inputs; }) ];
-        networking.hostName = "testhost";
-        fileSystems."/boot" = { device = "/dev/vda2"; fsType = "vfat"; };
-      })
-      (if filesystem == "btrfs" then {
-        fileSystems."/" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=root" "compress=zstd" "noatime" ]; };
-        fileSystems."/home" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=home" "compress=zstd" ]; };
-        fileSystems."/nix" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=nix" "compress=zstd" "noatime" ]; };
-      } else {
-        fileSystems."/" = { device = "/dev/vda3"; fsType = filesystem; };
-      })
-      (lib.optionalAttrs luks {
-        boot.initrd.luks.devices.cryptroot.device = "/dev/vda3";
-      })
-      (lib.optionalAttrs (!efi) {
-        boot.loader = {
-          systemd-boot.enable = false;
-          efi.canTouchEfiVariables = false;
-          grub = {
-            enable = true;
-            devices = [ "/dev/disk/by-id/virtio-root" ];
+  referenceSystem = { filesystem, luks, efi }:
+    let rootDevice = if luks then "/dev/mapper/cryptroot" else "/dev/vda3"; in lib.trilbySystem {
+      inherit trilby;
+      modules = [
+        ({ trilby, inputs, lib, ... }: {
+          imports = [ "${testOptions}" (lib.trilbyUser trilby { name = "testuser"; initialPassword = "hunter2"; inherit inputs; }) ];
+          networking.hostName = "testhost";
+          fileSystems."/boot" = { device = "/dev/vda2"; fsType = "vfat"; };
+        })
+        (if filesystem == "btrfs" then {
+          fileSystems."/" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=root" "compress=zstd" "noatime" ]; };
+          fileSystems."/home" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=home" "compress=zstd" ]; };
+          fileSystems."/nix" = { device = rootDevice; fsType = "btrfs"; options = [ "subvol=nix" "compress=zstd" "noatime" ]; };
+        } else {
+          fileSystems."/" = { device = "/dev/vda3"; fsType = filesystem; };
+        })
+        (lib.optionalAttrs luks {
+          boot.initrd.luks.devices.cryptroot.device = "/dev/vda3";
+        })
+        (lib.optionalAttrs (!efi) {
+          boot.loader = {
+            systemd-boot.enable = false;
+            efi.canTouchEfiVariables = false;
+            grub = {
+              enable = true;
+              devices = [ "/dev/disk/by-id/virtio-root" ];
+            };
           };
-        };
-      })
-    ];
-  };
+        })
+      ];
+    };
 
   collectInputs = inputs:
     let node = i: { key = i.outPath; value = i; };
@@ -73,11 +74,12 @@ let
   allOutputs = p: if p ? outputs then map (o: p.${o}) p.outputs else [ p ];
 
   evalClosure = pkgs:
-    collectInputs (
-      lib.attrValues trilbyConfig.inputs
-      ++ lib.concatMap lib.attrValues (lib.attrValues releases)
-      ++ lib.attrValues (lib.loadFlake { src = ../trilby-cli; }).defaultNix.inputs
-    )
+    collectInputs
+      (
+        lib.attrValues trilbyConfig.inputs
+        ++ lib.concatMap lib.attrValues (lib.attrValues releases)
+        ++ lib.attrValues (lib.loadFlake { src = ../trilby-cli; }).defaultNix.inputs
+      )
     ++ allOutputs pkgs.haskellPackages.cabal2nix-unstable
     ++ map (n: pkgs.haskellPackages.${n}.cabal2nixDeriver)
       [ "trilby-cli" "hnix" "path-io-effectful" "terminal-widgets" "text-rope-zipper" "terminal" ];
@@ -85,24 +87,63 @@ let
   installClosure = pkgs: args:
     evalClosure pkgs
     ++ [ (referenceSystem args).config.system.build.toplevel ]
-    ++ (let
-      c = (referenceSystem args).config;
-      outputsOf = p: lib.concatMap (o: lib.optional (p ? ${o}) p.${o})
-        ((p.meta.outputsToInstall or [ "out" ]) ++ c.environment.extraOutputsToInstall);
-    in lib.concatMap outputsOf (c.environment.systemPackages))
+    ++ (
+      let
+        c = (referenceSystem args).config;
+        outputsOf = p: lib.concatMap (o: lib.optional (p ? ${o}) p.${o})
+          ((p.meta.outputsToInstall or [ "out" ]) ++ c.environment.extraOutputsToInstall);
+      in
+      lib.concatMap outputsOf (c.environment.systemPackages)
+    )
     ++ allOutputs pkgs.nix-monitored
     ++ lib.concatMap allOutputs (with pkgs; [
-      desktop-file-utils shared-mime-info texinfo libxml2 libxslt docbook5 docbook_xsl_ns
-      kbd kmod libarchive brotli curl sudo lndir unionfs-fuse shellcheck-minimal libcap libcap-text-verifier
+      desktop-file-utils
+      shared-mime-info
+      texinfo
+      libxml2
+      libxslt
+      docbook5
+      docbook_xsl_ns
+      kbd
+      kmod
+      libarchive
+      brotli
+      curl
+      sudo
+      lndir
+      unionfs-fuse
+      shellcheck-minimal
+      libcap
+      libcap-text-verifier
       nixos-artwork.wallpapers.simple-dark-gray-bottom
       (python3.withPackages (p: [ p.mistune ]))
-      mypy zstd systemd
+      mypy
+      zstd
+      systemd
     ])
     ++ lib.concatMap allOutputs (with plainPkgs; [
-      stdenv stdenvNoCC bintools stdenv.shellPackage dash
+      stdenv
+      stdenvNoCC
+      bintools
+      stdenv.shellPackage
+      dash
     ] ++ plainPkgs.stdenv.initialPath ++ [
-      util-linux e2fsprogs mdadm zfs lvm2 bash jq gnused gawk coreutils-full
-      parted gptfdisk dosfstools xfsprogs btrfs-progs cryptsetup
+      util-linux
+      e2fsprogs
+      mdadm
+      zfs
+      lvm2
+      bash
+      jq
+      gnused
+      gawk
+      coreutils-full
+      parted
+      gptfdisk
+      dosfstools
+      xfsprogs
+      btrfs-progs
+      cryptsetup
     ]);
 
   installerNode = args: { pkgs, ... }: {

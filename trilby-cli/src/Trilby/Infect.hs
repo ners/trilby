@@ -35,7 +35,10 @@ infect (askOpts -> opts) = do
                 [kexec] <- Reader.local (const Localhost) (buildKexec opts system)
                 copyClosure kexec
                 let bin = kexec </> $(mkRelFile "kexec-boot")
-                whenM opts.reboot $ asRoot (withHost $ runProcess_ . proc) ["nohup", "sh", "-c", "(sleep 1; exec " <> fromPath bin <> ") </dev/null >/dev/null 2>&1 &"]
+                whenM opts.reboot
+                    $ asRoot
+                        (withHost $ runProcess_ . proc)
+                        ["nohup", "sh", "-c", "(sleep 1; exec " <> fromPath bin <> ") </dev/null >/dev/null 2>&1 &"]
             Darwin -> errorExit "Infecting Darwin is not yet supported, use Install instead"
 
 buildKexec

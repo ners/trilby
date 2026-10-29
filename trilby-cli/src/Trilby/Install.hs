@@ -60,8 +60,8 @@ install rawOpts =
                 ]
             installLinux opts
         System{kernel = Darwin} -> do
-            when (isJust rawOpts.flake) $
-                for_ @[]
+            when (isJust rawOpts.flake)
+                $ for_ @[]
                     [ ("--disk", isJust rawOpts.disk)
                     , ("--format", isJust rawOpts.format)
                     , ("--luks", isJust rawOpts.luks)
@@ -198,7 +198,15 @@ setupHost kernel opts actions = do
                     pure (user, Host{..})
                 Darwin -> do
                     let user = User{uid = max 1000 owner.uid, username, password = Nothing}
-                    let host = Host{keyboard = Nothing, locale = Nothing, timezone = Nothing, stateVersion = Nothing, bios = False, ..}
+                    let host =
+                            Host
+                                { keyboard = Nothing
+                                , locale = Nothing
+                                , timezone = Nothing
+                                , stateVersion = Nothing
+                                , bios = False
+                                , ..
+                                }
                     pure (user, host)
 
         userDir <- parseRelDir . fromText $ "users/" <> username
@@ -363,7 +371,13 @@ resolveHostOpts kernel =
     when' c f = if c then f else pure
 
 localStateVersion
-    :: (HasCallStack, IOE :> es, Reader AppState :> es, Reader Host.Host :> es, TypedProcess :> es, Log :> es)
+    :: ( HasCallStack
+       , IOE :> es
+       , Reader AppState :> es
+       , Reader Host.Host :> es
+       , TypedProcess :> es
+       , Log :> es
+       )
     => Release
     -> Eff es (Maybe Text)
 localStateVersion Unstable = do
