@@ -15,6 +15,7 @@ import Effectful.Reader.Static qualified as Reader
 import Lens.Family.TH (makeTraversals)
 import Nix
 import Nix.Atoms (NAtom (NNull))
+import Numeric (showFFloat)
 import Trilby.Host
 import Trilby.Prelude
 
@@ -128,20 +129,24 @@ copyClosure
 copyClosure path =
     Reader.ask >>= \case
         Localhost -> pure ()
-        host@Host{} ->
+        host@Host{} -> do
+            fast <- isFastLink host
+            let gzip = bool @[Text] ["--gzip"] [] fast
+            let store = "ssh://" <> ishow host <> bool "?compress=true" "" fast
             cmdCode ["command", "-v", "nix-store"] >>= \case
                 ExitSuccess ->
-                    -- nix-copy-closure pushes to `--to host` itself over its own SSH connection,
+                    -- nix copy pushes to the ssh:// store itself over its own SSH connection,
                     -- so this always runs locally.
                     onHost Localhost
                         . cmd_
-                        . sconcat
-                        $ [ ["nix-copy-closure"]
-                          , ["--use-substitutes"]
-                          , ["--gzip"]
-                          , ["--to", ishow host]
-                          , [fromPath path]
-                          ]
+                        =<< nixCommand
+                            ( "copy"
+                                :| mconcat
+                                    [ ["--no-check-sigs", "--to", store]
+                                    , bool ["--substitute-on-destination"] [] fast
+                                    , [fromPath path]
+                                    ]
+                            )
                 _ -> do
                     asRoot (withHost $ runProcess_ . proc) ["sh", "-c", "mkdir -p /nix && chown -R $(whoami) /nix"]
                     -- This pipeline runs locally; only its last stage (an explicit ssh) is remote.
@@ -155,26 +160,48 @@ copyClosure path =
                               , fromPath path
                               ]
                           , ["|"]
-                          ,
-                              [ "tar"
-                              , "--create"
-                              , "--gzip"
-                              , "--file=-"
-                              , "--files-from=-"
-                              , "--mode='u+rw'"
-                              ]
-                          , ["|"]
-                          , sconcat
-                                [ "ssh" :| ["-t", ishow host]
-                                ,
-                                    [ "tar"
-                                    , "--extract"
-                                    , "--gzip"
-                                    , "--file=-"
-                                    , "--directory=/"
+                          , "tar"
+                                :| mconcat
+                                    [ ["--create"]
+                                    , gzip
+                                    , ["--file=-", "--files-from=-", "--mode='u+rw'"]
                                     ]
-                                ]
+                          , ["|"]
+                          , "ssh"
+                                :| mconcat
+                                    [ ["-t", ishow host, "tar", "--extract"]
+                                    , gzip
+                                    , ["--file=-", "--directory=/"]
+                                    ]
                           ]
+
+-- | Whether the TCP connection to the host's SSH port is fast enough (LAN-like) to send closures
+-- directly instead of substituting and compressing. Any failure counts as a slow link.
+isFastLink
+    :: (HasCallStack, IOE :> es, Reader AppState :> es, TypedProcess :> es, Log :> es)
+    => Host
+    -> Eff es Bool
+isFastLink host = do
+    (code, out) <- onHost Localhost $ cmdCodeOutText ["ssh", "-G", ishow host]
+    rtt <- case (code, sshTarget out) of
+        (ExitSuccess, Just (hostname, port)) -> liftIO $ connectTime hostname port
+        _ -> pure Nothing
+    let fast = maybe False (< lanConnectTime) rtt
+    logInfo_
+        $ mconcat
+            [ ishow host
+            , ": "
+            , maybe "TCP connect time unknown" (\t -> "TCP connect " <> milliseconds t <> " ms") rtt
+            , bool
+                ", copying with substitutes and compression"
+                ", copying directly without substitutes or compression"
+                fast
+            ]
+    pure fast
+  where
+    lanConnectTime :: Double
+    lanConnectTime = 0.005
+    milliseconds t = fromString $ showFFloat (Just 2) (t * 1000) ""
 
 trilbyFlake
     :: ( HasCallStack

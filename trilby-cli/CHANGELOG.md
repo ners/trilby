@@ -1,5 +1,10 @@
 # Revision history for trilby-cli
 
+## 26.11 -- 2026-11-02
+
+* Replace `nix-copy-closure` with `nix copy`
+* Skip substitutes and compression when the connection to a remote host is fast
+
 ## 26.10.1 -- 2026-10-15
 
 * Add --offline flag

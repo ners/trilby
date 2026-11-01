@@ -1,18 +1,26 @@
 module Trilby.Host where
 
+import Control.Exception (IOException)
+import Control.Exception qualified as Exception
+import Control.Monad (guard, replicateM)
+import Data.Bifunctor (second)
 import Data.Char (isSpace, toLower)
 import Data.List.Extra (split)
 import Data.List.NonEmpty (NonEmpty)
 import Data.List.NonEmpty.Extra qualified as NonEmpty
+import Data.Maybe (fromMaybe)
 import Data.String (IsString (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Effectful
 import Effectful.Reader.Static (Reader, runReader)
 import Effectful.Reader.Static qualified as Reader
+import GHC.Clock (getMonotonicTime)
 import GHC.Generics (Generic)
+import Network.Socket qualified as Socket
 import Options.Applicative
 import Options.Applicative.NonEmpty (some1)
+import System.Timeout (timeout)
 import Text.ParserCombinators.ReadP qualified as ReadP
 import Text.ParserCombinators.ReadPrec qualified as ReadPrec
 import Text.Read (Read (..))
@@ -54,3 +62,28 @@ parseHosts mods = fmap NonEmpty.nubOrd . some1 $ argument auto (metavar "HOST" <
 
 askHosts :: Maybe (NonEmpty Host) -> Eff es (NonEmpty Host)
 askHosts = fmap NonEmpty.nubOrd . maybe (pure [Localhost]) pure
+
+-- | The hostname and port from @ssh -G@ output, unless the connection goes through a proxy.
+sshTarget :: Text -> Maybe (Text, Text)
+sshTarget sshConfig = do
+    guard $ all @[] unset ["proxyjump", "proxycommand"]
+    hostname <- lookup "hostname" entries
+    pure (hostname, fromMaybe "22" $ lookup "port" entries)
+  where
+    entries = second Text.strip . Text.breakOn " " <$> Text.lines sshConfig
+    unset key = maybe True (== "none") $ lookup key entries
+
+-- | Shortest of three TCP connect times in seconds.
+-- Nothing if an attempt fails or takes over a second.
+connectTime :: Text -> Text -> IO (Maybe Double)
+connectTime hostname port = Exception.handle (const @_ @IOException $ pure Nothing) do
+    addr : _ <-
+        Socket.getAddrInfo
+            (Just Socket.defaultHints{Socket.addrSocketType = Socket.Stream})
+            (Just $ Text.unpack hostname)
+            (Just $ Text.unpack port)
+    fmap minimum . sequence <$> replicateM 3 do
+        Exception.bracket (Socket.openSocket addr) Socket.close \sock -> do
+            start <- getMonotonicTime
+            timeout 1_000_000 (Socket.connect sock $ Socket.addrAddress addr)
+                >>= traverse (const $ subtract start <$> getMonotonicTime)

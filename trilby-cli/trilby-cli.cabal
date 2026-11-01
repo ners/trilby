@@ -1,6 +1,6 @@
 cabal-version: 3.4
 name: trilby-cli
-version: 26.10.1
+version: 26.11
 synopsis: Trilby command line tools
 homepage: https://github.com/ners/trilby
 license: Apache-2.0
@@ -78,6 +78,7 @@ library
     lens-family-th,
     log-base,
     log-effectful,
+    network,
     optparse-applicative,
     path,
     path-io-effectful,
